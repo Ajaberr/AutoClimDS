@@ -118,6 +118,53 @@ python climate_research_orchestrator.py
 
 
 ---
+## Neptune Analytics Setup
+
+### Prerequisites
+1. **AWS CLI Configuration**
+   ```bash
+   aws configure
+   ```
+   Enter your AWS Access Key ID, Secret Access Key, Default region (e.g., `us-east-2`), and default output format (e.g., `json`).
+
+2. **Create S3 Bucket** (if not already created)
+   ```bash
+   aws s3 mb s3://your-neptune-csv-bucket --region us-east-2
+   ```
+
+### Setting up Neptune Analytics Graph
+
+1. **Prepare CSV Data**
+   - Pull CSV files from Git LFS:
+     ```bash
+     git lfs pull
+     ```
+   - CSV files are already stored in the `neptune_csvs/` folder with Git LFS
+   - Ensure CSV files follow Neptune Analytics format requirements
+
+2. **Upload CSV Files to S3**
+   ```bash
+   aws s3 sync neptune_csvs/ s3://your-neptune-csv-bucket/
+   ```
+
+3. **Create Neptune Analytics Graph**
+   - Go to [Amazon Neptune Analytics Console](https://console.aws.amazon.com/neptune-analytics/)
+   - Click "Create Graph"
+   - Choose "Import from S3" option
+   - Specify your S3 bucket location: `s3://your-neptune-csv-bucket/`
+   - Configure graph settings and create the graph
+
+4. **Update Configuration**
+   - Note your Graph ID from the Neptune Analytics console
+   - Add it to your `.env` file as `GRAPH_ID`
+
+### Helpful Resources
+- [Neptune Analytics Getting Started Guide](https://docs.aws.amazon.com/neptune-analytics/latest/userguide/getting-started.html)
+- [Importing data from Amazon S3](https://docs.aws.amazon.com/neptune-analytics/latest/userguide/import-data-s3.html)
+- [CSV Format Requirements](https://docs.aws.amazon.com/neptune-analytics/latest/userguide/bulk-load-tutorial-format-csv.html)
+- [Neptune Analytics Console](https://console.aws.amazon.com/neptune-analytics/)
+
+---
 
 ## Configuration via `.env`
 
