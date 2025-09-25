@@ -1,0 +1,38 @@
+# LEAPAgent - All Dependencies
+# Core data science and ML packages
+pandas
+numpy
+torch
+transformers
+matplotlib
+seaborn
+timm
+scikit-learn
+
+# Web scraping and HTTP requests
+requests
+beautifulsoup4
+
+# Geospatial and scientific computing
+geopandas
+shapely
+xarray
+netCDF4
+cftime
+
+# Cloud and data processing
+boto3
+s3fs
+botocore
+polars
+
+# LangChain and AI agents
+langchain
+langchain-core
+duckduckgo-search
+
+# Progress bars and utilities
+tqdm
+
+# Database
+sqlite3

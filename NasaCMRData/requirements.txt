@@ -1,0 +1,7 @@
+# NasaCMR folder dependencies
+requests
+pandas
+geopandas
+shapely
+beautifulsoup4
+lxml

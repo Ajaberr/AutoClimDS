@@ -1,0 +1,1703 @@
+Prompt:
+Identify and store all global sea-level altimetry datasets and links suitable for estimating Global Mean Sea Level (GMSL) over 1993-01 to 2018-12. 
+
+======================================================
+
+(venv) PS D:\ClimateAgent-main\Agents> python .\knowledge_graph_agent_bedrock.py  
+Loading embedding model: all-MiniLM-L6-v2...
+INFO:sentence_transformers.SentenceTransformer:Use pytorch device_name: cpu
+INFO:sentence_transformers.SentenceTransformer:Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+ Embedding model loaded.
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ Successfully initialized Neptune client for graph: g-kn6xkxo6r5
+Bedrock Claude LLM initialized successfully
+ KnowledgeGraphAgent - PROPER Bedrock + LangChain Implementation
+================================================================================
+
+ Using AWS Bedrock Claude Sonnet for reasoning
+ Using AWS Neptune Analytics for graph queries
+🧠 Using sentence-transformers for embeddings
+ Using LangChain for agent framework
+
+================================================================================
+ TESTING KnowledgeGraphAgent with Bedrock
+================================================================================
+
+ Initializing LangChain agent with Bedrock...
+D:\ClimateAgent-main\Agents\knowledge_graph_agent_bedrock.py:2277: LangChainDeprecationWarning: Please see the migration guide at: https://python.langchain.com/docs/versions/migrating_memory/
+  memory = ConversationBufferWindowMemory(
+ Agent initialized successfully!
+Research Question: Identify and store all global sea-level altimetry datasets and links suitable for estimating Global Mean Sea Level (GMSL) over 1993-01 to 2018-12.
+Running agent...
+
+
+> Entering new AgentExecutor chain...
+I need to find global sea-level altimetry datasets suitable for GMSL estimation over the specific time period 1993-2018. This is a well-defined request with clear temporal bounds, geographic scope (global), and data type (sea-level altimetry), so I can proceed directly with the search.
+
+Action: search_by_data_category
+Action Input: sea level altimetry Using vector search on 'DataCategory' nodes for: 'sea level altimetry'
+Batches: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1/1 [00:00<00:00,  6.23it/s] 
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Found 9 data categories for 'sea level altimetry':
+1. unnamed
+   ID: datacategory_38443 | Score: 0.771
+2. unnamed
+   ID: datacategory_16259 | Score: 0.762
+3. unnamed
+   ID: datacategory_16260 | Score: 0.762
+4. unnamed
+   ID: datacategory_33242 | Score: 0.742
+5. unnamed
+   ID: datacategory_43320 | Score: 0.724
+6. unnamed
+   ID: datacategory_43319 | Score: 0.724
+7. unnamed
+   ID: datacategory_24804 | Score: 0.717
+8. unnamed
+   ID: datacategory_14527 | Score: 0.674
+9. unnamed
+   ID: datacategory_12305 | Score: 0.638
+I found several data categories related to sea level altimetry. Let me inspect the top-scoring ones to understand their content and find the connected datasets. I'll start with the highest scoring categories.
+
+Action: inspect_graph_node
+Action Input: datacategory_38443Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: datacategory_38443
+==================================================
+
+ Node Type: DataCategory
+ Node ID: datacategory_38443
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['DataCategory']
+  • ~properties: {'summary': 'The Reconstructed Sea Level dataset contains sea level anomalies derived from satellite altimetry and tide gauges The satellite altimetric record provides
+ accurate measurements of sea level with nearglobal coverage but it has a relatively short time span since 1993 Tide gauges have measured sea level over the last 200 years with some records extending back to 1807 but they only provide regional coverage not global Combining satellite altimetry with tide gauges using a technique known as sea leve'}
+
+ RELATIONSHIPS (1 total):
+
+  1. --hasDataCategory--> Dataset (ID: dataset_RECON_SEA_LEVEL_OST_L4_V1_38443)
+     ~entityType: node
+     ~labels: ['Dataset']
+     ~properties: {'processing_level_id': '4', 'dataset_id': 'Reconstructed Sea Level Version 1', 'doi_authority': 'httpsdoiorg', 'online_access_flag': 'True', 'version_id': '1', 'data
+_center': 'POCLOUD', 'doi': '105067RECSL000V1', 'data_set_language': 'English', 'title': 'Reconstructed Sea Level Version 1', 'browse_flag': 'True', 'short_name': 'RECON_SEA_LEVEL_OST_
+L4_V1', 'granule_count': '0', 'science_keywords': 'Category EARTH SCIENCE VariableLevel1 SEA SURFACE HEIGHT Term SEA SURFACE TOPOGRAPHY Topic OCEANS', 'entry_id': 'RECON_SEA_LEVEL_OST_L4_V1_1', 'archive_center': 'NASAJPLPODAAC'}
+Action: inspect_graph_node
+Action Input: dataset_RECON_SEA_LEVEL_OST_L4_V1_38443Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: dataset_RECON_SEA_LEVEL_OST_L4_V1_38443
+==================================================
+
+ Node Type: Dataset
+ Node ID: dataset_RECON_SEA_LEVEL_OST_L4_V1_38443
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['Dataset']
+  • ~properties: {'processing_level_id': '4', 'dataset_id': 'Reconstructed Sea Level Version 1', 'doi_authority': 'httpsdoiorg', 'online_access_flag': 'True', 'version_id': '1', 'data_
+center': 'POCLOUD', 'doi': '105067RECSL000V1', 'data_set_language': 'English', 'title': 'Reconstructed Sea Level Version 1', 'browse_flag': 'True', 'short_name': 'RECON_SEA_LEVEL_OST_L
+4_V1', 'granule_count': '0', 'science_keywords': 'Category EARTH SCIENCE VariableLevel1 SEA SURFACE HEIGHT Term SEA SURFACE TOPOGRAPHY Topic OCEANS', 'entry_id': 'RECON_SEA_LEVEL_OST_L4_V1_1', 'archive_center': 'NASAJPLPODAAC'}
+
+ RELATIONSHIPS (21 total):
+
+  1. --hasCESMVariable--> CESMVariable (ID: cesm_var_strcorx)
+     ~entityType: node
+     ~labels: ['CESMVariable']
+     ~properties: {'domain': 'atmosphere', 'description': 'coriolis stress x', 'cesm_name': 'strcorx', 'long_name': 'coriolis stress x', 'variable_id': 'cesm_var_strcorx', 'name': 'strcorx', 'standard_name': 'unknown_standard_name', 'units': 'Nm2', 'component': 'moar', 'variable_type': 'cesm'}
+
+  2. --hasCESMVariable--> CESMVariable (ID: cesm_var_NUMRAI)
+     ~entityType: node
+     ~labels: ['CESMVariable']
+     ~properties: {'domain': 'atmosphere', 'description': 'Grid box averaged rain number', 'cesm_name': 'NUMRAI', 'long_name': 'Grid box averaged rain number', 'variable_id': 'cesm_var_NUMRAI', 'name': 'NUMRAI', 'standard_name': 'unknown_standard_name', 'units': '1kg', 'component': 'std', 'variable_type': 'cesm'}
+
+  3. --hasConsortium--> consortium (ID: consortium_0)
+     ~entityType: node
+     ~labels: ['consortium']
+     ~properties: {'name': 'GEOSS'}
+
+  4. --hasContact--> Contact (ID: contact_person_C1214584259-SCIOPS_1)
+     ~entityType: node
+     ~labels: ['Contact']
+     ~properties: {'name': 'ANNETTE SCHLOSS', 'roles': 'Technical Contact', 'contact_type': 'person', 'phone': 'annetteschlossunhedu', 'contact_id': 'contact_person_C1214584259SCIOPS_1'}
+
+  5. --hasDataCategory--> DataCategory (ID: datacategory_38443)
+     ~entityType: node
+     ~labels: ['DataCategory']
+     ~properties: {'summary': 'The Reconstructed Sea Level dataset contains sea level anomalies derived from satellite altimetry and tide gauges The satellite altimetric record provide
+s accurate measurements of sea level with nearglobal coverage but it has a relatively short time span since 1993 Tide gauges have measured sea level over the last 200 years with some records extending back to 1807 but they only provide regional coverage not global Combining satellite altimetry with tide gauges using a technique known as sea leve'}
+
+  6. --hasDataFormat--> DataFormat (ID: dataformat_UMM_JSON)
+     ~entityType: node
+     ~labels: ['DataFormat']
+     ~properties: {'data_format': 'UMM_JSON', 'original_format': 'UMM_JSON', 'format_source': 'inferred'}
+
+  7. --hasLink--> Link (ID: link_dataset_RECON_SEA_LEVEL_OST_L4_V1_38443_0)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://podaac.jpl.nasa.gov/CitingPODAAC', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}        
+
+  8. --hasLink--> Link (ID: link_dataset_RECON_SEA_LEVEL_OST_L4_V1_38443_1)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'http://onlinelibrary.wiley.com/doi/10.1029/2011JC007529/full', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  9. --hasLink--> Link (ID: link_dataset_RECON_SEA_LEVEL_OST_L4_V1_38443_3)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://archive.podaac.earthdata.nasa.gov/podaac-ops-cumulus-docs/recon_sea_level/preview/L4/tg_recon_sea_level/README.txt', 'link_type': 'Earthdata', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  10. --hasLink--> Link (ID: link_dataset_RECON_SEA_LEVEL_OST_L4_V1_38443_5)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'length': '00MB', 'hreflang': 'enUS', 'url': 'https://search.earthdata.nasa.gov/search/granules?p=C2491772104-POCLOUD', 'link_type': 'Earthdata', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/data#'}
+
+  11. --hasLink--> Link (ID: link_dataset_RECON_SEA_LEVEL_OST_L4_V1_38443_7)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://podaac.jpl.nasa.gov/Podaac/thumbnails/RECON_SEA_LEVEL_OST_L4_V1.jpg', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/browse#'}
+
+  12. --hasLink--> Link (ID: link_dataset_RECON_SEA_LEVEL_OST_L4_V1_38443_2)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'http://onlinelibrary.wiley.com/doi/10.1002/gdj3.6/full', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  13. --hasLink--> Link (ID: link_dataset_RECON_SEA_LEVEL_OST_L4_V1_38443_4)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'length': '00MB', 'hreflang': 'enUS', 'url': 'https://cmr.earthdata.nasa.gov/virtual-directory/collections/C2491772104-POCLOUD', 'link_type': 'Earthdata', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/data#'}
+
+  14. --hasLink--> Link (ID: link_dataset_RECON_SEA_LEVEL_OST_L4_V1_38443_6)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://github.com/podaac/data-readers', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  15. --hasLocation--> Location (ID: location_105)
+     ~entityType: node
+     ~labels: ['Location']
+     ~properties: {'boxes': '90 180 90 180', 'place_names': 'France Colombia North Korea Croatia Guinea Malta Cook Is Falkland Is Dem Rep Congo Guernsey Syria Czechia Taiwan Brazil Sur
+iname Cayman Is Costa Rica Saint Lucia Algeria Brunei Jordan Iraq Greenland India Dhekelia Slovakia Nepal Benin Afghanistan Madagascar Belarus Solomon Is Baikonur Sri Lanka Tuvalu Mong
+olia Sweden Chile Libya Paraguay Mauritania Br Indian Ocean Ter Palestine Cabo Verde Chad Lithuania Slovenia Southern Patagonian Ice Field Nigeria Belgium Palau Pitcairn Is Clipperton I Albania'}
+
+  16. --hasOrganization--> organization (ID: organization_90)
+     ~entityType: node
+     ~labels: ['organization']
+     ~properties: {'name': 'NASAJPLPODAAC'}
+
+  17. --hasPlatform--> platform (ID: platform_0)
+     ~entityType: node
+     ~labels: ['platform']
+     ~properties: {'name': 'Unknown'}
+
+  18. --hasStation--> Station (ID: station_3888)
+     ~entityType: node
+     ~labels: ['Station']
+     ~properties: {'data_center': 'POCLOUD', 'platforms': 'OSTMJASON2 Jason1 Geodetic JASON1 TOPEXPOSEIDON'}
+
+  19. --hasTemporalExtent--> TemporalExtent (ID: temporalextent_38443)
+     ~entityType: node
+     ~labels: ['TemporalExtent']
+     ~properties: {'updated': '20170428T050146000Z', 'start_time': '19500103T000000000Z', 'end_time': '20090627T235959000Z'}
+
+  20. --hasVariable--> Variable (ID: var_C2089385963_NOAA_NCEI_WAVE_HEIGHT)
+     ~entityType: node
+     ~labels: ['Variable']
+     ~properties: {'description': 'EARTH SCIENCE OCEANS OCEAN WAVES WAVE HEIGHT', 'dataset_id': 'C2089385963NOAA_NCEI', 'long_name': 'OCEANS OCEAN WAVES WAVE HEIGHT', 'variable_id': 'var_C2089385963_NOAA_NCEI_WAVE_HEIGHT', 'name': 'WAVE HEIGHT', 'standard_name': 'WAVE HEIGHT', 'units': 'unknown', 'source': 'science_keywords', 'variable_type': 'nasa_cmr'}
+
+  21. --usesCoordinateSystem--> CoordinateSystem (ID: coordinatesystem_CARTESIAN)
+     ~entityType: node
+     ~labels: ['CoordinateSystem']
+     ~properties: {'name': 'CARTESIAN', 'units': 'Unknown', 'datum': 'Unknown', 'projection_type': 'Unknown'}
+This is a great dataset! The Reconstructed Sea Level dataset combines satellite altimetry with tide gauges and has temporal coverage from 1950 to 2009, which covers most of my target period (1993-2018). Let me store this dataset and continue exploring other categories to find more altimetry datasets.
+
+Action: store_dataset_relationships
+Action Input: dataset_RECON_SEA_LEVEL_OST_L4_V1_38443Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ STORED DATASET RELATIONSHIPS: dataset_RECON_SEA_LEVEL_OST_L4_V1_38443
+============================================================
+ Dataset: Reconstructed Sea Level Version 1 (RECON_SEA_LEVEL_OST_L4_V1)
+ ID: dataset_RECON_SEA_LEVEL_OST_L4_V1_38443
+💽 Database: climate_knowledge_graph.db
+ Links Found: 8 data access links stored
+   1. Unknown type: https://podaac.jpl.nasa.gov/CitingPODAAC
+   2. Unknown type: http://onlinelibrary.wiley.com/doi/10.1029/2011JC007529/full
+   3. Unknown type: https://archive.podaac.earthdata.nasa.gov/podaac-ops-cumulus...
+   ... and 5 more links stored
+
+ STORED RELATIONSHIPS (21 total):
+  • hasCESMVariable: 2 items
+    1. strcorx (ID: cesm_var_strcorx) | Units: Nm2 | Desc: coriolis stress x
+    2. NUMRAI (ID: cesm_var_NUMRAI) | Units: 1kg | Desc: Grid box averaged rain number
+
+  • hasConsortium: 1 items
+    1. GEOSS (ID: consortium_0)
+
+  • hasContact: 1 items
+    1. ANNETTE SCHLOSS (ID: contact_person_C1214584259-SCIOPS_1)
+
+  • hasDataCategory: 1 items
+    1. unnamed (ID: datacategory_38443)
+
+  • hasDataFormat: 1 items
+    1. UMM_JSON (ID: dataformat_UMM_JSON) | Format: UMM_JSON
+
+  • hasLink: 8 items
+    1. unnamed (ID: link_dataset_RECON_SEA_LEVEL_OST_L4_V1_38443_0)
+    2. unnamed (ID: link_dataset_RECON_SEA_LEVEL_OST_L4_V1_38443_1)
+    3. unnamed (ID: link_dataset_RECON_SEA_LEVEL_OST_L4_V1_38443_3)
+    ... and 5 more stored
+
+  • hasLocation: 1 items
+    1. unnamed (ID: location_105)
+
+  • hasOrganization: 1 items
+    1. NASAJPLPODAAC (ID: organization_90)
+
+  • hasPlatform: 1 items
+    1. Unknown (ID: platform_0)
+
+  • hasStation: 1 items
+    1. unnamed (ID: station_3888)
+
+  • hasTemporalExtent: 1 items
+    1. unnamed (ID: temporalextent_38443)
+
+  • hasVariable: 1 items
+    1. WAVE HEIGHT (ID: var_C2089385963_NOAA_NCEI_WAVE_HEIGHT) | Units: unknown | Desc: EARTH SCIENCE OCEANS OCEAN WAVES WAVE HEIGHT
+
+  • usesCoordinateSystem: 1 items
+    1. CARTESIAN (ID: coordinatesystem_CARTESIAN) | Units: Unknown
+
+ STORAGE COMPLETE (CREATED):
+  • Dataset properties: 15 fields stored
+  • Data access links: 8 links stored
+  • Relationship types: 13 types stored
+  • Total connected nodes: 21 nodes stored
+  • SQLite database: climate_knowledge_graph.db
+  • Storage timestamp: 2025-09-22T21:48:05.803558
+Now let me inspect the second highest scoring data category to find more altimetry datasets.
+
+Action: inspect_graph_node
+Action Input: datacategory_16259Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: datacategory_16259
+==================================================
+
+ Node Type: DataCategory
+ Node ID: datacategory_16259
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['DataCategory']
+  • ~properties: {'summary': 'The Gridded Altimeter Fields with Enhanced Coastal Coverage data product contains Sea Surface Height Anomalies SSHA or SLA and zonal and meridional geostr
+ophic velocities for the US west coast encompassing 3525 deg485 deg N latitude and 22775 deg2485 deg E longitude This annually updated data product extends from October 14 1992 through November 4 2009 SSHA and current velocities are derived from the AVISO quarter degree DT UPD MSLA version 30 grids 075 deg and greater away from the coast Values'}
+
+ RELATIONSHIPS (1 total):
+
+  1. --hasDataCategory--> Dataset (ID: dataset_ALT_TIDE_GAUGE_L4_OST_SLA_US_WEST_COAST_16259)
+     ~entityType: node
+     ~labels: ['Dataset']
+     ~properties: {'processing_level_id': '4', 'dataset_id': 'Gridded Altimeter Fields with Enhanced Coastal Coverage', 'doi_authority': 'httpsdoiorg', 'online_access_flag': 'True', 'v
+ersion_id': '1', 'data_center': 'POCLOUD', 'doi': '105067USWCOALT01', 'data_set_language': 'English', 'title': 'Gridded Altimeter Fields with Enhanced Coastal Coverage', 'browse_flag':
+ 'True', 'short_name': 'ALT_TIDE_GAUGE_L4_OST_SLA_US_WEST_COAST', 'granule_count': '0', 'science_keywords': 'Category EARTH SCIENCE VariableLevel1 SEA SURFACE HEIGHT Term SEA SURFACE T
+OPOGRAPHY Topic OCEANS Category EARTH SCIENCE VariableLevel1 OCEAN CURRENTS Term OCEAN CIRCULATION Topic OCEANS', 'entry_id': 'ALT_TIDE_GAUGE_L4_OST_SLA_US_WEST_COAST_1', 'archive_center': 'NASAJPLPODAAC'}
+This dataset is focused on the US west coast, which is regional rather than global. Let me inspect the dataset to get its full details and then continue exploring other categories for global datasets.
+
+Action: inspect_graph_node
+Action Input: dataset_ALT_TIDE_GAUGE_L4_OST_SLA_US_WEST_COAST_16259Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: dataset_ALT_TIDE_GAUGE_L4_OST_SLA_US_WEST_COAST_16259
+==================================================
+
+ Node Type: Dataset
+ Node ID: dataset_ALT_TIDE_GAUGE_L4_OST_SLA_US_WEST_COAST_16259
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['Dataset']
+  • ~properties: {'processing_level_id': '4', 'dataset_id': 'Gridded Altimeter Fields with Enhanced Coastal Coverage', 'doi_authority': 'httpsdoiorg', 'online_access_flag': 'True', 've
+rsion_id': '1', 'data_center': 'POCLOUD', 'doi': '105067USWCOALT01', 'data_set_language': 'English', 'title': 'Gridded Altimeter Fields with Enhanced Coastal Coverage', 'browse_flag': 
+'True', 'short_name': 'ALT_TIDE_GAUGE_L4_OST_SLA_US_WEST_COAST', 'granule_count': '0', 'science_keywords': 'Category EARTH SCIENCE VariableLevel1 SEA SURFACE HEIGHT Term SEA SURFACE TO
+POGRAPHY Topic OCEANS Category EARTH SCIENCE VariableLevel1 OCEAN CURRENTS Term OCEAN CIRCULATION Topic OCEANS', 'entry_id': 'ALT_TIDE_GAUGE_L4_OST_SLA_US_WEST_COAST_1', 'archive_center': 'NASAJPLPODAAC'}
+
+ RELATIONSHIPS (19 total):
+
+  1. --hasCESMVariable--> CESMVariable (ID: cesm_var_CLDTOT_CALCS)
+     ~entityType: node
+     ~labels: ['CESMVariable']
+     ~properties: {'domain': 'atmosphere', 'description': 'Lidar and Radar Total Cloud Fraction', 'cesm_name': 'CLDTOT_CALCS', 'long_name': 'Lidar and Radar Total Cloud Fraction', 'variable_id': 'cesm_var_CLDTOT_CALCS', 'name': 'CLDTOT_CALCS', 'standard_name': 'air_temperature', 'units': 'percent', 'component': 'moar', 'variable_type': 'cesm'}
+
+  2. --hasConsortium--> consortium (ID: consortium_0)
+     ~entityType: node
+     ~labels: ['consortium']
+     ~properties: {'name': 'GEOSS'}
+
+  3. --hasContact--> Contact (ID: contact_person_C2089378981-NOAA_NCEI_0)
+     ~entityType: node
+     ~labels: ['Contact']
+     ~properties: {'name': 'Vanderhoof Lawra', 'roles': 'Technical Contact', 'contact_type': 'person', 'contact_id': 'contact_person_C2089378981NOAA_NCEI_0'}
+
+  4. --hasDataCategory--> DataCategory (ID: datacategory_16259)
+     ~entityType: node
+     ~labels: ['DataCategory']
+     ~properties: {'summary': 'The Gridded Altimeter Fields with Enhanced Coastal Coverage data product contains Sea Surface Height Anomalies SSHA or SLA and zonal and meridional geost
+rophic velocities for the US west coast encompassing 3525 deg485 deg N latitude and 22775 deg2485 deg E longitude This annually updated data product extends from October 14 1992 through November 4 2009 SSHA and current velocities are derived from the AVISO quarter degree DT UPD MSLA version 30 grids 075 deg and greater away from the coast Values'}
+
+  5. --hasDataFormat--> DataFormat (ID: dataformat_UMM_JSON)
+     ~entityType: node
+     ~labels: ['DataFormat']
+     ~properties: {'data_format': 'UMM_JSON', 'original_format': 'UMM_JSON', 'format_source': 'inferred'}
+
+  6. --hasLink--> Link (ID: link_dataset_ALT_TIDE_GAUGE_L4_OST_SLA_US_WEST_COAST_16259_0)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://podaac.jpl.nasa.gov/CitingPODAAC', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}        
+
+  7. --hasLink--> Link (ID: link_dataset_ALT_TIDE_GAUGE_L4_OST_SLA_US_WEST_COAST_16259_1)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'length': '0MB', 'hreflang': 'enUS', 'url': 'https://cmr.earthdata.nasa.gov/virtual-directory/collections/C2205120784-POCLOUD', 'link_type': 'Earthdata', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/data#'}
+
+  8. --hasLink--> Link (ID: link_dataset_ALT_TIDE_GAUGE_L4_OST_SLA_US_WEST_COAST_16259_3)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://github.com/podaac/data-readers', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  9. --hasLink--> Link (ID: link_dataset_ALT_TIDE_GAUGE_L4_OST_SLA_US_WEST_COAST_16259_4)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://podaac.jpl.nasa.gov/Podaac/thumbnails/ALT_TIDE_GAUGE_L4_OST_SLA_US_WEST_COAST.jpg', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/browse#'}
+
+  10. --hasLink--> Link (ID: link_dataset_ALT_TIDE_GAUGE_L4_OST_SLA_US_WEST_COAST_16259_2)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'length': '0MB', 'hreflang': 'enUS', 'url': 'https://search.earthdata.nasa.gov/search/granules?p=C2205120784-POCLOUD', 'link_type': 'Earthdata', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/data#'}
+
+  11. --hasLocation--> Location (ID: location_16259)
+     ~entityType: node
+     ~labels: ['Location']
+     ~properties: {'boxes': '3525 1115 485 180 3525 180 485 13225', 'place_names': 'France Tunisia San Marino Canada North Korea Andorra Croatia Malta United States of America Romania 
+Turkey Greece Turkmenistan Austria Syria Tajikistan Vatican Iran Siachen Glacier Uzbekistan Algeria Iraq St Pierre and Miquelon India Slovakia Bosnia and Herz Morocco Germany Afghanist
+an North Macedonia Spain Baikonur Pakistan Mongolia Gibraltar N Cyprus Serbia Japan Switzerland Kazakhstan Slovenia South Korea Portugal Bulgaria Armenia Russia Kyrgyzstan Albania Kosovo Ukraine Georgia China Montene'}
+
+  12. --hasOrganization--> organization (ID: organization_90)
+     ~entityType: node
+     ~labels: ['organization']
+     ~properties: {'name': 'NASAJPLPODAAC'}
+
+  13. --hasPlatform--> platform (ID: platform_0)
+     ~entityType: node
+     ~labels: ['platform']
+     ~properties: {'name': 'Unknown'}
+
+  14. --hasSpatialResolution--> SpatialResolution (ID: spatial_C3550193270-ESDIS)
+     ~entityType: node
+     ~labels: ['SpatialResolution']
+     ~properties: {'resolution': '50 m Context census in ASCII and GeoTIFF formats for 50 metropolitan statistical areas with at least one million', 'spatial_id': 'spatial_C3550193270ESDIS', 'units': 'meters'}
+
+  15. --hasStation--> Station (ID: station_2288)
+     ~entityType: node
+     ~labels: ['Station']
+     ~properties: {'data_center': 'POCLOUD', 'platforms': 'OSTMJASON2 TOPEXPOSEIDON JASON1'}
+
+  16. --hasTemporalExtent--> TemporalExtent (ID: temporalextent_16259)
+     ~entityType: node
+     ~labels: ['TemporalExtent']
+     ~properties: {'updated': '20170428T050145000Z', 'start_time': '19921014T000000000Z', 'end_time': '20120418T000000000Z'}
+
+  17. --hasTemporalResolution--> TemporalResolution (ID: temporal_C2103575805-NOAA_NCEI)
+     ~entityType: node
+     ~labels: ['TemporalResolution']
+     ~properties: {'resolution': 'The time period coverage is from 55 to 49 in calendar years before present BP', 'temporal_id': 'temporal_C2103575805NOAA_NCEI', 'frequency': 'yearly'}
+
+  18. --hasVariable--> Variable (ID: var_C1214305564_AU_AADC_WATER_TEMPERATURE)
+     ~entityType: node
+     ~labels: ['Variable']
+     ~properties: {'description': 'EARTH SCIENCE OCEANS OCEAN TEMPERATURE WATER TEMPERATURE', 'dataset_id': 'C1214305564AU_AADC', 'long_name': 'OCEANS OCEAN TEMPERATURE WATER TEMPERATU
+RE', 'variable_id': 'var_C1214305564_AU_AADC_WATER_TEMPERATURE', 'name': 'WATER TEMPERATURE', 'standard_name': 'WATER TEMPERATURE', 'units': 'unknown', 'source': 'science_keywords', 'variable_type': 'nasa_cmr'}
+
+  19. --usesCoordinateSystem--> CoordinateSystem (ID: coordinatesystem_CARTESIAN)
+     ~entityType: node
+     ~labels: ['CoordinateSystem']
+     ~properties: {'name': 'CARTESIAN', 'units': 'Unknown', 'datum': 'Unknown', 'projection_type': 'Unknown'}
+This dataset covers 1992-2012 and is regional (US west coast), so it's not ideal for global GMSL estimation. Let me store it for completeness and continue exploring other categories to find more global altimetry datasets.
+
+Action: store_dataset_relationships
+Action Input: dataset_ALT_TIDE_GAUGE_L4_OST_SLA_US_WEST_COAST_16259Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ STORED DATASET RELATIONSHIPS: dataset_ALT_TIDE_GAUGE_L4_OST_SLA_US_WEST_COAST_16259
+============================================================
+ Dataset: Gridded Altimeter Fields with Enhanced Coastal Coverage (ALT_TIDE_GAUGE_L4_OST_SLA_US_WEST_COAST)
+ ID: dataset_ALT_TIDE_GAUGE_L4_OST_SLA_US_WEST_COAST_16259
+💽 Database: climate_knowledge_graph.db
+ Links Found: 5 data access links stored
+   1. Unknown type: https://podaac.jpl.nasa.gov/CitingPODAAC
+   2. Unknown type: https://cmr.earthdata.nasa.gov/virtual-directory/collections...
+   3. Unknown type: https://github.com/podaac/data-readers
+   ... and 2 more links stored
+
+ STORED RELATIONSHIPS (19 total):
+  • hasCESMVariable: 1 items
+    1. CLDTOT_CALCS (ID: cesm_var_CLDTOT_CALCS) | Units: percent | Desc: Lidar and Radar Total Cloud Fraction
+
+  • hasConsortium: 1 items
+    1. GEOSS (ID: consortium_0)
+
+  • hasContact: 1 items
+    1. Vanderhoof Lawra (ID: contact_person_C2089378981-NOAA_NCEI_0)
+
+  • hasDataCategory: 1 items
+    1. unnamed (ID: datacategory_16259)
+
+  • hasDataFormat: 1 items
+    1. UMM_JSON (ID: dataformat_UMM_JSON) | Format: UMM_JSON
+
+  • hasLink: 5 items
+    1. unnamed (ID: link_dataset_ALT_TIDE_GAUGE_L4_OST_SLA_US_WEST_COAST_16259_0)
+    2. unnamed (ID: link_dataset_ALT_TIDE_GAUGE_L4_OST_SLA_US_WEST_COAST_16259_1)
+    3. unnamed (ID: link_dataset_ALT_TIDE_GAUGE_L4_OST_SLA_US_WEST_COAST_16259_3)
+    ... and 2 more stored
+
+  • hasLocation: 1 items
+    1. unnamed (ID: location_16259)
+
+  • hasOrganization: 1 items
+    1. NASAJPLPODAAC (ID: organization_90)
+
+  • hasPlatform: 1 items
+    1. Unknown (ID: platform_0)
+
+  • hasSpatialResolution: 1 items
+    1. unnamed (ID: spatial_C3550193270-ESDIS) | Units: meters
+
+  • hasStation: 1 items
+    1. unnamed (ID: station_2288)
+
+  • hasVariable: 1 items
+    1. WATER TEMPERATURE (ID: var_C1214305564_AU_AADC_WATER_TEMPERATURE) | Units: unknown | Desc: EARTH SCIENCE OCEANS OCEAN TEMPERATURE WATER TEMPE...
+
+  • usesCoordinateSystem: 1 items
+    1. CARTESIAN (ID: coordinatesystem_CARTESIAN) | Units: Unknown
+
+ STORAGE COMPLETE (CREATED):
+  • Dataset properties: 15 fields stored
+  • Data access links: 5 links stored
+  • Relationship types: 15 types stored
+  • Total connected nodes: 19 nodes stored
+  • SQLite database: climate_knowledge_graph.db
+  • Storage timestamp: 2025-09-22T21:48:31.795104
+Let me continue exploring the other data categories to find more global altimetry datasets.
+
+Action: inspect_graph_node
+Action Input: datacategory_16260Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: datacategory_16260
+==================================================
+
+ Node Type: DataCategory
+ Node ID: datacategory_16260
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['DataCategory']
+  • ~properties: {'summary': 'The Gridded Altimeter Fields with Enhanced Coastal Coverage data product contains Sea Surface Height Anomalies SSHA or SLA and zonal and meridional geostr
+ophic velocities for the US west coast encompassing 3525 deg485 deg N latitude and 22775 deg2485 deg E longitude This annually updated data product extends from October 14 1992 through January 19 2011 SSHA and current velocities are derived from the AVISO quarter degree DT UPD MSLA version 30 grids 075 deg and greater away from the coast Values'}
+
+ RELATIONSHIPS (1 total):
+
+  1. --hasDataCategory--> Dataset (ID: dataset_ALT_TIDE_GAUGE_L4_OST_SLA_US_WEST_COAST_DAILY_16260)
+     ~entityType: node
+     ~labels: ['Dataset']
+     ~properties: {'processing_level_id': '4', 'dataset_id': 'Gridded Altimeter Fields with Enhanced Coastal Coverage Daily', 'doi_authority': 'httpsdoiorg', 'online_access_flag': 'Tru
+e', 'version_id': '1', 'data_center': 'POCLOUD', 'doi': '105067USWCDALT01', 'data_set_language': 'enUS', 'title': 'Gridded Altimeter Fields with Enhanced Coastal Coverage Daily', 'brow
+se_flag': 'True', 'short_name': 'ALT_TIDE_GAUGE_L4_OST_SLA_US_WEST_COAST_DAILY', 'granule_count': '0', 'science_keywords': 'Category EARTH SCIENCE VariableLevel1 OCEAN CURRENTS Term OC
+EAN CIRCULATION Topic OCEANS Category EARTH SCIENCE VariableLevel1 SEA SURFACE HEIGHT Term SEA SURFACE TOPOGRAPHY Topic OCEANS', 'entry_id': 'ALT_TIDE_GAUGE_L4_OST_SLA_US_WEST_COAST_DAILY_1', 'archive_center': 'NASAJPLPODAAC'}
+This is another US west coast dataset (daily version), which is also regional. Let me continue exploring the other categories to find global datasets.
+
+Action: inspect_graph_node
+Action Input: datacategory_33242Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: datacategory_33242
+==================================================
+
+ Node Type: DataCategory
+ Node ID: datacategory_33242
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['DataCategory']
+  • ~properties: {'summary': 'This is the Ocean and Coastal Topography Thematic Data Product TDP V1 resulting from the _ESA FDR4ALT project httpswwwfdr4altorg and containing improved s
+ea surface height anomaly data records both at 1 Hz and 20 Hz resolution to address climate andor coastal areas studies The collection covers data for the ERS1 ERS2 and Envisat missions Note that a dedicated processing to coastal zones has been applied for coastal distances below 200 km Compared to existing datasets the Ocean and Coastal Topogr'}
+
+ RELATIONSHIPS (1 total):
+
+  1. --hasDataCategory--> Dataset (ID: dataset_TDPforOceanCoastalTopography_33242)
+     ~entityType: node
+     ~labels: ['Dataset']
+     ~properties: {'processing_level_id': '2', 'dataset_id': 'Ocean and Coastal Topography Thematic Data Product ALT_TDP_OC', 'online_access_flag': 'True', 'version_id': '40', 'data_ce
+nter': 'ESA', 'doi': '105270esa7c37033', 'data_set_language': 'enUS', 'title': 'Ocean and Coastal Topography Thematic Data Product ALT_TDP_OC', 'browse_flag': 'False', 'short_name': 'T
+DPforOceanCoastalTopography', 'granule_count': '0', 'science_keywords': 'Category EARTH SCIENCE Topic SPECTRALENGINEERING Term VISIBLE WAVELENGTHS', 'entry_id': 'TDPforOceanCoastalTopography_40'}
+This looks promising - it's an ESA dataset covering ERS-1, ERS-2, and Envisat missions with improved sea surface height anomaly data. Let me inspect this dataset to get its full details.
+
+Action: inspect_graph_node
+Action Input: dataset_TDPforOceanCoastalTopography_33242Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: dataset_TDPforOceanCoastalTopography_33242
+==================================================
+
+ Node Type: Dataset
+ Node ID: dataset_TDPforOceanCoastalTopography_33242
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['Dataset']
+  • ~properties: {'processing_level_id': '2', 'dataset_id': 'Ocean and Coastal Topography Thematic Data Product ALT_TDP_OC', 'online_access_flag': 'True', 'version_id': '40', 'data_cen
+ter': 'ESA', 'doi': '105270esa7c37033', 'data_set_language': 'enUS', 'title': 'Ocean and Coastal Topography Thematic Data Product ALT_TDP_OC', 'browse_flag': 'False', 'short_name': 'TD
+PforOceanCoastalTopography', 'granule_count': '0', 'science_keywords': 'Category EARTH SCIENCE Topic SPECTRALENGINEERING Term VISIBLE WAVELENGTHS', 'entry_id': 'TDPforOceanCoastalTopography_40'}
+
+ RELATIONSHIPS (16 total):
+
+  1. --hasCESMVariable--> CESMVariable (ID: cesm_var_PH)
+     ~entityType: node
+     ~labels: ['CESMVariable']
+     ~properties: {'domain': 'atmosphere', 'description': 'Surface pH', 'cesm_name': 'PH', 'long_name': 'Surface pH', 'variable_id': 'cesm_var_PH', 'name': 'PH', 'standard_name': 'unknown_standard_name', 'units': '1', 'component': 'std', 'variable_type': 'cesm'}
+
+  2. --hasConsortium--> consortium (ID: consortium_1)
+     ~entityType: node
+     ~labels: ['consortium']
+     ~properties: {'name': 'CEOS'}
+
+  3. --hasContact--> Contact (ID: contact_person_C2135807057-NSIDCV0_5)
+     ~entityType: node
+     ~labels: ['Contact']
+     ~properties: {'name': 'NSIDC Services', 'roles': 'Technical Contact', 'contact_type': 'person', 'phone': '1 303 492 6199', 'contact_id': 'contact_person_C2135807057NSIDCV0_5'}    
+
+  4. --hasDataCategory--> DataCategory (ID: datacategory_33242)
+     ~entityType: node
+     ~labels: ['DataCategory']
+     ~properties: {'summary': 'This is the Ocean and Coastal Topography Thematic Data Product TDP V1 resulting from the _ESA FDR4ALT project httpswwwfdr4altorg and containing improved 
+sea surface height anomaly data records both at 1 Hz and 20 Hz resolution to address climate andor coastal areas studies The collection covers data for the ERS1 ERS2 and Envisat missions Note that a dedicated processing to coastal zones has been applied for coastal distances below 200 km Compared to existing datasets the Ocean and Coastal Topogr'}
+
+  5. --hasDataFormat--> DataFormat (ID: dataformat_DIF10)
+     ~entityType: node
+     ~labels: ['DataFormat']
+     ~properties: {'data_format': 'DIF10', 'original_format': 'DIF10', 'format_source': 'inferred'}
+
+  6. --hasLink--> Link (ID: link_dataset_TDPforOceanCoastalTopography_33242_0)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'length': '00KB', 'hreflang': 'enUS', 'url': 'https://fedeo-client.ceos.org?uid=TDPforOceanCoastalTopography', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/data#'}
+
+  7. --hasLink--> Link (ID: link_dataset_TDPforOceanCoastalTopography_33242_2)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://doi.org/10.5270/esa-7c37033', 'link_type': 'DOI', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/metadata#'}
+
+  8. --hasLink--> Link (ID: link_dataset_TDPforOceanCoastalTopography_33242_3)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'length': '00KB', 'hreflang': 'enUS', 'url': 'https://fedeo.ceos.org/collections/series/items/TDPforOceanCoastalTopography/api', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/search#'}
+
+  9. --hasLink--> Link (ID: link_dataset_TDPforOceanCoastalTopography_33242_1)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'length': '00KB', 'hreflang': 'enUS', 'url': 'https://fedeo.ceos.org/collections/series/items/TDPforOceanCoastalTopography?httpAccept=application/vnd.iso.19139-2%2Bxml', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/data#'}
+
+  10. --hasLocation--> Location (ID: location_105)
+     ~entityType: node
+     ~labels: ['Location']
+     ~properties: {'boxes': '90 180 90 180', 'place_names': 'France Colombia North Korea Croatia Guinea Malta Cook Is Falkland Is Dem Rep Congo Guernsey Syria Czechia Taiwan Brazil Sur
+iname Cayman Is Costa Rica Saint Lucia Algeria Brunei Jordan Iraq Greenland India Dhekelia Slovakia Nepal Benin Afghanistan Madagascar Belarus Solomon Is Baikonur Sri Lanka Tuvalu Mong
+olia Sweden Chile Libya Paraguay Mauritania Br Indian Ocean Ter Palestine Cabo Verde Chad Lithuania Slovenia Southern Patagonian Ice Field Nigeria Belgium Palau Pitcairn Is Clipperton I Albania'}
+
+  11. --hasOrganization--> organization (ID: organization_89)
+     ~entityType: node
+     ~labels: ['organization']
+     ~properties: {'name': 'ESAESRIN'}
+
+  12. --hasPlatform--> platform (ID: platform_0)
+     ~entityType: node
+     ~labels: ['platform']
+     ~properties: {'name': 'Unknown'}
+
+  13. --hasStation--> Station (ID: station_555)
+     ~entityType: node
+     ~labels: ['Station']
+     ~properties: {'data_center': 'ESA', 'platforms': 'ERS1 ERS2 ENVISAT'}
+
+  14. --hasTemporalExtent--> TemporalExtent (ID: temporalextent_33242)
+     ~entityType: node
+     ~labels: ['TemporalExtent']
+     ~properties: {'start_time': '19910803T000000000Z', 'end_time': '20120408T235959999Z'}
+
+  15. --hasVariable--> Variable (ID: var_C1214051914_SCIOPS_SHORTWAVE_RADIATION)
+     ~entityType: node
+     ~labels: ['Variable']
+     ~properties: {'description': 'EARTH SCIENCE ATMOSPHERE ATMOSPHERIC RADIATION SHORTWAVE RADIATION', 'dataset_id': 'C1214051914SCIOPS', 'long_name': 'ATMOSPHERE ATMOSPHERIC RADIATIO
+N SHORTWAVE RADIATION', 'variable_id': 'var_C1214051914_SCIOPS_SHORTWAVE_RADIATION', 'name': 'SHORTWAVE RADIATION', 'standard_name': 'SHORTWAVE RADIATION', 'units': 'unknown', 'source': 'science_keywords', 'variable_type': 'nasa_cmr'}
+
+  16. --usesCoordinateSystem--> CoordinateSystem (ID: coordinatesystem_CARTESIAN)
+     ~entityType: node
+     ~labels: ['CoordinateSystem']
+     ~properties: {'name': 'CARTESIAN', 'units': 'Unknown', 'datum': 'Unknown', 'projection_type': 'Unknown'}
+This is excellent! This ESA dataset covers ERS-1, ERS-2, and Envisat missions from 1991 to 2012, which covers most of my target period (1993-2018). It has global coverage and contains sea surface height anomaly data. Let me store this dataset and continue exploring the remaining categories.
+
+Action: store_dataset_relationships
+Action Input: dataset_TDPforOceanCoastalTopography_33242Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ STORED DATASET RELATIONSHIPS: dataset_TDPforOceanCoastalTopography_33242
+============================================================
+ Dataset: Ocean and Coastal Topography Thematic Data Product ALT_TDP_OC (TDPforOceanCoastalTopography)
+ ID: dataset_TDPforOceanCoastalTopography_33242
+💽 Database: climate_knowledge_graph.db
+ Links Found: 4 data access links stored
+   1. Unknown type: https://fedeo-client.ceos.org?uid=TDPforOceanCoastalTopograp...
+   2. Unknown type: https://doi.org/10.5270/esa-7c37033
+   3. Unknown type: https://fedeo.ceos.org/collections/series/items/TDPforOceanC...
+   ... and 1 more links stored
+
+ STORED RELATIONSHIPS (16 total):
+  • hasCESMVariable: 1 items
+    1. PH (ID: cesm_var_PH) | Units: 1 | Desc: Surface pH
+
+  • hasConsortium: 1 items
+    1. CEOS (ID: consortium_1)
+
+  • hasContact: 1 items
+    1. NSIDC Services (ID: contact_person_C2135807057-NSIDCV0_5)
+
+  • hasDataCategory: 1 items
+    1. unnamed (ID: datacategory_33242)
+
+  • hasDataFormat: 1 items
+    1. DIF10 (ID: dataformat_DIF10) | Format: DIF10
+
+  • hasLink: 4 items
+    1. unnamed (ID: link_dataset_TDPforOceanCoastalTopography_33242_0)
+    2. unnamed (ID: link_dataset_TDPforOceanCoastalTopography_33242_2)
+    3. unnamed (ID: link_dataset_TDPforOceanCoastalTopography_33242_3)
+    ... and 1 more stored
+
+  • hasLocation: 1 items
+    1. unnamed (ID: location_105)
+
+  • hasOrganization: 1 items
+    1. ESAESRIN (ID: organization_89)
+
+  • hasPlatform: 1 items
+    1. Unknown (ID: platform_0)
+
+  • hasStation: 1 items
+    1. unnamed (ID: station_555)
+
+  • hasTemporalExtent: 1 items
+    1. unnamed (ID: temporalextent_33242)
+
+  • hasVariable: 1 items
+    1. SHORTWAVE RADIATION (ID: var_C1214051914_SCIOPS_SHORTWAVE_RADIATION) | Units: unknown | Desc: EARTH SCIENCE ATMOSPHERE ATMOSPHERIC RADIATION SHO...
+
+  • usesCoordinateSystem: 1 items
+    1. CARTESIAN (ID: coordinatesystem_CARTESIAN) | Units: Unknown
+
+ STORAGE COMPLETE (CREATED):
+  • Dataset properties: 13 fields stored
+  • Data access links: 4 links stored
+  • Relationship types: 13 types stored
+  • Total connected nodes: 16 nodes stored
+  • SQLite database: climate_knowledge_graph.db
+  • Storage timestamp: 2025-09-22T21:48:46.215659
+Let me continue exploring the remaining data categories to find more global altimetry datasets.
+
+Action: inspect_graph_node
+Action Input: datacategory_43320Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: datacategory_43320
+==================================================
+
+ Node Type: DataCategory
+ Node ID: datacategory_43320
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['DataCategory']
+  • ~properties: {'summary': 'This dataset provides simulated sea surface height SSH in a format similar to the future SWOT Level 2 L2 altimetry data from the Poseidon 3C nadir altimet
+er The simulated data are from the Global Ocean Reanalysis and Simulations GLORYS SSH data from GLORYS were rendered from their native output format into the format prescribed in the SWOT L2 SSH PDD to aid ongoing data product development and to benefit future users of data produced during operational phases of the SWOT mission'}
+
+ RELATIONSHIPS (1 total):
+
+  1. --hasDataCategory--> Dataset (ID: dataset_SWOT_SIMULATED_L2_NADIR_SSH_GLORYS_SCIENCE_V1_43320)
+     ~entityType: node
+     ~labels: ['Dataset']
+     ~properties: {'processing_level_id': '2', 'dataset_id': 'SWOT Simulated Level2 Nadir SSH from GLORYS for Science Version 1', 'version_id': '1', 'doi': '105067NADIR2GLS1', 'data_se
+t_language': 'eng', 'title': 'SWOT Simulated Level2 Nadir SSH from GLORYS for Science Version 1', 'short_name': 'SWOT_SIMULATED_L2_NADIR_SSH_GLORYS_SCIENCE_V1', 'entry_id': 'SWOT_SIMUL
+ATED_L2_NADIR_SSH_GLORYS_SCIENCE_V1_1', 'doi_authority': 'httpsdoiorg', 'online_access_flag': 'True', 'data_center': 'POCLOUD', 'collection_data_type': 'SCIENCE_QUALITY', 'browse_flag'
+: 'True', 'granule_count': '0', 'science_keywords': 'Category EARTH SCIENCE Topic OCEANS Term SEA SURFACE TOPOGRAPHY VariableLevel1 SEA SURFACE HEIGHT', 'archive_center': 'NASAJPLPODAAC'}
+This is a SWOT simulated dataset, which might be useful but is simulated rather than observational data. Let me inspect it to get the details and then continue exploring the remaining categories.
+
+Action: inspect_graph_node
+Action Input: dataset_SWOT_SIMULATED_L2_NADIR_SSH_GLORYS_SCIENCE_V1_43320Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: dataset_SWOT_SIMULATED_L2_NADIR_SSH_GLORYS_SCIENCE_V1_43320
+==================================================
+
+ Node Type: Dataset
+ Node ID: dataset_SWOT_SIMULATED_L2_NADIR_SSH_GLORYS_SCIENCE_V1_43320
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['Dataset']
+  • ~properties: {'processing_level_id': '2', 'dataset_id': 'SWOT Simulated Level2 Nadir SSH from GLORYS for Science Version 1', 'version_id': '1', 'doi': '105067NADIR2GLS1', 'data_set
+_language': 'eng', 'title': 'SWOT Simulated Level2 Nadir SSH from GLORYS for Science Version 1', 'short_name': 'SWOT_SIMULATED_L2_NADIR_SSH_GLORYS_SCIENCE_V1', 'entry_id': 'SWOT_SIMULA
+TED_L2_NADIR_SSH_GLORYS_SCIENCE_V1_1', 'doi_authority': 'httpsdoiorg', 'online_access_flag': 'True', 'data_center': 'POCLOUD', 'collection_data_type': 'SCIENCE_QUALITY', 'browse_flag':
+ 'True', 'granule_count': '0', 'science_keywords': 'Category EARTH SCIENCE Topic OCEANS Term SEA SURFACE TOPOGRAPHY VariableLevel1 SEA SURFACE HEIGHT', 'archive_center': 'NASAJPLPODAAC'}
+
+ RELATIONSHIPS (19 total):
+
+  1. --hasCESMVariable--> CESMVariable (ID: cesm_var_SALT)
+     ~entityType: node
+     ~labels: ['CESMVariable']
+     ~properties: {'domain': 'atmosphere', 'description': 'Salinity', 'cesm_name': 'SALT', 'long_name': 'Salinity', 'variable_id': 'cesm_var_SALT', 'name': 'SALT', 'standard_name': 'unknown_standard_name', 'units': 'gramkilogram', 'component': 'std', 'variable_type': 'cesm'}
+
+  2. --hasCESMVariable--> CESMVariable (ID: cesm_var_T)
+     ~entityType: node
+     ~labels: ['CESMVariable']
+     ~properties: {'domain': 'atmosphere', 'description': 'Temperature', 'cesm_name': 'T', 'long_name': 'Temperature', 'variable_id': 'cesm_var_T', 'name': 'T', 'standard_name': 'unknown_standard_name', 'units': 'K', 'component': 'std', 'variable_type': 'cesm'}
+
+  3. --hasConsortium--> consortium (ID: consortium_0)
+     ~entityType: node
+     ~labels: ['consortium']
+     ~properties: {'name': 'GEOSS'}
+
+  4. --hasContact--> Contact (ID: contact_person_C2103595880-NOAA_NCEI_2)
+     ~entityType: node
+     ~labels: ['Contact']
+     ~properties: {'name': 'Berner LT', 'roles': 'Technical Contact', 'contact_type': 'person', 'contact_id': 'contact_person_C2103595880NOAA_NCEI_2'}
+
+  5. --hasDataCategory--> DataCategory (ID: datacategory_43320)
+     ~entityType: node
+     ~labels: ['DataCategory']
+     ~properties: {'summary': 'This dataset provides simulated sea surface height SSH in a format similar to the future SWOT Level 2 L2 altimetry data from the Poseidon 3C nadir altime
+ter The simulated data are from the Global Ocean Reanalysis and Simulations GLORYS SSH data from GLORYS were rendered from their native output format into the format prescribed in the SWOT L2 SSH PDD to aid ongoing data product development and to benefit future users of data produced during operational phases of the SWOT mission'}
+
+  6. --hasDataFormat--> DataFormat (ID: dataformat_UMM_JSON)
+     ~entityType: node
+     ~labels: ['DataFormat']
+     ~properties: {'data_format': 'UMM_JSON', 'original_format': 'UMM_JSON', 'format_source': 'inferred'}
+
+  7. --hasLink--> Link (ID: link_dataset_SWOT_SIMULATED_L2_NADIR_SSH_GLORYS_SCIENCE_V1_43320_0)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://podaac.jpl.nasa.gov/CitingPODAAC', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}        
+
+  8. --hasLink--> Link (ID: link_dataset_SWOT_SIMULATED_L2_NADIR_SSH_GLORYS_SCIENCE_V1_43320_1)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://github.com/podaac/data-readers', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  9. --hasLink--> Link (ID: link_dataset_SWOT_SIMULATED_L2_NADIR_SSH_GLORYS_SCIENCE_V1_43320_2)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'length': '21GB', 'hreflang': 'enUS', 'url': 'https://cmr.earthdata.nasa.gov/virtual-directory/collections/C2158350299-POCLOUD', 'link_type': 'Earthdata', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/data#'}
+
+  10. --hasLink--> Link (ID: link_dataset_SWOT_SIMULATED_L2_NADIR_SSH_GLORYS_SCIENCE_V1_43320_3)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'length': '21GB', 'hreflang': 'enUS', 'url': 'https://search.earthdata.nasa.gov/search/granules?p=C2158350299-POCLOUD', 'link_type': 'Earthdata', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/data#'}
+
+  11. --hasLink--> Link (ID: link_dataset_SWOT_SIMULATED_L2_NADIR_SSH_GLORYS_SCIENCE_V1_43320_4)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://archive.podaac.earthdata.nasa.gov/podaac-ops-cumulus-docs/web-misc/swot_mission_docs/pdd/SALP-ST-M-EA-17043-CN_0101.pdf', 'link_type': 'Earthdata', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  12. --hasLink--> Link (ID: link_dataset_SWOT_SIMULATED_L2_NADIR_SSH_GLORYS_SCIENCE_V1_43320_5)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://podaac.jpl.nasa.gov/Podaac/thumbnails/SWOT_SIMULATED_L2_NADIR_SSH_GLORYS_SCIENCE_V1.png', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/browse#'}
+
+  13. --hasLocation--> Location (ID: location_43244)
+     ~entityType: node
+     ~labels: ['Location']
+     ~properties: {'boxes': '776 180 776 180', 'place_names': 'France Colombia North Korea Croatia Guinea Malta Cook Is Falkland Is Dem Rep Congo Guernsey Syria Czechia Taiwan Brazil S
+uriname Cayman Is Costa Rica Saint Lucia Algeria Brunei Jordan Iraq Greenland India Dhekelia Slovakia Nepal Benin Afghanistan Madagascar Belarus Solomon Is Baikonur Sri Lanka Tuvalu Mo
+ngolia Sweden Chile Libya Paraguay Mauritania Br Indian Ocean Ter Palestine Cabo Verde Chad Lithuania Slovenia Southern Patagonian Ice Field Nigeria Belgium Palau Pitcairn Is Clipperton I Albania'}
+
+  14. --hasOrganization--> organization (ID: organization_90)
+     ~entityType: node
+     ~labels: ['organization']
+     ~properties: {'name': 'NASAJPLPODAAC'}
+
+  15. --hasPlatform--> platform (ID: platform_0)
+     ~entityType: node
+     ~labels: ['platform']
+     ~properties: {'name': 'Unknown'}
+
+  16. --hasStation--> Station (ID: station_4309)
+     ~entityType: node
+     ~labels: ['Station']
+     ~properties: {'data_center': 'POCLOUD', 'platforms': 'COMPUTERS'}
+
+  17. --hasTemporalExtent--> TemporalExtent (ID: temporalextent_43320)
+     ~entityType: node
+     ~labels: ['TemporalExtent']
+     ~properties: {'start_time': '20140412T120000000Z', 'end_time': '20151231T001158999Z'}
+
+  18. --hasVariable--> Variable (ID: var_C2826441227_AMD_USAPDC_GEOCHEMISTRY)
+     ~entityType: node
+     ~labels: ['Variable']
+     ~properties: {'description': 'EARTH SCIENCE SOLID EARTH GEOCHEMISTRY', 'dataset_id': 'C2826441227AMD_USAPDC', 'long_name': 'SOLID EARTH GEOCHEMISTRY', 'variable_id': 'var_C2826441227_AMD_USAPDC_GEOCHEMISTRY', 'name': 'GEOCHEMISTRY', 'standard_name': 'GEOCHEMISTRY', 'units': 'unknown', 'source': 'science_keywords', 'variable_type': 'nasa_cmr'}
+
+  19. --usesCoordinateSystem--> CoordinateSystem (ID: coordinatesystem_CARTESIAN)
+     ~entityType: node
+     ~labels: ['CoordinateSystem']
+     ~properties: {'name': 'CARTESIAN', 'units': 'Unknown', 'datum': 'Unknown', 'projection_type': 'Unknown'}
+This SWOT dataset is simulated data from 2014-2015, which doesn't cover my target period and is not observational data. Let me continue exploring the remaining categories to find more observational altimetry datasets.
+
+Action: inspect_graph_node
+Action Input: datacategory_43319Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: datacategory_43319
+==================================================
+
+ Node Type: DataCategory
+ Node ID: datacategory_43319
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['DataCategory']
+  • ~properties: {'summary': 'This dataset provides simulated sea surface height SSH in a format similar to the future SWOT Level 2 L2 altimetry data from the Poseidon 3C nadir altimet
+er The simulated data are from the Global Ocean Reanalysis and Simulations GLORYS SSH data from GLORYS were rendered from their native output format into the format prescribed in the SWOT L2 SSH PDD to aid ongoing data product development and to benefit future users of data produced during operational phases of the SWOT mission'}
+
+ RELATIONSHIPS (1 total):
+
+  1. --hasDataCategory--> Dataset (ID: dataset_SWOT_SIMULATED_L2_NADIR_SSH_GLORYS_CALVAL_V1_43319)
+     ~entityType: node
+     ~labels: ['Dataset']
+     ~properties: {'processing_level_id': '2', 'dataset_id': 'SWOT Simulated Level2 Nadir SSH from GLORYS for CalVal Version 1', 'version_id': '1', 'doi': '105067NADIR2GLC1', 'data_set
+_language': 'eng', 'title': 'SWOT Simulated Level2 Nadir SSH from GLORYS for CalVal Version 1', 'short_name': 'SWOT_SIMULATED_L2_NADIR_SSH_GLORYS_CALVAL_V1', 'entry_id': 'SWOT_SIMULATE
+D_L2_NADIR_SSH_GLORYS_CALVAL_V1_1', 'doi_authority': 'httpsdoiorg', 'online_access_flag': 'True', 'data_center': 'POCLOUD', 'collection_data_type': 'SCIENCE_QUALITY', 'browse_flag': 'True', 'granule_count': '0', 'science_keywords': 'Category EARTH SCIENCE Topic OCEANS Term SEA SURFACE TOPOGRAPHY VariableLevel1 SEA SURFACE HEIGHT', 'archive_center': 'NASAJPLPODAAC'} 
+This is another SWOT simulated dataset (CalVal version), which is also simulated rather than observational. Let me continue exploring the remaining categories to find more observational altimetry datasets.
+
+Action: inspect_graph_node
+Action Input: datacategory_24804Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: datacategory_24804
+==================================================
+
+ Node Type: DataCategory
+ Node ID: datacategory_24804
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['DataCategory']
+  • ~properties: {'summary': 'This archival package contains global and regional mean sea level time series and trend maps calculated on a continual basis since December 1992 by Labora
+tory for Satellite Altimetry LSA Center for Satellite Applications and Research STAR NESDISNOAA They are based on data from the series of reference missions TOPEXPoseidon Jason1 and Jason2 that provide global mean sea level about every ten days with an uncertainty of 24 mm In addition estimates of mean sea level are also calculated from other s'}
+
+ RELATIONSHIPS (1 total):
+
+  1. --hasDataCategory--> Dataset (ID: dataset_gov_noaa_nodc_0125535_24804)
+     ~entityType: node
+     ~labels: ['Dataset']
+     ~properties: {'processing_level_id': 'Not provided', 'dataset_id': 'NOAA Laboratory for Satellite Altimetry Sea Level Rise Products Global and regional sea level time series and t
+rend maps for the major ocean basins and marginal seas based on measurements from satellite radar altimeters from 19920101 to 20200101 NCEI Accession 0125535', 'online_access_flag': 'T
+rue', 'version_id': 'Not Applicable', 'data_center': 'NOAA_NCEI', 'data_set_language': 'enUS', 'title': 'NOAA Laboratory for Satellite Altimetry Sea Level Rise Products Global and regi
+onal sea level time series and trend maps for the major ocean basins and marginal seas based on measurements from satellite radar altimeters from 19920101 to 20200101 NCEI Accession 01
+25535', 'browse_flag': 'True', 'short_name': 'govnoaanodc0125535', 'granule_count': '0', 'science_keywords': 'Category EARTH SCIENCE Topic OCEANS Term SEA SURFACE TOPOGRAPHY', 'entry_id': 'govnoaanodc0125535_Not Applicable', 'archive_center': 'NOAA National Centers for Environmental Information'}
+This looks very promising! This is a NOAA dataset with global and regional mean sea level time series from 1992 to 2020, which perfectly covers my target period (1993-2018). It's based on TOPEX/Poseidon, Jason-1, and Jason-2 missions. Let me inspect this dataset to get its full details.
+
+Action: inspect_graph_node
+Action Input: dataset_gov_noaa_nodc_0125535_24804Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: dataset_gov_noaa_nodc_0125535_24804
+==================================================
+
+ Node Type: Dataset
+ Node ID: dataset_gov_noaa_nodc_0125535_24804
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['Dataset']
+  • ~properties: {'processing_level_id': 'Not provided', 'dataset_id': 'NOAA Laboratory for Satellite Altimetry Sea Level Rise Products Global and regional sea level time series and tr
+end maps for the major ocean basins and marginal seas based on measurements from satellite radar altimeters from 19920101 to 20200101 NCEI Accession 0125535', 'online_access_flag': 'Tr
+ue', 'version_id': 'Not Applicable', 'data_center': 'NOAA_NCEI', 'data_set_language': 'enUS', 'title': 'NOAA Laboratory for Satellite Altimetry Sea Level Rise Products Global and regio
+nal sea level time series and trend maps for the major ocean basins and marginal seas based on measurements from satellite radar altimeters from 19920101 to 20200101 NCEI Accession 012
+5535', 'browse_flag': 'True', 'short_name': 'govnoaanodc0125535', 'granule_count': '0', 'science_keywords': 'Category EARTH SCIENCE Topic OCEANS Term SEA SURFACE TOPOGRAPHY', 'entry_id': 'govnoaanodc0125535_Not Applicable', 'archive_center': 'NOAA National Centers for Environmental Information'}
+
+ RELATIONSHIPS (52 total):
+
+  1. --hasCESMVariable--> CESMVariable (ID: cesm_var_aicen_d)
+     ~entityType: node
+     ~labels: ['CESMVariable']
+     ~properties: {'domain': 'atmosphere', 'description': 'ice area categories', 'cesm_name': 'aicen_d', 'long_name': 'ice area categories', 'variable_id': 'cesm_var_aicen_d', 'name': 'aicen_d', 'standard_name': 'unknown_standard_name', 'units': '1', 'component': 'std', 'variable_type': 'cesm'}
+
+  2. --hasCESMVariable--> CESMVariable (ID: cesm_var_H2OSFC)
+     ~entityType: node
+     ~labels: ['CESMVariable']
+     ~properties: {'domain': 'atmosphere', 'description': 'surface water depth', 'cesm_name': 'H2OSFC', 'long_name': 'surface water depth', 'variable_id': 'cesm_var_H2OSFC', 'name': 'H2OSFC', 'standard_name': 'unknown_standard_name', 'units': 'mm', 'component': 'std', 'variable_type': 'cesm'}
+
+  3. --hasConsortium--> consortium (ID: consortium_1)
+     ~entityType: node
+     ~labels: ['consortium']
+     ~properties: {'name': 'CEOS'}
+
+  4. --hasContact--> Contact (ID: contact_person_C3249540960-NSIDC_CPRD_0)
+     ~entityType: node
+     ~labels: ['Contact']
+     ~properties: {'name': 'Sujay Kumar', 'roles': 'Technical Contact', 'contact_type': 'person', 'phone': '301 286 8663', 'contact_id': 'contact_person_C3249540960NSIDC_CPRD_0'}      
+
+  5. --hasDataCategory--> DataCategory (ID: datacategory_24804)
+     ~entityType: node
+     ~labels: ['DataCategory']
+     ~properties: {'summary': 'This archival package contains global and regional mean sea level time series and trend maps calculated on a continual basis since December 1992 by Labor
+atory for Satellite Altimetry LSA Center for Satellite Applications and Research STAR NESDISNOAA They are based on data from the series of reference missions TOPEXPoseidon Jason1 and Jason2 that provide global mean sea level about every ten days with an uncertainty of 24 mm In addition estimates of mean sea level are also calculated from other s'}
+
+  6. --hasDataFormat--> DataFormat (ID: dataformat_ISO19115)
+     ~entityType: node
+     ~labels: ['DataFormat']
+     ~properties: {'data_format': 'ISO19115', 'original_format': 'ISO19115', 'format_source': 'inferred'}
+
+  7. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_0)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'length': '4828KB', 'hreflang': 'enUS', 'url': 'https://data.nodc.noaa.gov/thredds/catalog/lsa/slr/', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/data#'}
+
+  8. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_4)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'length': '4828KB', 'hreflang': 'enUS', 'url': 'https://www.ncei.noaa.gov/data/oceans/ncei/archive/data/0125535/', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/data#'}
+
+  9. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_5)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'length': '4828KB', 'hreflang': 'enUS', 'url': 'ftp://ftp-oceans.ncei.noaa.gov/pub/data.nodc/ncei/archive/data/0125535/', 'link_type': 'Other', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/data#'}
+
+  10. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_6)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'length': '4828KB', 'hreflang': 'enUS', 'url': 'https://www.ncei.noaa.gov/thredds-ocean/catalog/ncei/archive/data/0125535/catalog.html', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/data#'}
+
+  11. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_9)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'length': '4828KB', 'hreflang': 'enUS', 'url': 'ftp://ftp-oceans.ncei.noaa.gov/nodc/archive/arc0077/0125535/', 'link_type': 'Other', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/data#'}
+
+  12. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_12)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://doi.org/10.1080/01490419.2010.487795', 'link_type': 'DOI', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}     
+
+  13. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_14)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://www.ncei.noaa.gov/archive/accession/0000841/data/0-data/wocedata_2/sat_sl/topex/docs/html/uhsec09.htm', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  14. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_15)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://podaac.jpl.nasa.gov/', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  15. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_17)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'http://www.star.nesdis.noaa.gov/sod/lsa/GFO/documents/GFO_GDR_Users_Handbook.pdf', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  16. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_20)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'http://www.esa.int/esaCP/index.html', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  17. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_21)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'http://www.esa.int/esaCP/index.html', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  18. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_22)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://www.ncei.noaa.gov/data/oceans/jason2/documentation/handbook/Products_Handbook.pdf', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  19. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_23)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'http://www.noaa.gov', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  20. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_26)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'ftp://podaac.jpl.nasa.gov/allData/jason1/L2/gdr_c/docs/Handbook_Jason_v4-1.pdf', 'link_type': 'Other', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  21. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_32)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://doi.org/10.1029/2002GL016473', 'link_type': 'DOI', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  22. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_33)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://doi.org/10.1016/S1364-6826(99)00067-X', 'link_type': 'DOI', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}    
+
+  23. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_1)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'length': '4828KB', 'hreflang': 'enUS', 'url': 'https://data.nodc.noaa.gov/lsa/slr/', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/data#'}  
+
+  24. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_2)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'length': '4828KB', 'hreflang': 'enUS', 'url': 'ftp://ftp-oceans.ncei.noaa.gov/pub/data.nodc/lsa/slr/', 'link_type': 'Other', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/data#'}
+
+  25. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_3)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'length': '00KB', 'hreflang': 'enUS', 'url': 'https://www.ncei.noaa.gov/archive/accession/0125535', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/data#'}
+
+  26. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_7)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'length': '00KB', 'hreflang': 'enUS', 'url': 'https://www.ncei.noaa.gov/archive/accession/oas/125535', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/data#'}
+
+  27. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_8)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'length': '4828KB', 'hreflang': 'enUS', 'url': 'https://www.ncei.noaa.gov/archive/accession/download/125535', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/data#'}
+
+  28. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_10)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://www.ncei.noaa.gov/access/metadata/landing-page/bin/gfx?id=gov.noaa.nodc:0125535', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/browse#'}
+
+  29. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_11)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'http://www.star.nesdis.noaa.gov/sod/lsa/SeaLevelRise/', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  30. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_13)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://www.star.nesdis.noaa.gov/', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  31. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_16)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://podaac.jpl.nasa.gov/', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  32. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_18)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://www.public.navy.mil/fltfor/cnmoc/Pages/navo_home1.aspx', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  33. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_19)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://earth.esa.int/pub/ESA_DOC/ENVISAT/RA2-MWR/PH_light_1rev4_ESA.pdf', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  34. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_24)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'http://cnes.fr/', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  35. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_25)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'http://www.eumetsat.int/', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  36. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_27)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'http://cnes.fr/', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  37. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_28)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://podaac.jpl.nasa.gov/', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  38. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_29)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://podaac.jpl.nasa.gov/', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  39. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_30)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://doi.org/10.1029/2008JC005179', 'link_type': 'DOI', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  40. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_31)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://doi.org/10.1111/j.1365-246X.1973.tb03420.x', 'link_type': 'DOI', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  41. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_34)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://doi.org/10.1016/S1364-6826(99)00051-6', 'link_type': 'DOI', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}    
+
+  42. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_35)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://doi.org/10.1016/j.asr.2010.05.007', 'link_type': 'DOI', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}        
+
+  43. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_36)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'http://denali.gsfc.nasa.gov/personal_pages/ray/MiscPubs/19990089548_1999150788.pdf', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  44. --hasLink--> Link (ID: link_dataset_gov_noaa_nodc_0125535_24804_37)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://doi.org/10.1029/JB090iB11p09363', 'link_type': 'DOI', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  45. --hasLocation--> Location (ID: location_24804)
+     ~entityType: node
+     ~labels: ['Location']
+     ~properties: {'boxes': '8475 180 8475 180', 'place_names': 'France Colombia North Korea Croatia Guinea Malta Cook Is Falkland Is Dem Rep Congo Guernsey Syria Czechia Taiwan Brazil
+ Suriname Cayman Is Costa Rica Saint Lucia Algeria Brunei Jordan Iraq Greenland India Dhekelia Slovakia Nepal Benin Afghanistan Madagascar Belarus Solomon Is Baikonur Sri Lanka Tuvalu 
+Mongolia Sweden Chile Libya Paraguay Mauritania Br Indian Ocean Ter Palestine Cabo Verde Chad Lithuania Slovenia Southern Patagonian Ice Field Nigeria Belgium Palau Pitcairn Is Clipperton I Albania'}
+
+  46. --hasOrganization--> organization (ID: organization_6)
+     ~entityType: node
+     ~labels: ['organization']
+     ~properties: {'name': 'NOAA National Centers for Environmental Information'}
+
+  47. --hasPlatform--> platform (ID: platform_0)
+     ~entityType: node
+     ~labels: ['platform']
+     ~properties: {'name': 'Unknown'}
+
+  48. --hasStation--> Station (ID: station_3120)
+     ~entityType: node
+     ~labels: ['Station']
+     ~properties: {'data_center': 'NOAA_NCEI', 'platforms': 'ENVISAT ERS1 ERS2 GFO GEOSAT FOLLOWON GEOSat Followon Geosat Follow On JASON1 Jason2 TOPEX Poseidon TOPEXPoseidon Not provided'}
+
+  49. --hasTemporalExtent--> TemporalExtent (ID: temporalextent_24804)
+     ~entityType: node
+     ~labels: ['TemporalExtent']
+     ~properties: {'updated': '20201108T000000000Z', 'start_time': '19920101T000000000Z', 'end_time': '20200101T000000000Z'}
+
+  50. --hasTemporalResolution--> TemporalResolution (ID: temporal_C1214136120-SCIOPS)
+     ~entityType: node
+     ~labels: ['TemporalResolution']
+     ~properties: {'resolution': 'The time range is from 5007000 years B', 'temporal_id': 'temporal_C1214136120SCIOPS', 'frequency': 'yearly'}
+
+  51. --hasVariable--> Variable (ID: var_C1954736081_LARC_ASDC_SURFACE_TEMPERATURE)
+     ~entityType: node
+     ~labels: ['Variable']
+     ~properties: {'description': 'EARTH SCIENCE ATMOSPHERE ATMOSPHERIC TEMPERATURE SURFACE TEMPERATURE', 'dataset_id': 'C1954736081LARC_ASDC', 'long_name': 'ATMOSPHERE ATMOSPHERIC TEM
+PERATURE SURFACE TEMPERATURE', 'variable_id': 'var_C1954736081_LARC_ASDC_SURFACE_TEMPERATURE', 'name': 'SURFACE TEMPERATURE', 'standard_name': 'SURFACE TEMPERATURE', 'units': 'unknown', 'source': 'science_keywords', 'variable_type': 'nasa_cmr'}
+
+  52. --usesCoordinateSystem--> CoordinateSystem (ID: coordinatesystem_CARTESIAN)
+     ~entityType: node
+     ~labels: ['CoordinateSystem']
+     ~properties: {'name': 'CARTESIAN', 'units': 'Unknown', 'datum': 'Unknown', 'projection_type': 'Unknown'}
+This is an excellent dataset! This NOAA dataset contains global and regional mean sea level time series from 1992-2020, perfectly covering my target period (1993-2018). It's based on multiple altimetry missions including TOPEX/Poseidon, Jason-1, Jason-2, and others. Let me store this dataset and continue exploring the remaining categories.
+
+Action: store_dataset_relationships
+Action Input: dataset_gov_noaa_nodc_0125535_24804Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ STORED DATASET RELATIONSHIPS: dataset_gov_noaa_nodc_0125535_24804
+============================================================
+ Dataset: NOAA Laboratory for Satellite Altimetry Sea Level Rise Products Global and regional sea level time series and trend maps for the major ocean basins and marginal seas based on measurements from satellite radar altimeters from 19920101 to 20200101 NCEI Accession 0125535 (govnoaanodc0125535)
+ ID: dataset_gov_noaa_nodc_0125535_24804
+💽 Database: climate_knowledge_graph.db
+ Links Found: 38 data access links stored
+   1. Unknown type: https://data.nodc.noaa.gov/thredds/catalog/lsa/slr/
+   2. Unknown type: https://www.ncei.noaa.gov/data/oceans/ncei/archive/data/0125...
+   3. Unknown type: ftp://ftp-oceans.ncei.noaa.gov/pub/data.nodc/ncei/archive/da...
+   ... and 35 more links stored
+
+ STORED RELATIONSHIPS (52 total):
+  • hasCESMVariable: 2 items
+    1. aicen_d (ID: cesm_var_aicen_d) | Units: 1 | Desc: ice area categories
+    2. H2OSFC (ID: cesm_var_H2OSFC) | Units: mm | Desc: surface water depth
+
+  • hasConsortium: 1 items
+    1. CEOS (ID: consortium_1)
+
+  • hasContact: 1 items
+    1. Sujay Kumar (ID: contact_person_C3249540960-NSIDC_CPRD_0)
+
+  • hasDataCategory: 1 items
+    1. unnamed (ID: datacategory_24804)
+
+  • hasDataFormat: 1 items
+    1. ISO19115 (ID: dataformat_ISO19115) | Format: ISO19115
+
+  • hasLink: 38 items
+    1. unnamed (ID: link_dataset_gov_noaa_nodc_0125535_24804_0)
+    2. unnamed (ID: link_dataset_gov_noaa_nodc_0125535_24804_4)
+    3. unnamed (ID: link_dataset_gov_noaa_nodc_0125535_24804_5)
+    ... and 35 more stored
+
+  • hasLocation: 1 items
+    1. unnamed (ID: location_24804)
+
+  • hasOrganization: 1 items
+    1. NOAA National Centers for Environmental Information (ID: organization_6)
+
+  • hasPlatform: 1 items
+    1. Unknown (ID: platform_0)
+
+  • hasStation: 1 items
+    1. unnamed (ID: station_3120)
+
+  • hasTemporalExtent: 1 items
+    1. unnamed (ID: temporalextent_24804)
+
+  • hasTemporalResolution: 1 items
+    1. unnamed (ID: temporal_C1214136120-SCIOPS)
+
+  • hasVariable: 1 items
+    1. SURFACE TEMPERATURE (ID: var_C1954736081_LARC_ASDC_SURFACE_TEMPERATURE) | Units: unknown | Desc: EARTH SCIENCE ATMOSPHERE ATMOSPHERIC TEMPERATURE S...
+
+  • usesCoordinateSystem: 1 items
+    1. CARTESIAN (ID: coordinatesystem_CARTESIAN) | Units: Unknown
+
+ STORAGE COMPLETE (CREATED):
+  • Dataset properties: 13 fields stored
+  • Data access links: 38 links stored
+  • Relationship types: 14 types stored
+  • Total connected nodes: 52 nodes stored
+  • SQLite database: climate_knowledge_graph.db
+  • Storage timestamp: 2025-09-22T21:49:12.849757
+Let me continue exploring the remaining data categories to find more global altimetry datasets.
+
+Action: inspect_graph_node
+Action Input: datacategory_14527Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: datacategory_14527
+==================================================
+
+ Node Type: DataCategory
+ Node ID: datacategory_14527
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['DataCategory']
+  • ~properties: {'summary': 'These data consist of Geos3 altimeter measurements produced by NOAANODCLaboratory for Satellite Altimetry The dataset contains 5006956 altimetric sea surf
+ace heights and supporting information such as sea state wind speed Schwiderski ocean tide height and Cartwright solidtide height Corrections for altimeter bias wet and dry troposheric delays and electromagnetic bias are not included The corrections in this dataset tides and even orbit height are old and not very accurate This dataset should on'}
+
+ RELATIONSHIPS (1 total):
+
+  1. --hasDataCategory--> Dataset (ID: dataset_GEOS_3_ALT_GDR_14527)
+     ~entityType: node
+     ~labels: ['Dataset']
+     ~properties: {'processing_level_id': '2', 'dataset_id': 'GEOS3 ALTIMETER GEOPHYSICAL DATA RECORD 19751978', 'doi_authority': 'httpsdoiorg', 'online_access_flag': 'True', 'version_
+id': '1', 'data_center': 'POCLOUD', 'doi': '105067GEOS3AGDRA', 'data_set_language': 'English', 'title': 'GEOS3 ALTIMETER GEOPHYSICAL DATA RECORD 19751978', 'browse_flag': 'True', 'shor
+t_name': 'GEOS3_ALT_GDR', 'granule_count': '0', 'science_keywords': 'Category EARTH SCIENCE VariableLevel1 SEA SURFACE HEIGHT Term SEA SURFACE TOPOGRAPHY Topic OCEANS DetailedVariable 
+none Category EARTH SCIENCE VariableLevel1 SIGNIFICANT WAVE HEIGHT Term OCEAN WAVES Topic OCEANS DetailedVariable none', 'entry_id': 'GEOS3_ALT_GDR_1', 'archive_center': 'NASAJPLPODAAC'}
+This is a GEOS-3 dataset from 1975-1978, which is much earlier than my target period (1993-2018). Let me continue exploring the last data category to find more relevant datasets.
+
+Action: inspect_graph_node
+Action Input: datacategory_12305Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: datacategory_12305
+==================================================
+
+ Node Type: DataCategory
+ Node ID: datacategory_12305
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['DataCategory']
+  • ~properties: {'summary': 'This dataset contains a 17yearlong January 2002 to December 2019 highresolution 20 Hz alongtrack sea level dataset in coastal zones of Northeast Atlantic 
+Mediterranean Sea whole African continent North Indian Ocean Southeast Asia Australia and North and South America Up to now satellite altimetry has provided global gridded sea level time series up to 1015 km from the coast only preventing the estimation of how sea level changes very close to the coast on interannual to decadal time scales This '}
+
+ RELATIONSHIPS (1 total):
+
+  1. --hasDataCategory--> Dataset (ID: dataset_90049a6555d1480bb5ce9637051dede8_12305)
+     ~entityType: node
+     ~labels: ['Dataset']
+     ~properties: {'processing_level_id': 'NA', 'dataset_id': 'ESA Sea Level Climate Change Initiative Sea_Level_cci New network of virtual altimetry stations for measuring sea level a
+long the world coastlines from 2002 to 2019 v22', 'online_access_flag': 'True', 'version_id': 'NA', 'data_center': 'FEDEO', 'data_set_language': 'enUS', 'title': 'ESA Sea Level Climate
+ Change Initiative Sea_Level_cci New network of virtual altimetry stations for measuring sea level along the world coastlines from 2002 to 2019 v22', 'browse_flag': 'False', 'short_nam
+e': '90049a6555d1480bb5ce9637051dede8', 'granule_count': '0', 'science_keywords': 'Category EARTH SCIENCE Topic OCEANS Term SEA SURFACE TOPOGRAPHY VariableLevel1 SEA SURFACE HEIGHT Category EARTH SCIENCE Topic SPECTRALENGINEERING Term RADAR', 'entry_id': '90049a6555d1480bb5ce9637051dede8_NA'}
+This looks like another relevant dataset! This is an ESA Sea Level Climate Change Initiative dataset covering 2002-2019, which overlaps well with my target period (1993-2018). It provides coastal sea level measurements from virtual altimetry stations. Let me inspect this dataset to get its full details.
+
+Action: inspect_graph_node
+Action Input: dataset_90049a6555d1480bb5ce9637051dede8_12305Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: dataset_90049a6555d1480bb5ce9637051dede8_12305
+==================================================
+
+ Node Type: Dataset
+ Node ID: dataset_90049a6555d1480bb5ce9637051dede8_12305
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['Dataset']
+  • ~properties: {'processing_level_id': 'NA', 'dataset_id': 'ESA Sea Level Climate Change Initiative Sea_Level_cci New network of virtual altimetry stations for measuring sea level al
+ong the world coastlines from 2002 to 2019 v22', 'online_access_flag': 'True', 'version_id': 'NA', 'data_center': 'FEDEO', 'data_set_language': 'enUS', 'title': 'ESA Sea Level Climate 
+Change Initiative Sea_Level_cci New network of virtual altimetry stations for measuring sea level along the world coastlines from 2002 to 2019 v22', 'browse_flag': 'False', 'short_name
+': '90049a6555d1480bb5ce9637051dede8', 'granule_count': '0', 'science_keywords': 'Category EARTH SCIENCE Topic OCEANS Term SEA SURFACE TOPOGRAPHY VariableLevel1 SEA SURFACE HEIGHT Category EARTH SCIENCE Topic SPECTRALENGINEERING Term RADAR', 'entry_id': '90049a6555d1480bb5ce9637051dede8_NA'}
+
+ RELATIONSHIPS (16 total):
+
+  1. --hasConsortium--> consortium (ID: consortium_1)
+     ~entityType: node
+     ~labels: ['consortium']
+     ~properties: {'name': 'CEOS'}
+
+  2. --hasContact--> Contact (ID: contact_person_C2089378005-NOAA_NCEI_12)
+     ~entityType: node
+     ~labels: ['Contact']
+     ~properties: {'name': 'Moulding Alison', 'roles': 'Technical Contact', 'contact_type': 'person', 'contact_id': 'contact_person_C2089378005NOAA_NCEI_12'}
+
+  3. --hasDataCategory--> DataCategory (ID: datacategory_12305)
+     ~entityType: node
+     ~labels: ['DataCategory']
+     ~properties: {'summary': 'This dataset contains a 17yearlong January 2002 to December 2019 highresolution 20 Hz alongtrack sea level dataset in coastal zones of Northeast Atlantic
+ Mediterranean Sea whole African continent North Indian Ocean Southeast Asia Australia and North and South America Up to now satellite altimetry has provided global gridded sea level time series up to 1015 km from the coast only preventing the estimation of how sea level changes very close to the coast on interannual to decadal time scales This '}
+
+  4. --hasDataFormat--> DataFormat (ID: dataformat_DIF10)
+     ~entityType: node
+     ~labels: ['DataFormat']
+     ~properties: {'data_format': 'DIF10', 'original_format': 'DIF10', 'format_source': 'inferred'}
+
+  5. --hasLink--> Link (ID: link_dataset_90049a6555d1480bb5ce9637051dede8_12305_1)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'length': '00KB', 'hreflang': 'enUS', 'url': 'https://fedeo.ceos.org/collections/series/items/90049a6555d1480bb5ce9637051dede8?httpAccept=application/vnd.iso.19139-2%2Bxml', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/data#'}
+
+  6. --hasLink--> Link (ID: link_dataset_90049a6555d1480bb5ce9637051dede8_12305_2)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'length': '00KB', 'hreflang': 'enUS', 'url': 'https://fedeo.ceos.org/collections/series/items/90049a6555d1480bb5ce9637051dede8/api', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/search#'}
+
+  7. --hasLink--> Link (ID: link_dataset_90049a6555d1480bb5ce9637051dede8_12305_0)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'length': '00KB', 'hreflang': 'enUS', 'url': 'https://fedeo-client.ceos.org?uid=90049a6555d1480bb5ce9637051dede8', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/data#'}
+
+  8. --hasLocation--> Location (ID: location_105)
+     ~entityType: node
+     ~labels: ['Location']
+     ~properties: {'boxes': '90 180 90 180', 'place_names': 'France Colombia North Korea Croatia Guinea Malta Cook Is Falkland Is Dem Rep Congo Guernsey Syria Czechia Taiwan Brazil Sur
+iname Cayman Is Costa Rica Saint Lucia Algeria Brunei Jordan Iraq Greenland India Dhekelia Slovakia Nepal Benin Afghanistan Madagascar Belarus Solomon Is Baikonur Sri Lanka Tuvalu Mong
+olia Sweden Chile Libya Paraguay Mauritania Br Indian Ocean Ter Palestine Cabo Verde Chad Lithuania Slovenia Southern Patagonian Ice Field Nigeria Belgium Palau Pitcairn Is Clipperton I Albania'}
+
+  9. --hasOrganization--> organization (ID: organization_457)
+     ~entityType: node
+     ~labels: ['organization']
+     ~properties: {'name': 'CEDA'}
+
+  10. --hasPlatform--> platform (ID: platform_0)
+     ~entityType: node
+     ~labels: ['platform']
+     ~properties: {'name': 'Unknown'}
+
+  11. --hasSpatialResolution--> SpatialResolution (ID: spatial_C2089377285-NOAA_NCEI)
+     ~entityType: node
+     ~labels: ['SpatialResolution']
+     ~properties: {'resolution': '60 degree Context NCEI Accession 0144252 includes Surface underway data collected from ROGER REVELLE in the Indian Oce', 'spatial_id': 'spatial_C2089377285NOAA_NCEI', 'units': 'meters'}
+
+  12. --hasStation--> Station (ID: station_1794)
+     ~entityType: node
+     ~labels: ['Station']
+     ~properties: {'data_center': 'FEDEO', 'platforms': 'JASON1'}
+
+  13. --hasTemporalExtent--> TemporalExtent (ID: temporalextent_12305)
+     ~entityType: node
+     ~labels: ['TemporalExtent']
+     ~properties: {'start_time': '20020101T000000000Z', 'end_time': '20191231T235959000Z'}
+
+  14. --hasTemporalResolution--> TemporalResolution (ID: temporal_C3545744705-LPCLOUD)
+     ~entityType: node
+     ~labels: ['TemporalResolution']
+     ~properties: {'resolution': 'yearly Context Users are encouraged to use the improved yearly Global WebEnabled Landsat Data GWELD Version 3', 'temporal_id': 'temporal_C3545744705LPCLOUD', 'frequency': 'yearly'}
+
+  15. --hasVariable--> Variable (ID: var_C3466129392_LARC_CLOUD_SEA_SALT)
+     ~entityType: node
+     ~labels: ['Variable']
+     ~properties: {'description': 'EARTH SCIENCE ATMOSPHERE AEROSOLS SEA SALT', 'dataset_id': 'C3466129392LARC_CLOUD', 'long_name': 'ATMOSPHERE AEROSOLS SEA SALT', 'variable_id': 'var_C3466129392_LARC_CLOUD_SEA_SALT', 'name': 'SEA SALT', 'standard_name': 'SEA SALT', 'units': 'unknown', 'source': 'science_keywords', 'variable_type': 'nasa_cmr'}
+
+  16. --usesCoordinateSystem--> CoordinateSystem (ID: coordinatesystem_CARTESIAN)
+     ~entityType: node
+     ~labels: ['CoordinateSystem']
+     ~properties: {'name': 'CARTESIAN', 'units': 'Unknown', 'datum': 'Unknown', 'projection_type': 'Unknown'}
+This is another excellent dataset! This ESA Sea Level Climate Change Initiative dataset covers 2002-2019 with high-resolution coastal sea level measurements, which overlaps well with my target period (1993-2018). Let me store this dataset and then search for more altimetry datasets using a multi-criteria approach to ensure I haven't missed any important ones.       
+
+Action: store_dataset_relationships
+Action Input: dataset_90049a6555d1480bb5ce9637051dede8_12305Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ STORED DATASET RELATIONSHIPS: dataset_90049a6555d1480bb5ce9637051dede8_12305
+============================================================
+ Dataset: ESA Sea Level Climate Change Initiative Sea_Level_cci New network of virtual altimetry stations for measuring sea level along the world coastlines from 2002 to 2019 v22 (90049a6555d1480bb5ce9637051dede8)
+ ID: dataset_90049a6555d1480bb5ce9637051dede8_12305
+💽 Database: climate_knowledge_graph.db
+ Links Found: 3 data access links stored
+   1. Unknown type: https://fedeo.ceos.org/collections/series/items/90049a6555d1...
+   2. Unknown type: https://fedeo.ceos.org/collections/series/items/90049a6555d1...
+   3. Unknown type: https://fedeo-client.ceos.org?uid=90049a6555d1480bb5ce963705...
+
+ STORED RELATIONSHIPS (16 total):
+  • hasConsortium: 1 items
+    1. CEOS (ID: consortium_1)
+
+  • hasContact: 1 items
+    1. Moulding Alison (ID: contact_person_C2089378005-NOAA_NCEI_12)
+
+  • hasDataCategory: 1 items
+    1. unnamed (ID: datacategory_12305)
+
+  • hasDataFormat: 1 items
+    1. DIF10 (ID: dataformat_DIF10) | Format: DIF10
+
+  • hasLink: 3 items
+    1. unnamed (ID: link_dataset_90049a6555d1480bb5ce9637051dede8_12305_1)
+    2. unnamed (ID: link_dataset_90049a6555d1480bb5ce9637051dede8_12305_2)
+    3. unnamed (ID: link_dataset_90049a6555d1480bb5ce9637051dede8_12305_0)
+
+  • hasLocation: 1 items
+    1. unnamed (ID: location_105)
+
+  • hasOrganization: 1 items
+    1. CEDA (ID: organization_457)
+
+  • hasPlatform: 1 items
+    1. Unknown (ID: platform_0)
+
+  • hasSpatialResolution: 1 items
+    1. unnamed (ID: spatial_C2089377285-NOAA_NCEI) | Units: meters
+
+  • hasStation: 1 items
+    1. unnamed (ID: station_1794)
+
+  • hasTemporalExtent: 1 items
+    1. unnamed (ID: temporalextent_12305)
+
+  • hasTemporalResolution: 1 items
+    1. unnamed (ID: temporal_C3545744705-LPCLOUD)
+
+  • hasVariable: 1 items
+    1. SEA SALT (ID: var_C3466129392_LARC_CLOUD_SEA_SALT) | Units: unknown | Desc: EARTH SCIENCE ATMOSPHERE AEROSOLS SEA SALT
+
+  • usesCoordinateSystem: 1 items
+    1. CARTESIAN (ID: coordinatesystem_CARTESIAN) | Units: Unknown
+
+ STORAGE COMPLETE (CREATED):
+  • Dataset properties: 12 fields stored
+  • Data access links: 3 links stored
+  • Relationship types: 14 types stored
+  • Total connected nodes: 16 nodes stored
+  • SQLite database: climate_knowledge_graph.db
+  • Storage timestamp: 2025-09-22T21:49:30.285143
+Now let me search for additional altimetry datasets using a multi-criteria approach to ensure I haven't missed any important global sea-level datasets that cover the 1993-2018 period.
+
+Action: multi_criteria_dataset_search
+Action Input: DataCategory: altimetry, TemporalExtent: between:1993-01-01:2018-12-31, Location: global Using vector search on 'Location' nodes for: 'global'
+Batches: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1/1 [00:00<00:00, 32.81it/s] 
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ Vector search returned 0 results, falling back to text search...
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ Using vector search on 'DataCategory' nodes for: 'altimetry'
+Batches: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1/1 [00:00<00:00, 72.21it/s]
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ Vector search returned 0 results, falling back to text search...
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+No datasets found matching ALL criteria: location (text): global, data category (vector): altimetry. Try relaxing some criteria or use individual search tools.Let me try a broader search for altimetry datasets with just the temporal criteria to find any additional datasets I might have missed.
+
+Action: search_by_temporal_extent
+Action Input: between:1993-01-01:2018-12-31Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+No datasets found with data overlapping 1993-01-01 to 2018-12-31. Try 'year:2023', 'after:2020-01-01', or 'between:2020-01-01:2023-12-31'.Let me try searching for more altimetry datasets using different search terms to ensure I haven't missed any important ones.
+
+Action: search_by_data_category
+Action Input: satellite altimetry Using vector search on 'DataCategory' nodes for: 'satellite altimetry'
+Batches: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1/1 [00:00<00:00, 60.85it/s] 
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Found 3 data categories for 'satellite altimetry':
+1. unnamed
+   ID: datacategory_14527 | Score: 0.773
+2. unnamed
+   ID: datacategory_53234 | Score: 0.755
+3. unnamed
+   ID: datacategory_18682 | Score: 0.664
+I found some additional data categories for satellite altimetry. I already explored datacategory_14527 (GEOS-3 from 1975-1978), but let me check the other two categories to see if they contain relevant datasets.
+
+Action: inspect_graph_node
+Action Input: datacategory_53234Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: datacategory_53234
+==================================================
+
+ Node Type: DataCategory
+ Node ID: datacategory_53234
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['DataCategory']
+  • ~properties: {'summary': 'The West Africa Coastal Vulnerability Mapping Subset of High and Low Resolution Altimeter Corrected Elevations 2 ACE2 data set consists of extracts from t
+he 3 arcsecond high and 30 arcsecond low resolution ACE2 data product packaged as GeoTIFFs It includes values within 200 kilometers of the coast ACE2 was created by synergistically merging the Shuttle Radar Topography Mission SRTM data set with Satellite Radar Altimetry within the region bounded by 60 degrees N and 60 degrees S The primary alti'}
+
+ RELATIONSHIPS (1 total):
+
+  1. --hasDataCategory--> Dataset (ID: dataset_CIESIN_SEDAC_WACVM_SUBSETACE2_53234)
+     ~entityType: node
+     ~labels: ['Dataset']
+     ~properties: {'processing_level_id': '4', 'dataset_id': 'West Africa Coastal Vulnerability Mapping Subset of High and Low Resolution Altimeter Corrected Elevations 2 ACE2', 'versi
+on_id': '10', 'doi': '107927H4K0726D', 'data_set_language': 'English', 'title': 'West Africa Coastal Vulnerability Mapping Subset of High and Low Resolution Altimeter Corrected Elevati
+ons 2 ACE2', 'short_name': 'CIESIN_SEDAC_WACVM_SUBSETACE2', 'entry_id': 'CIESIN_SEDAC_WACVM_SUBSETACE2_10', 'doi_authority': 'httpsdoiorg', 'online_access_flag': 'True', 'data_center':
+ 'ESDIS', 'collection_data_type': 'SCIENCE_QUALITY', 'browse_flag': 'False', 'granule_count': '0', 'science_keywords': 'Category EARTH SCIENCE Topic OCEANS Term COASTAL PROCESSES VariableLevel1 COASTAL ELEVATION Category EARTH SCIENCE Topic HUMAN DIMENSIONS Term CLIMATE CHANGE RESPONSES VariableLevel1 CLIMATE ADAPTATION', 'archive_center': 'ESDIS'}
+This dataset is focused on West Africa coastal vulnerability mapping and is not suitable for global GMSL estimation. Let me check the last data category.
+
+Action: inspect_graph_node
+Action Input: datacategory_18682Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: datacategory_18682
+==================================================
+
+ Node Type: DataCategory
+ Node ID: datacategory_18682
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['DataCategory']
+  • ~properties: {'summary': 'Early version of GEOSAT altimeter data'}
+
+ RELATIONSHIPS (1 total):
+
+  1. --hasDataCategory--> Dataset (ID: dataset_NCAR_DS727_1_18682)
+     ~entityType: node
+     ~labels: ['Dataset']
+     ~properties: {'processing_level_id': 'Not provided', 'dataset_id': 'JPL GEOSAT Sea Level Height Analyses', 'online_access_flag': 'False', 'version_id': 'Not provided', 'data_cente
+r': 'SCIOPS', 'data_set_language': 'eng', 'title': 'JPL GEOSAT Sea Level Height Analyses', 'browse_flag': 'False', 'short_name': 'NCAR_DS7271', 'granule_count': '0', 'science_keywords': 'Category EARTH SCIENCE Topic OCEANS Term COASTAL PROCESSES VariableLevel1 SEA LEVEL RISE', 'entry_id': 'NCAR_DS7271', 'archive_center': 'UCARNCARCISLRDA'}
+This is an early GEOSAT dataset which would be from the 1980s-early 1990s, so it may not fully cover my target period. Let me also search for more recent altimetry missions like Jason-3, Sentinel-3, or SARAL to see if there are additional datasets.
+
+Action: search_by_data_category
+Action Input: Jason altimetry Using vector search on 'DataCategory' nodes for: 'Jason altimetry'
+Batches: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1/1 [00:00<00:00, 35.13it/s] 
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Found 8 data categories for 'Jason altimetry':
+1. unnamed
+   ID: datacategory_40479 | Score: 1.302
+2. unnamed
+   ID: datacategory_40478 | Score: 1.296
+3. unnamed
+   ID: datacategory_18594 | Score: 1.290
+4. unnamed
+   ID: datacategory_40492 | Score: 1.290
+5. unnamed
+   ID: datacategory_18596 | Score: 1.263
+6. unnamed
+   ID: datacategory_18595 | Score: 1.215
+7. unnamed
+   ID: datacategory_34442 | Score: 1.196
+8. unnamed
+   ID: datacategory_18589 | Score: 1.186
+I found several Jason altimetry data categories. Let me inspect the top-scoring ones to find additional relevant datasets for GMSL estimation.
+
+Action: inspect_graph_node
+Action Input: datacategory_40479Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: datacategory_40479
+==================================================
+
+ Node Type: DataCategory
+ Node ID: datacategory_40479
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['DataCategory']
+  • ~properties: {'summary': 'Provides L2 high resolution HR nontime critical NTC 60day latency altimetry from the Poseidon4 SAR altimeter on the Sentinel6A Michael Freilich spacecraft
+ It contains Sea Surface Height SSH Sea Surface Height Anomalies SSHA and Significant Wave Height SWH along with 1 Hz Kuband measurements processed from L1B altimetry including the range orbital altitude time and water vapour It also includes altimetry corrections significant wave height and windspeed from the AMRC This release is reduced to ex'}
+
+ RELATIONSHIPS (1 total):
+
+  1. --hasDataCategory--> Dataset (ID: dataset_JASON_CS_S6A_L2_ALT_HR_RED_OST_NTC_F08_40479)
+     ~entityType: node
+     ~labels: ['Dataset']
+     ~properties: {'processing_level_id': '2', 'dataset_id': 'Sentinel6A MF JasonCS L2 P4 Altimeter High Resolution HR NTC Reduced Ocean Surface Topography F08', 'version_id': 'F08', '
+doi': '105067S6AP42HRNTRF08', 'data_set_language': 'eng', 'title': 'Sentinel6A MF JasonCS L2 P4 Altimeter High Resolution HR NTC Reduced Ocean Surface Topography F08', 'short_name': 'J
+ASON_CS_S6A_L2_ALT_HR_RED_OST_NTC_F08', 'entry_id': 'JASON_CS_S6A_L2_ALT_HR_RED_OST_NTC_F08_F08', 'doi_authority': 'httpsdoiorg', 'online_access_flag': 'True', 'data_center': 'POCLOUD'
+, 'collection_data_type': 'SCIENCE_QUALITY', 'browse_flag': 'True', 'granule_count': '0', 'science_keywords': 'Category EARTH SCIENCE Topic OCEANS Term SEA SURFACE TOPOGRAPHY VariableLevel1 SEA SURFACE HEIGHT Category EARTH SCIENCE Topic OCEANS Term OCEAN WAVES VariableLevel1 SIGNIFICANT WAVE HEIGHT', 'archive_center': 'NASAJPLPODAAC'}
+This is a Sentinel-6A dataset, which is more recent (launched in 2020) and wouldn't cover my target period of 1993-2018. Let me check another Jason category that might have data from the earlier Jason missions.
+
+Action: inspect_graph_node
+Action Input: datacategory_18594Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: datacategory_18594
+==================================================
+
+ Node Type: DataCategory
+ Node ID: datacategory_18594
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['DataCategory']
+  • ~properties: {'summary': 'These Sea Surface Height Anomalies SSHA are derived from the Jason1 Geophysical Data Record GDR Jason1 is an altimetric mission whose instruments make dir
+ect observations of the following quantities altimeter range significant wave height ocean radar backscatter crosssection a measure of wind speed ionospheric electron content derived by a simple formula tropospheric water content and position relative to the GPS satellite constellation Using the various parameter the SSHA can be calculated and '}
+
+ RELATIONSHIPS (1 total):
+
+  1. --hasDataCategory--> Dataset (ID: dataset_JASON_1_L2_OST_GPR_E_18594)
+     ~entityType: node
+     ~labels: ['Dataset']
+     ~properties: {'processing_level_id': '2', 'dataset_id': 'Jason1 GDR SSHA version E NetCDF', 'doi_authority': 'httpsdoiorg', 'online_access_flag': 'True', 'version_id': 'E', 'data_
+center': 'POCLOUD', 'doi': '105067J1GPRNC00E', 'data_set_language': 'English', 'title': 'Jason1 GDR SSHA version E NetCDF', 'browse_flag': 'True', 'short_name': 'JASON1_L2_OST_GPR_E', 
+'granule_count': '0', 'science_keywords': 'Category EARTH SCIENCE VariableLevel1 SEA SURFACE HEIGHT Term SEA SURFACE TOPOGRAPHY Topic OCEANS Category EARTH SCIENCE VariableLevel1 SIGNIFICANT WAVE HEIGHT Term OCEAN WAVES Topic OCEANS', 'entry_id': 'JASON1_L2_OST_GPR_E_E', 'archive_center': 'NASAJPLPODAAC'}
+TEST FAILED: An error occurred (ThrottlingException) when calling the InvokeModel operation (reached max retries: 4): Too many tokens, please wait before trying again.
+

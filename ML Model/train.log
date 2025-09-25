@@ -1,0 +1,66 @@
+nohup: ignoring input
+Some weights of RobertaModel were not initialized from the model checkpoint at climatebert/distilroberta-base-climate-f and are newly initialized: ['pooler.dense.bias', 'pooler.dense.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+Epoch 1/50, Loss: 7.2900, LR: 1.00e-05
+Epoch 2/50, Loss: 6.2059, LR: 1.00e-05
+Epoch 3/50, Loss: 5.4004, LR: 1.00e-05
+Epoch 4/50, Loss: 4.7242, LR: 1.00e-05
+Epoch 5/50, Loss: 4.1252, LR: 1.00e-05
+Epoch 6/50, Loss: 3.5833, LR: 1.00e-05
+Epoch 7/50, Loss: 3.0911, LR: 1.00e-05
+Epoch 8/50, Loss: 2.6439, LR: 1.00e-05
+Epoch 9/50, Loss: 2.2431, LR: 1.00e-05
+Epoch 10/50, Loss: 1.8826, LR: 1.00e-05
+Epoch 11/50, Loss: 1.5661, LR: 1.00e-05
+Epoch 12/50, Loss: 1.2882, LR: 1.00e-05
+Epoch 13/50, Loss: 1.0523, LR: 1.00e-05
+Epoch 14/50, Loss: 0.8562, LR: 1.00e-05
+Epoch 15/50, Loss: 0.6968, LR: 1.00e-05
+Epoch 16/50, Loss: 0.5667, LR: 1.00e-05
+Epoch 17/50, Loss: 0.4646, LR: 1.00e-05
+Epoch 18/50, Loss: 0.3865, LR: 1.00e-05
+Epoch 19/50, Loss: 0.3257, LR: 1.00e-05
+Epoch 20/50, Loss: 0.2819, LR: 1.00e-05
+Epoch 21/50, Loss: 0.2484, LR: 1.00e-05
+Epoch 22/50, Loss: 0.2228, LR: 1.00e-05
+Epoch 23/50, Loss: 0.2036, LR: 1.00e-05
+Epoch 24/50, Loss: 0.1894, LR: 1.00e-05
+Epoch 25/50, Loss: 0.1810, LR: 1.00e-05
+Epoch 26/50, Loss: 0.1726, LR: 1.00e-05
+Epoch 27/50, Loss: 0.1649, LR: 1.00e-05
+Epoch 28/50, Loss: 0.1586, LR: 1.00e-05
+Epoch 29/50, Loss: 0.1553, LR: 1.00e-05
+Epoch 30/50, Loss: 0.1516, LR: 1.00e-05
+Epoch 31/50, Loss: 0.1483, LR: 1.00e-05
+Epoch 32/50, Loss: 0.1460, LR: 1.00e-05
+Epoch 33/50, Loss: 0.1439, LR: 1.00e-05
+Epoch 34/50, Loss: 0.1410, LR: 1.00e-05
+Epoch 35/50, Loss: 0.1413, LR: 1.00e-05
+Epoch 36/50, Loss: 0.1387, LR: 1.00e-05
+Epoch 37/50, Loss: 0.1371, LR: 1.00e-05
+Epoch 38/50, Loss: 0.1360, LR: 1.00e-05
+Epoch 39/50, Loss: 0.1357, LR: 1.00e-05
+Epoch 40/50, Loss: 0.1344, LR: 1.00e-05
+Epoch 41/50, Loss: 0.1325, LR: 1.00e-05
+Epoch 42/50, Loss: 0.1330, LR: 1.00e-05
+Epoch 43/50, Loss: 0.1317, LR: 1.00e-05
+Epoch 44/50, Loss: 0.1310, LR: 1.00e-05
+Epoch 45/50, Loss: 0.1305, LR: 1.00e-05
+Epoch 46/50, Loss: 0.1308, LR: 1.00e-05
+Epoch 47/50, Loss: 0.1296, LR: 1.00e-05
+Epoch 48/50, Loss: 0.1288, LR: 1.00e-05
+Epoch 49/50, Loss: 0.1285, LR: 1.00e-05
+Epoch 50/50, Loss: 0.1277, LR: 1.00e-05
+
+Calculating final accuracy...
+Final Accuracy: 93.65% (12862/13734)
+Saving model...
+Model saved successfully!
+Files saved:
+- models/cesm_model.pth (model weights)
+- models/label2id.pth (label to ID mapping)
+- models/id2label.pth (ID to label mapping)
+- models/cesm_tokenizer/ (tokenizer files)
+- training/training_losses.json (training losses)
+- training/training_loss_plot.png (training loss plot)
+- training/training_info.json (training information)

@@ -1,0 +1,2098 @@
+Prompt
+Find and store all available long-term temperature datasets from NOAA GHCN-M (Global Historical Climatology Network-Monthly Version 4) for weather stations in the New York City metropolitan area, including Central Park, LaGuardia, JFK, Newark, and Teterboro. 
+Retrieve metadata such as station ID, name, provider, variables (temperature), units, and temporal coverage. 
+Provide dataset links or API endpoints that give monthly average temperature (TAVG) for each station. 
+Return a summary table with dataset_id, title, station name, temporal coverage, and access links. 
+Store dataset relationships for each station dataset.
+
+supplement prompt
+The main purpose of my research is to analyze long-term climate change trends in the New York City metropolitan area, focusing on annual mean temperature at individual weather stations. I want to compare the trends at Central Park, LaGuardia, JFK, Newark, and Teterboro, so I specifically need station-level monthly or annual data suitable for trend analysis. Please prioritize GHCN-M Version 4, since that is the most up-to-date, but if only earlier versions are available, they are acceptable as fallback. Yes, you can use the global GHCN-M collections as long as they contain the station data, but I prefer direct access to station-specific APIs or files whenever possible.
+=======================================================
+
+(venv) PS D:\ClimateAgent-main\Agents> python .\knowledge_graph_agent_bedrock.py  
+Loading embedding model: all-MiniLM-L6-v2...
+INFO:sentence_transformers.SentenceTransformer:Use pytorch device_name: cpu
+INFO:sentence_transformers.SentenceTransformer:Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+ Embedding model loaded.
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ Successfully initialized Neptune client for graph: g-kn6xkxo6r5
+Bedrock Claude LLM initialized successfully
+ KnowledgeGraphAgent - PROPER Bedrock + LangChain Implementation
+================================================================================
+
+ Using AWS Bedrock Claude Sonnet for reasoning
+ Using AWS Neptune Analytics for graph queries
+🧠 Using sentence-transformers for embeddings
+ Using LangChain for agent framework
+
+================================================================================
+ TESTING KnowledgeGraphAgent with Bedrock
+================================================================================
+
+ Initializing LangChain agent with Bedrock...
+D:\ClimateAgent-main\Agents\knowledge_graph_agent_bedrock.py:2277: LangChainDeprecationWarning: Please see the migration guide at: https://python.langchain.com/docs/versions/migrating_memory/
+  memory = ConversationBufferWindowMemory(
+ Agent initialized successfully!
+Research Question:
+        Find and store all available long-term temperature datasets from NOAA GHCN-M (Global Historical Climatology Network-Monthly Version 4) for weather stations in the New York City metropolitan area, including Central Park, LaGuardia, JFK, Newark, and Teterboro.
+        Retrieve metadata such as station ID, name, provider, variables (temperature), units, and temporal coverage.
+        Provide dataset links or API endpoints that give monthly average temperature (TAVG) for each station.
+        Return a summary table with dataset_id, title, station name, temporal coverage, and access links.
+        Store dataset relationships for each station dataset.
+
+Running agent...
+
+
+> Entering new AgentExecutor chain...
+I need to find NOAA GHCN-M temperature datasets for specific weather stations in the NYC metropolitan area. This is a very specific request with clear requirements. Let me start by searching for NOAA GHCN-M data using the data category approach, then look for the specific NYC area stations.
+
+Action: search_by_data_category
+Action Input: NOAA GHCN-M temperature monthly climatology Using vector search on 'DataCategory' nodes for: 'NOAA GHCN-M temperature monthly climatology'
+Batches: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1/1 [00:00<00:00, 47.60it/s] 
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Found 9 data categories for 'NOAA GHCN-M temperature monthly climatology':
+1. unnamed
+   ID: datacategory_15389 | Score: 0.657
+2. unnamed
+   ID: datacategory_18148 | Score: 0.645
+3. unnamed
+   ID: datacategory_18147 | Score: 0.638
+4. unnamed
+   ID: datacategory_24058 | Score: 0.607
+5. unnamed
+   ID: datacategory_23242 | Score: 0.569
+6. unnamed
+   ID: datacategory_18146 | Score: 0.557
+7. unnamed
+   ID: datacategory_15125 | Score: 0.531
+8. unnamed
+   ID: datacategory_15127 | Score: 0.473
+9. unnamed
+   ID: datacategory_15126 | Score: 0.413
+I found several data categories that might contain NOAA GHCN-M temperature data. Let me inspect the top few categories to see which ones contain datasets related to NOAA GHCN-M and NYC area weather stations.
+
+Action: inspect_graph_node
+Action Input: datacategory_15389Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: datacategory_15389
+==================================================
+
+ Node Type: DataCategory
+ Node ID: datacategory_15389
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['DataCategory']
+  • ~properties: {'summary': 'This Global Summaries dataset known as GSOM for Monthly contains a monthly resolution of meteorological elements from 1763 to present with updates applied
+ weekly The major parameters are monthly mean maximum mean minimum and mean temperatures monthly total precipitation and snowfall departure from normal of the mean temperature and total precipitation monthly heating and cooling degree days number of days that temperatures and precipitation are above or below certain thresholds extreme daily tem'}
+
+ RELATIONSHIPS (1 total):
+
+  1. --hasDataCategory--> Dataset (ID: dataset_doi_10_7289_V5QV3JJ5__________________________15389)
+     ~entityType: node
+     ~labels: ['Dataset']
+     ~properties: {'processing_level_id': 'Not provided', 'dataset_id': 'Global Summary of the Month GSOM Version 1', 'online_access_flag': 'False', 'version_id': 'Version 1', 'data_ce
+nter': 'NOAA_NCEI', 'doi': 'doi107289V5QV3JJ5', 'data_set_language': 'eng USA', 'title': 'Global Summary of the Month GSOM Version 1', 'browse_flag': 'True', 'short_name': 'doi107289V5
+QV3JJ5', 'granule_count': '0', 'science_keywords': 'Category Earth Science Topic Atmosphere Term Precipitation VariableLevel1 Precipitation Amount Category Earth Science Topic Atmosphe
+re Term Precipitation VariableLevel1 Liquid Precipitation VariableLevel2 Rain Category Earth Science Topic Atmosphere Term Precipitation VariableLevel1 Solid Precipitation VariableLeve
+l2 Snow Category Earth Science Topic Atmosphere Term Atmospheric Pressure VariableLevel1 Surface Pressure Category Earth Science Topic Atmosphere Term Atmospheric Temperature VariableL', 'entry_id': 'doi107289V5QV3JJ5 _Version 1'}
+This looks promising! I found a NOAA GSOM (Global Summary of the Month) dataset which is part of the GHCN-M system. Let me inspect this dataset to see its full details and relationships, then search for more specific NOAA GHCN-M datasets and NYC area stations.
+
+Action: inspect_graph_node
+Action Input: dataset_doi_10_7289_V5QV3JJ5__________________________15389Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: dataset_doi_10_7289_V5QV3JJ5__________________________15389
+==================================================
+
+ Node Type: Dataset
+ Node ID: dataset_doi_10_7289_V5QV3JJ5__________________________15389
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['Dataset']
+  • ~properties: {'processing_level_id': 'Not provided', 'dataset_id': 'Global Summary of the Month GSOM Version 1', 'online_access_flag': 'False', 'version_id': 'Version 1', 'data_cen
+ter': 'NOAA_NCEI', 'doi': 'doi107289V5QV3JJ5', 'data_set_language': 'eng USA', 'title': 'Global Summary of the Month GSOM Version 1', 'browse_flag': 'True', 'short_name': 'doi107289V5Q
+V3JJ5', 'granule_count': '0', 'science_keywords': 'Category Earth Science Topic Atmosphere Term Precipitation VariableLevel1 Precipitation Amount Category Earth Science Topic Atmospher
+e Term Precipitation VariableLevel1 Liquid Precipitation VariableLevel2 Rain Category Earth Science Topic Atmosphere Term Precipitation VariableLevel1 Solid Precipitation VariableLevel
+2 Snow Category Earth Science Topic Atmosphere Term Atmospheric Pressure VariableLevel1 Surface Pressure Category Earth Science Topic Atmosphere Term Atmospheric Temperature VariableL', 'entry_id': 'doi107289V5QV3JJ5 _Version 1'}
+
+ RELATIONSHIPS (18 total):
+
+  1. --hasCESMVariable--> CESMVariable (ID: cesm_var_SOLLD)
+     ~entityType: node
+     ~labels: ['CESMVariable']
+     ~properties: {'domain': 'atmosphere', 'description': 'Solar downward near infrared diffuse to surface', 'cesm_name': 'SOLLD', 'long_name': 'Solar downward near infrared diffuse to surface', 'variable_id': 'cesm_var_SOLLD', 'name': 'SOLLD', 'standard_name': 'unknown_standard_name', 'units': 'Wm2', 'component': 'std', 'variable_type': 'cesm'}
+
+  2. --hasCESMVariable--> CESMVariable (ID: cesm_var_alvdf_ai)
+     ~entityType: node
+     ~labels: ['CESMVariable']
+     ~properties: {'domain': 'atmosphere', 'description': 'visible diffuse albedo', 'cesm_name': 'alvdf_ai', 'long_name': 'visible diffuse albedo', 'variable_id': 'cesm_var_alvdf_ai', 'name': 'alvdf_ai', 'standard_name': 'unknown_standard_name', 'component': 'std', 'variable_type': 'cesm'}
+
+  3. --hasCESMVariable--> CESMVariable (ID: cesm_var_MEANTBCLR_ISCCP)
+     ~entityType: node
+     ~labels: ['CESMVariable']
+     ~properties: {'domain': 'atmosphere', 'description': 'Mean Clearsky Infrared Tb from ISCCP simulator', 'cesm_name': 'MEANTBCLR_ISCCP', 'long_name': 'Mean Clearsky Infrared Tb from
+ ISCCP simulator', 'variable_id': 'cesm_var_MEANTBCLR_ISCCP', 'name': 'MEANTBCLR_ISCCP', 'standard_name': 'unknown_standard_name', 'units': 'K', 'component': 'moar', 'variable_type': 'cesm'}
+
+  4. --hasConsortium--> consortium (ID: consortium_1)
+     ~entityType: node
+     ~labels: ['consortium']
+     ~properties: {'name': 'CEOS'}
+
+  5. --hasContact--> Contact (ID: contact_person_C2089373311-NOAA_NCEI_1)
+     ~entityType: node
+     ~labels: ['Contact']
+     ~properties: {'name': 'Gendron F', 'roles': 'Technical Contact', 'contact_type': 'person', 'contact_id': 'contact_person_C2089373311NOAA_NCEI_1'}
+
+  6. --hasDataCategory--> DataCategory (ID: datacategory_15389)
+     ~entityType: node
+     ~labels: ['DataCategory']
+     ~properties: {'summary': 'This Global Summaries dataset known as GSOM for Monthly contains a monthly resolution of meteorological elements from 1763 to present with updates applie
+d weekly The major parameters are monthly mean maximum mean minimum and mean temperatures monthly total precipitation and snowfall departure from normal of the mean temperature and total precipitation monthly heating and cooling degree days number of days that temperatures and precipitation are above or below certain thresholds extreme daily tem'}
+
+  7. --hasDataFormat--> DataFormat (ID: dataformat_ISO19115)
+     ~entityType: node
+     ~labels: ['DataFormat']
+     ~properties: {'data_format': 'ISO19115', 'original_format': 'ISO19115', 'format_source': 'inferred'}
+
+  8. --hasLink--> Link (ID: link_dataset_doi_10_7289_V5QV3JJ5__________________________15389_0)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://www1.ncdc.noaa.gov/pub/data/metadata/images/ncei_logo_dark_75x75.png', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/browse#'}
+
+  9. --hasLink--> Link (ID: link_dataset_doi_10_7289_V5QV3JJ5__________________________15389_1)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://doi.org/10.7289/JWPF-Y430', 'link_type': 'DOI', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  10. --hasLocation--> Location (ID: location_105)
+     ~entityType: node
+     ~labels: ['Location']
+     ~properties: {'boxes': '90 180 90 180', 'place_names': 'France Colombia North Korea Croatia Guinea Malta Cook Is Falkland Is Dem Rep Congo Guernsey Syria Czechia Taiwan Brazil Sur
+iname Cayman Is Costa Rica Saint Lucia Algeria Brunei Jordan Iraq Greenland India Dhekelia Slovakia Nepal Benin Afghanistan Madagascar Belarus Solomon Is Baikonur Sri Lanka Tuvalu Mong
+olia Sweden Chile Libya Paraguay Mauritania Br Indian Ocean Ter Palestine Cabo Verde Chad Lithuania Slovenia Southern Patagonian Ice Field Nigeria Belgium Palau Pitcairn Is Clipperton I Albania'}
+
+  11. --hasOrganization--> organization (ID: organization_22)
+     ~entityType: node
+     ~labels: ['organization']
+     ~properties: {'name': 'DOCNOAANESDISNCEI'}
+
+  12. --hasPlatform--> platform (ID: platform_0)
+     ~entityType: node
+     ~labels: ['platform']
+     ~properties: {'name': 'Unknown'}
+
+  13. --hasSpatialResolution--> SpatialResolution (ID: spatial_C2089375176-NOAA_NCEI)
+     ~entityType: node
+     ~labels: ['SpatialResolution']
+     ~properties: {'resolution': '06M Context NODC Accession 0115682 includes chemical discrete sample physical and profile data collected from', 'spatial_id': 'spatial_C2089375176NOAA_NCEI', 'units': 'meters'}
+
+  14. --hasStation--> Station (ID: station_9)
+     ~entityType: node
+     ~labels: ['Station']
+     ~properties: {'data_center': 'NOAA_NCEI'}
+
+  15. --hasTemporalExtent--> TemporalExtent (ID: temporalextent_15389)
+     ~entityType: node
+     ~labels: ['TemporalExtent']
+     ~properties: {'start_time': '17630101T000000000Z'}
+
+  16. --hasTemporalResolution--> TemporalResolution (ID: temporal_C2103577759-NOAA_NCEI)
+     ~entityType: node
+     ~labels: ['TemporalResolution']
+     ~properties: {'resolution': 'The time period coverage is from 450 to 48 in calendar years before present BP', 'temporal_id': 'temporal_C2103577759NOAA_NCEI', 'frequency': 'yearly'}
+
+  17. --hasVariable--> Variable (ID: var_C1214305600_AU_AADC_SOLAR_RADIATION)
+     ~entityType: node
+     ~labels: ['Variable']
+     ~properties: {'description': 'EARTH SCIENCE ATMOSPHERE ATMOSPHERIC RADIATION SOLAR RADIATION', 'dataset_id': 'C1214305600AU_AADC', 'long_name': 'ATMOSPHERE ATMOSPHERIC RADIATION S
+OLAR RADIATION', 'variable_id': 'var_C1214305600_AU_AADC_SOLAR_RADIATION', 'name': 'SOLAR RADIATION', 'standard_name': 'SOLAR RADIATION', 'units': 'unknown', 'source': 'science_keywords', 'variable_type': 'nasa_cmr'}
+
+  18. --usesCoordinateSystem--> CoordinateSystem (ID: coordinatesystem_CARTESIAN)
+     ~entityType: node
+     ~labels: ['CoordinateSystem']
+     ~properties: {'name': 'CARTESIAN', 'units': 'Unknown', 'datum': 'Unknown', 'projection_type': 'Unknown'}
+I found a NOAA GSOM dataset, but I need to search more specifically for NOAA GHCN-M datasets and NYC area weather stations. Let me search for more specific NOAA GHCN-M data and also look for NYC area locations.
+
+Action: multi_criteria_dataset_search
+Action Input: DataCategory: NOAA GHCN monthly temperature, Location: New York City, Organization: NOAA Using vector search on 'Location' nodes for: 'New York City'
+Batches: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1/1 [00:00<00:00, 159.13it/s] 
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ Using vector search on 'DataCategory' nodes for: 'NOAA GHCN monthly temperature'
+Batches: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1/1 [00:00<00:00, 132.91it/s]
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+No datasets found matching ALL criteria: location (vector): New York City, organization: NOAA, data category (vector): NOAA GHCN monthly temperature. Try relaxing some criteria or use individual search tools.Let me try a broader search approach. I'll search for NOAA datasets first, then look for New York area locations more broadly.
+
+Action: search_by_data_category
+Action Input: NOAA temperature station data Using vector search on 'DataCategory' nodes for: 'NOAA temperature station data'
+Batches: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1/1 [00:00<00:00, 125.15it/s] 
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Found 10 data categories for 'NOAA temperature station data':
+1. unnamed
+   ID: datacategory_53710 | Score: 0.714
+2. unnamed
+   ID: datacategory_47271 | Score: 0.710
+3. unnamed
+   ID: datacategory_53709 | Score: 0.710
+4. unnamed
+   ID: datacategory_53708 | Score: 0.710
+5. unnamed
+   ID: datacategory_5317 | Score: 0.709
+6. unnamed
+   ID: datacategory_8567 | Score: 0.693
+7. unnamed
+   ID: datacategory_47364 | Score: 0.692
+8. unnamed
+   ID: datacategory_47176 | Score: 0.664
+9. unnamed
+   ID: datacategory_47116 | Score: 0.660
+10. unnamed
+   ID: datacategory_24687 | Score: 0.642
+Let me inspect the top data categories to find NOAA temperature station datasets.
+
+Action: inspect_graph_node
+Action Input: datacategory_53710Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: datacategory_53710
+==================================================
+
+ Node Type: DataCategory
+ Node ID: datacategory_53710
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['DataCategory']
+  • ~properties: {'summary': 'The database is NOAA meteorological satellite AVHRR data in form 1B from the ground reception system at Zhongshan Station of the 17th Chinese Antarctic Research'}
+
+ RELATIONSHIPS (1 total):
+
+  1. --hasDataCategory--> Dataset (ID: dataset_CNNADC_2001241800326376_2002241800126376_200132366531449_2649722320_AVHRR_NOAA_53710)
+     ~entityType: node
+     ~labels: ['Dataset']
+     ~properties: {'processing_level_id': 'Not provided', 'dataset_id': 'Zhongshan Station NOAA Satellite AVHRR Data of the 17th Chinese Antarctic Research', 'online_access_flag': 'Fal
+se', 'version_id': 'Not provided', 'data_center': 'SCIOPS', 'data_set_language': 'enUS', 'title': 'Zhongshan Station NOAA Satellite AVHRR Data of the 17th Chinese Antarctic Research', 
+'browse_flag': 'False', 'short_name': 'CNNADC_20012418003263762002241800126376_200132366531449_2649722320_AVHRR_NOAA', 'granule_count': '0', 'science_keywords': 'Category EARTH SCIENCE
+ Topic SPECTRALENGINEERING Term VISIBLE WAVELENGTHS VariableLevel1 VISIBLE RADIANCE Category EARTH SCIENCE Topic SPECTRALENGINEERING Term VISIBLE WAVELENGTHS', 'entry_id': 'CNNADC_20012418003263762002241800126376_200132366531449_2649722320_AVHRR_NOAA', 'archive_center': 'CNNADC'}
+This is satellite data from Antarctica, not what I need. Let me try searching for New York area locations to find weather stations there.
+
+Action: search_by_location
+Action Input: New York City Central Park LaGuardia JFK Newark Teterboro Using vector search on 'Location' nodes for: 'New York City Central Park LaGuardia JFK Newark Teterboro'
+Batches: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1/1 [00:00<00:00, 83.26it/s] 
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ Found 10 locations for 'New York City Central Park LaGuardia JFK Newark Teterboro':
+1. unnamed
+   ID: location_33413
+2. unnamed
+   ID: location_52810
+3. unnamed
+   ID: location_26137
+4. unnamed
+   ID: location_28455
+5. unnamed
+   ID: location_10423
+6. unnamed
+   ID: location_5950
+7. unnamed
+   ID: location_6322
+8. unnamed
+   ID: location_25500
+9. unnamed
+   ID: location_31945
+10. unnamed
+   ID: location_4620
+Let me inspect some of these locations to see if they contain NYC area weather stations and their associated datasets.
+
+Action: inspect_graph_node
+Action Input: location_33413Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: location_33413
+==================================================
+
+ Node Type: Location
+ Node ID: location_33413
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['Location']
+  • ~properties: {'boxes': '306671 879365 306671 879365', 'place_names': 'Ocean'}
+
+ RELATIONSHIPS (2 total):
+
+  1. --hasLocation--> Dataset (ID: dataset_gov_noaa_nodc_0163755_33413)
+     ~entityType: node
+     ~labels: ['Dataset']
+     ~properties: {'processing_level_id': 'Not provided', 'dataset_id': 'Oceanographic and surface meteorological data collected from station Meaher Park AL by Dauphin Island Sea Labor
+atory DISL and assembled by Gulf of Mexico Coastal Ocean Observing System GCOOS in the Coastal waters of Alabama and Gulf of Mexico from 20080101 to 20170504 NCEI Accession 0163755', '
+online_access_flag': 'True', 'version_id': 'Not Applicable', 'data_center': 'NOAA_NCEI', 'data_set_language': 'enUS', 'title': 'Oceanographic and surface meteorological data collected 
+from station Meaher Park AL by Dauphin Island Sea Laboratory DISL and assembled by Gulf of Mexico Coastal Ocean Observing System GCOOS in the Coastal waters of Alabama and Gulf of Mexi
+co from 20080101 to 20170504 NCEI Accession 0163755', 'browse_flag': 'True', 'short_name': 'govnoaanodc0163755', 'granule_count': '0', 'science_keywords': 'Category EARTH SCIENCE Topic
+ ATMOSPHERE Term ATMOSPHERIC PRESSURE Category EARTH SCIENCE Topic ATMOSPHERE Term ATMOSPHERIC TEMPERATURE Category EARTH SCIENCE Topic ATMOSPHERE Term ATMOSPHERIC WINDS VariableLevel1
+ SURFACE WINDS VariableLevel2 WIND DIRECTION Category EARTH SCIENCE Topic ATMOSPHERE Term ATMOSPHERIC WINDS VariableLevel1 SURFACE WINDS VariableLevel2 WIND SPEED Category EARTH SCIENC
+E Topic OCEANS Term OCEAN CHEMISTRY VariableLevel1 OXYGEN Category EARTH SCIENCE Topic OCEANS Term OCEAN', 'entry_id': 'govnoaanodc0163755_Not Applicable', 'archive_center': 'NOAA National Centers for Environmental Information'}
+
+  2. --operatesAtLocation--> platform (ID: platform_0)
+     ~entityType: node
+     ~labels: ['platform']
+     ~properties: {'name': 'Unknown'}
+This is oceanographic data from Alabama, not NYC. Let me try a more specific search approach for NOAA weather station data in the New York area.
+
+Action: multi_criteria_dataset_search
+Action Input: Location: New York, Organization: NOAA, DataCategory: weather station temperature Using vector search on 'Location' nodes for: 'New York'
+Batches: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1/1 [00:00<00:00, 125.23it/s] 
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ Using vector search on 'DataCategory' nodes for: 'weather station temperature'
+Batches: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1/1 [00:00<00:00, 124.91it/s]
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+No datasets found matching ALL criteria: location (vector): New York, organization: NOAA, data category (vector): weather station temperature. Try relaxing some criteria or use individual search tools.Let me try searching for NOAA organization first to see what datasets they have, then look for NYC area data.
+
+Action: search_any_node_type
+Action Input: organization|NOAAUnknown node type: organization
+Available: Dataset, DataCategory, DataFormat, CoordinateSystem, Location, Station, Organization, Platform, Consortium, TemporalExtent, Variable, CESMVariable, Component, Contact, Proje
+ct, SpatialResolution, TemporalResolution, Instrument, ScienceKeyword, ProcessingLevel, SurrogateModelingWorkflow, HybridMLPhysicsWorkflow, EquationDiscoveryWorkflow, ParameterizationB
+enchmarkWorkflow, UncertaintyQuantificationWorkflow, ParameterInferenceWorkflow, SubseasonalForecastingWorkflow, TransferLearningWorkflowLet me search for NOAA organizations using the correct node type.
+
+Action: search_any_node_type
+Action Input: Organization|NOAA Using text search on 'Organization' nodes for: 'NOAA' (no embeddings)
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+No Organization nodes found for 'NOAA'Let me try a different approach and search for weather station data more broadly, then look for NYC area stations.
+
+Action: search_by_data_category
+Action Input: weather station monthly temperature climatology Using vector search on 'DataCategory' nodes for: 'weather station monthly temperature climatology'
+Batches: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1/1 [00:00<00:00, 142.85it/s] 
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Found 10 data categories for 'weather station monthly temperature climatology':
+1. unnamed
+   ID: datacategory_2206 | Score: 0.690
+2. unnamed
+   ID: datacategory_47515 | Score: 0.688
+3. unnamed
+   ID: datacategory_6495 | Score: 0.688
+4. unnamed
+   ID: datacategory_15126 | Score: 0.677
+5. unnamed
+   ID: datacategory_18437 | Score: 0.660
+6. unnamed
+   ID: datacategory_44820 | Score: 0.658
+7. unnamed
+   ID: datacategory_46132 | Score: 0.656
+8. unnamed
+   ID: datacategory_19861 | Score: 0.649
+9. unnamed
+   ID: datacategory_46151 | Score: 0.644
+10. unnamed
+   ID: datacategory_46113 | Score: 0.618
+Let me inspect some of these weather station data categories to find relevant datasets.
+
+Action: inspect_graph_node
+Action Input: datacategory_2206Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: datacategory_2206
+==================================================
+
+ Node Type: DataCategory
+ Node ID: datacategory_2206
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['DataCategory']
+  • ~properties: {'summary': 'The original data took the form of a value for each month and each box on a 05 degree latitude longitude grid The annual values are the average of their c
+onstituent months they have been calculated by GRIDGeneva Original Data Station observations were first collected by national meteorological hydrological and related services and were acquired through the free and unrestricted exchange of meteorological and related data These observations were gridded by collaborators at the Climatic Research U'}
+
+ RELATIONSHIPS (1 total):
+
+  1. --hasDataCategory--> Dataset (ID: dataset_geodata_1316_2206)
+     ~entityType: node
+     ~labels: ['Dataset']
+     ~properties: {'processing_level_id': 'Not provided', 'dataset_id': 'Annual Temperature', 'online_access_flag': 'True', 'version_id': 'Not provided', 'data_center': 'CEOS_EXTRA', '
+data_set_language': 'enUS', 'title': 'Annual Temperature', 'browse_flag': 'False', 'short_name': 'geodata_1316', 'granule_count': '0', 'science_keywords': 'Category EARTH SCIENCE Topic ATMOSPHERE Term ATMOSPHERIC TEMPERATURE', 'entry_id': 'geodata_1316', 'archive_center': 'IPCC'}
+Let me inspect this dataset to see if it contains the type of station data I need.
+
+Action: inspect_graph_node
+Action Input: dataset_geodata_1316_2206Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: dataset_geodata_1316_2206
+==================================================
+
+ Node Type: Dataset
+ Node ID: dataset_geodata_1316_2206
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['Dataset']
+  • ~properties: {'processing_level_id': 'Not provided', 'dataset_id': 'Annual Temperature', 'online_access_flag': 'True', 'version_id': 'Not provided', 'data_center': 'CEOS_EXTRA', 'd
+ata_set_language': 'enUS', 'title': 'Annual Temperature', 'browse_flag': 'False', 'short_name': 'geodata_1316', 'granule_count': '0', 'science_keywords': 'Category EARTH SCIENCE Topic ATMOSPHERE Term ATMOSPHERIC TEMPERATURE', 'entry_id': 'geodata_1316', 'archive_center': 'IPCC'}
+
+ RELATIONSHIPS (15 total):
+
+  1. --hasConsortium--> consortium (ID: consortium_1)
+     ~entityType: node
+     ~labels: ['consortium']
+     ~properties: {'name': 'CEOS'}
+
+  2. --hasContact--> Contact (ID: contact_person_C1709216509-AU_AADC_0)
+     ~entityType: node
+     ~labels: ['Contact']
+     ~properties: {'name': 'JAMIN GREENBAUM', 'roles': 'Investigator Technical Contact Metadata Author', 'contact_type': 'person', 'phone': 'jsgreenbaumucsdedu', 'contact_id': 'contact_person_C1709216509AU_AADC_0'}
+
+  3. --hasDataCategory--> DataCategory (ID: datacategory_2206)
+     ~entityType: node
+     ~labels: ['DataCategory']
+     ~properties: {'summary': 'The original data took the form of a value for each month and each box on a 05 degree latitude longitude grid The annual values are the average of their 
+constituent months they have been calculated by GRIDGeneva Original Data Station observations were first collected by national meteorological hydrological and related services and were acquired through the free and unrestricted exchange of meteorological and related data These observations were gridded by collaborators at the Climatic Research U'}
+
+  4. --hasDataFormat--> DataFormat (ID: dataformat_DIF10)
+     ~entityType: node
+     ~labels: ['DataFormat']
+     ~properties: {'data_format': 'DIF10', 'original_format': 'DIF10', 'format_source': 'inferred'}
+
+  5. --hasLink--> Link (ID: link_dataset_geodata_1316_2206_0)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'http://geodata.grid.unep.ch/', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/data#'}
+
+  6. --hasLocation--> Location (ID: location_1157)
+     ~entityType: node
+     ~labels: ['Location']
+     ~properties: {'boxes': '90 180 605033 180', 'place_names': 'Antarctica'}
+
+  7. --hasOrganization--> organization (ID: organization_193)
+     ~entityType: node
+     ~labels: ['organization']
+     ~properties: {'name': 'IPCC'}
+
+  8. --hasPlatform--> platform (ID: platform_0)
+     ~entityType: node
+     ~labels: ['platform']
+     ~properties: {'name': 'Unknown'}
+
+  9. --hasProject--> Project (ID: project_C1214353593-ASF_berms_tomosar_80m_baseline)
+     ~entityType: node
+     ~labels: ['Project']
+     ~properties: {'name': 'Berms TomoSAR 80m baseline', 'project_id': 'project_C1214353593ASF_berms_tomosar_80m_baseline'}
+
+  10. --hasSpatialResolution--> SpatialResolution (ID: spatial_C2773281628-SCIOPS)
+     ~entityType: node
+     ~labels: ['SpatialResolution']
+     ~properties: {'resolution': '3 m Context BRAVOSEIS3 meteorological data 29HE20200207_met Category EARTH SCIENCE Topic ATMOSPHERE', 'spatial_id': 'spatial_C2773281628SCIOPS', 'units': 'meters'}
+
+  11. --hasStation--> Station (ID: station_10)
+     ~entityType: node
+     ~labels: ['Station']
+     ~properties: {'data_center': 'CEOS_EXTRA'}
+
+  12. --hasTemporalExtent--> TemporalExtent (ID: temporalextent_2206)
+     ~entityType: node
+     ~labels: ['TemporalExtent']
+     ~properties: {'start_time': '19700101T000000000Z', 'end_time': '20021231T235959999Z'}
+
+  13. --hasTemporalResolution--> TemporalResolution (ID: temporal_C2102656125-NOAA_NCEI)
+     ~entityType: node
+     ~labels: ['TemporalResolution']
+     ~properties: {'resolution': 'Average seasonal turbidity imagery Each image represents one three month Season Average Seasonal Turbidity Geotifs using SeaWiFS 670 band of Stellwagen Bank National Marine Sanctuary 39085 Category EARTH SCIENCE Topic Not provided Term Not provided', 'temporal_id': 'temporal_C2102656125NOAA_NCEI', 'frequency': 'monthly'}
+
+  14. --hasVariable--> Variable (ID: var_C2143403402_ORNL_CLOUD_VEGETATION_COVER)
+     ~entityType: node
+     ~labels: ['Variable']
+     ~properties: {'description': 'EARTH SCIENCE BIOSPHERE VEGETATION VEGETATION COVER', 'dataset_id': 'C2143403402ORNL_CLOUD', 'long_name': 'BIOSPHERE VEGETATION VEGETATION COVER', 'v
+ariable_id': 'var_C2143403402_ORNL_CLOUD_VEGETATION_COVER', 'name': 'VEGETATION COVER', 'standard_name': 'VEGETATION COVER', 'units': 'unknown', 'source': 'science_keywords', 'variable_type': 'nasa_cmr'}
+
+  15. --usesCoordinateSystem--> CoordinateSystem (ID: coordinatesystem_CARTESIAN)
+     ~entityType: node
+     ~labels: ['CoordinateSystem']
+     ~properties: {'name': 'CARTESIAN', 'units': 'Unknown', 'datum': 'Unknown', 'projection_type': 'Unknown'}
+This is gridded temperature data from Antarctica, not the specific NOAA GHCN-M station data I need for NYC. Let me try a more direct approach and search for GHCN specifically.
+
+Action: search_by_data_category
+Action Input: GHCN Global Historical Climatology Network Using vector search on 'DataCategory' nodes for: 'GHCN Global Historical Climatology Network'
+Batches: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1/1 [00:00<00:00, 99.89it/s] 
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Found 8 data categories for 'GHCN Global Historical Climatology Network':
+1. unnamed
+   ID: datacategory_19318 | Score: 0.843
+2. unnamed
+   ID: datacategory_15125 | Score: 0.839
+3. unnamed
+   ID: datacategory_46143 | Score: 0.819
+4. unnamed
+   ID: datacategory_15128 | Score: 0.801
+5. unnamed
+   ID: datacategory_15124 | Score: 0.740
+6. unnamed
+   ID: datacategory_39078 | Score: 0.714
+7. unnamed
+   ID: datacategory_23242 | Score: 0.679
+8. unnamed
+   ID: datacategory_24058 | Score: 0.466
+Let me inspect the top GHCN data categories to find the specific NOAA GHCN-M datasets.
+
+Action: inspect_graph_node
+Action Input: datacategory_19318Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: datacategory_19318
+==================================================
+
+ Node Type: DataCategory
+ Node ID: datacategory_19318
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['DataCategory']
+  • ~properties: {'summary': 'This data set consists of a subset of the Global Historical Climatology Network GHCN Version 1 database for the study area of the Large Scale BiosphereAtm
+osphere Experiment in Amazonia LBA in South America ie longitude 85 to 30 degrees W latitude 25 degrees S to 10 degrees N There are three files available one each for precipitation temperature and pressure data Within this subset the oldest data date from 1832 and the most recent from 1990The GHCN V1 database contains monthly temperature precip'}
+
+ RELATIONSHIPS (1 total):
+
+  1. --hasDataCategory--> Dataset (ID: dataset_lba_ghcn_702_19318)
+     ~entityType: node
+     ~labels: ['Dataset']
+     ~properties: {'processing_level_id': '3', 'dataset_id': 'LBA Regional Global Historical Climatology Network V 1 18321990', 'doi_authority': 'httpsdoiorg', 'online_access_flag': 'T
+rue', 'version_id': '1', 'data_center': 'ORNL_CLOUD', 'doi': '103334ORNLDAAC702', 'data_set_language': 'enUS', 'title': 'LBA Regional Global Historical Climatology Network V 1 18321990
+', 'browse_flag': 'True', 'short_name': 'lba_ghcn_702', 'granule_count': '0', 'science_keywords': 'Category EARTH SCIENCE Topic ATMOSPHERE Term ATMOSPHERIC PRESSURE VariableLevel1 SEA 
+LEVEL PRESSURE Category EARTH SCIENCE Topic ATMOSPHERE Term ATMOSPHERIC PRESSURE VariableLevel1 SURFACE PRESSURE Category EARTH SCIENCE Topic ATMOSPHERE Term ATMOSPHERIC TEMPERATURE Va
+riableLevel1 SURFACE TEMPERATURE VariableLevel2 AIR TEMPERATURE Category EARTH SCIENCE Topic ATMOSPHERE Term PRECIPITATION VariableLevel1 PRECIPITATION AMOUNT', 'entry_id': 'lba_ghcn_702_1', 'archive_center': 'ORNL_DAAC'}
+This is GHCN data but for South America (LBA region), not NYC. Let me check the next GHCN data category.
+
+Action: inspect_graph_node
+Action Input: datacategory_15125Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: datacategory_15125
+==================================================
+
+ Node Type: DataCategory
+ Node ID: datacategory_15125
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['DataCategory']
+  • ~properties: {'summary': 'Please note the temperature portion of this dataset has been superseded by a newer version Users should not use this version except in rare cases eg when 
+reproducing previous studies that used this version The precipitation subset of this dataset is still the latest version available The Global Historical Climatology Network Monthly GHCNM Version 2 dataset created by the NCDC contains historical temperature precipitation and pressure data for thousands of land stations worldwide The period of re'}
+
+ RELATIONSHIPS (1 total):
+
+  1. --hasDataCategory--> Dataset (ID: dataset_NCEI_DSI_9100_02_15125)
+     ~entityType: node
+     ~labels: ['Dataset']
+     ~properties: {'processing_level_id': 'Not provided', 'dataset_id': 'Global Historical Climatology Network Monthly GHCNM Version 2', 'online_access_flag': 'True', 'version_id': 'Ve
+rsion 2', 'data_center': 'NOAA_NCEI', 'data_set_language': 'eng USA', 'title': 'Global Historical Climatology Network Monthly GHCNM Version 2', 'browse_flag': 'False', 'short_name': 'N
+CEI DSI 9100_02', 'granule_count': '0', 'science_keywords': 'Category Earth Science Topic Atmosphere Term Atmospheric Pressure VariableLevel1 Sea Level Pressure Category Earth Science 
+Topic Atmosphere Term Atmospheric Temperature VariableLevel1 Surface Temperature VariableLevel2 Air Temperature Category Earth Science Topic Atmosphere Term Atmospheric Temperature Var
+iableLevel1 Surface Temperature Category Earth Science Topic Atmosphere Term Atmospheric Temperature VariableLevel1 Surface Temperature VariableLevel2 MaximumMinimum Temperature Category Earth ', 'entry_id': 'NCEI DSI 9100_02_Version 2'}
+This looks promising! I found NOAA GHCN-M Version 2 dataset. Let me inspect this dataset to see its full details and relationships.
+
+Action: inspect_graph_node
+Action Input: dataset_NCEI_DSI_9100_02_15125Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: dataset_NCEI_DSI_9100_02_15125
+==================================================
+
+ Node Type: Dataset
+ Node ID: dataset_NCEI_DSI_9100_02_15125
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['Dataset']
+  • ~properties: {'processing_level_id': 'Not provided', 'dataset_id': 'Global Historical Climatology Network Monthly GHCNM Version 2', 'online_access_flag': 'True', 'version_id': 'Ver
+sion 2', 'data_center': 'NOAA_NCEI', 'data_set_language': 'eng USA', 'title': 'Global Historical Climatology Network Monthly GHCNM Version 2', 'browse_flag': 'False', 'short_name': 'NC
+EI DSI 9100_02', 'granule_count': '0', 'science_keywords': 'Category Earth Science Topic Atmosphere Term Atmospheric Pressure VariableLevel1 Sea Level Pressure Category Earth Science T
+opic Atmosphere Term Atmospheric Temperature VariableLevel1 Surface Temperature VariableLevel2 Air Temperature Category Earth Science Topic Atmosphere Term Atmospheric Temperature Vari
+ableLevel1 Surface Temperature Category Earth Science Topic Atmosphere Term Atmospheric Temperature VariableLevel1 Surface Temperature VariableLevel2 MaximumMinimum Temperature Category Earth ', 'entry_id': 'NCEI DSI 9100_02_Version 2'}
+
+ RELATIONSHIPS (24 total):
+
+  1. --hasCESMVariable--> CESMVariable (ID: cesm_var_TOTAL_DISCHARGE_TO_OCEAN_LIQ)
+     ~entityType: node
+     ~labels: ['CESMVariable']
+     ~properties: {'domain': 'atmosphere', 'description': 'MOSART total discharge into ocean LIQ', 'cesm_name': 'TOTAL_DISCHARGE_TO_OCEAN_LIQ', 'long_name': 'MOSART total discharge int
+o ocean LIQ', 'variable_id': 'cesm_var_TOTAL_DISCHARGE_TO_OCEAN_LIQ', 'name': 'TOTAL_DISCHARGE_TO_OCEAN_LIQ', 'standard_name': 'specific_humidity', 'units': 'm3s', 'component': 'std', 'variable_type': 'cesm'}
+
+  2. --hasConsortium--> consortium (ID: consortium_1)
+     ~entityType: node
+     ~labels: ['consortium']
+     ~properties: {'name': 'CEOS'}
+
+  3. --hasContact--> Contact (ID: contact_person_C2089379376-NOAA_NCEI_0)
+     ~entityType: node
+     ~labels: ['Contact']
+     ~properties: {'name': 'Eugene Colbourne', 'roles': 'Technical Contact', 'contact_type': 'person', 'phone': 'eugenecolbournedfompogcca', 'contact_id': 'contact_person_C2089379376NOAA_NCEI_0'}
+
+  4. --hasDataCategory--> DataCategory (ID: datacategory_15125)
+     ~entityType: node
+     ~labels: ['DataCategory']
+     ~properties: {'summary': 'Please note the temperature portion of this dataset has been superseded by a newer version Users should not use this version except in rare cases eg when
+ reproducing previous studies that used this version The precipitation subset of this dataset is still the latest version available The Global Historical Climatology Network Monthly GHCNM Version 2 dataset created by the NCDC contains historical temperature precipitation and pressure data for thousands of land stations worldwide The period of re'}
+
+  5. --hasDataFormat--> DataFormat (ID: dataformat_ISO19115)
+     ~entityType: node
+     ~labels: ['DataFormat']
+     ~properties: {'data_format': 'ISO19115', 'original_format': 'ISO19115', 'format_source': 'inferred'}
+
+  6. --hasLink--> Link (ID: link_dataset_NCEI_DSI_9100_02_15125_0)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'length': '00KB', 'hreflang': 'enUS', 'url': 'https://data.nodc.noaa.gov/cgi-bin/iso?id=gov.noaa.ncdc:C00835', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/data#'}
+
+  7. --hasLink--> Link (ID: link_dataset_NCEI_DSI_9100_02_15125_1)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'length': '00KB', 'hreflang': 'enUS', 'url': 'ftp://ftp.ncdc.noaa.gov/pub/data/ghcn/v2/', 'link_type': 'Other', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/data#'}
+
+  8. --hasLink--> Link (ID: link_dataset_NCEI_DSI_9100_02_15125_4)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'http://onlinelibrary.wiley.com/doi/10.1002/(SICI)1097-0088(199809)18:11%3C1169::AID-JOC309%3E3.0.CO;2-U/abstract', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  9. --hasLink--> Link (ID: link_dataset_NCEI_DSI_9100_02_15125_6)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://www.researchgate.net/publication/227583189_A_new_method_for_detecting_undocumented_discontinuities_in_climatological_time_series._Int_J_Climatol', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  10. --hasLink--> Link (ID: link_dataset_NCEI_DSI_9100_02_15125_7)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'http://onlinelibrary.wiley.com/doi/10.1002/joc.3370140606/abstract', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  11. --hasLink--> Link (ID: link_dataset_NCEI_DSI_9100_02_15125_9)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://data.nodc.noaa.gov/cgi-bin/iso?id=gov.noaa.ncdc:C00839', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  12. --hasLink--> Link (ID: link_dataset_NCEI_DSI_9100_02_15125_2)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'length': '00KB', 'hreflang': 'enUS', 'url': 'https://www1.ncdc.noaa.gov/pub/data/documentlibrary/tddoc/td9100.pdf', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/data#'}
+
+  13. --hasLink--> Link (ID: link_dataset_NCEI_DSI_9100_02_15125_3)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://doi.org/10.1175/1520-0477(1997)078<2837:AOOTGH>2.0.CO;2', 'link_type': 'DOI', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  14. --hasLink--> Link (ID: link_dataset_NCEI_DSI_9100_02_15125_5)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'http://journals.ametsoc.org/doi/abs/10.1175/1520-0442(1996)009%3C1429%3AOTDAUO%3E2.0.CO%3B2', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  15. --hasLink--> Link (ID: link_dataset_NCEI_DSI_9100_02_15125_8)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://data.nodc.noaa.gov/cgi-bin/iso?id=gov.noaa.ncdc:C00422', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  16. --hasLocation--> Location (ID: location_105)
+     ~entityType: node
+     ~labels: ['Location']
+     ~properties: {'boxes': '90 180 90 180', 'place_names': 'France Colombia North Korea Croatia Guinea Malta Cook Is Falkland Is Dem Rep Congo Guernsey Syria Czechia Taiwan Brazil Sur
+iname Cayman Is Costa Rica Saint Lucia Algeria Brunei Jordan Iraq Greenland India Dhekelia Slovakia Nepal Benin Afghanistan Madagascar Belarus Solomon Is Baikonur Sri Lanka Tuvalu Mong
+olia Sweden Chile Libya Paraguay Mauritania Br Indian Ocean Ter Palestine Cabo Verde Chad Lithuania Slovenia Southern Patagonian Ice Field Nigeria Belgium Palau Pitcairn Is Clipperton I Albania'}
+
+  17. --hasOrganization--> organization (ID: organization_22)
+     ~entityType: node
+     ~labels: ['organization']
+     ~properties: {'name': 'DOCNOAANESDISNCEI'}
+
+  18. --hasPlatform--> platform (ID: platform_0)
+     ~entityType: node
+     ~labels: ['platform']
+     ~properties: {'name': 'Unknown'}
+
+  19. --hasSpatialResolution--> SpatialResolution (ID: spatial_C2560369926-AMD_USAPDC)
+     ~entityType: node
+     ~labels: ['SpatialResolution']
+     ~properties: {'resolution': '3 m Context 3 million years ago during which the Antarctic ice sheets are hypothesized to have been substantial', 'spatial_id': 'spatial_C2560369926AMD_USAPDC', 'units': 'meters'}
+
+  20. --hasStation--> Station (ID: station_533)
+     ~entityType: node
+     ~labels: ['Station']
+     ~properties: {'data_center': 'NOAA_NCEI', 'platforms': 'METEOROLOGICAL STATIONS Not provided'}
+
+  21. --hasTemporalExtent--> TemporalExtent (ID: temporalextent_15125)
+     ~entityType: node
+     ~labels: ['TemporalExtent']
+     ~properties: {'updated': '20110101T000000000Z', 'start_time': '17010101T000000000Z'}
+
+  22. --hasTemporalResolution--> TemporalResolution (ID: temporal_C2103575633-NOAA_NCEI)
+     ~entityType: node
+     ~labels: ['TemporalResolution']
+     ~properties: {'resolution': 'The time period coverage is from 450 to 35 in calendar years before present BP', 'temporal_id': 'temporal_C2103575633NOAA_NCEI', 'frequency': 'yearly'}
+
+  23. --hasVariable--> Variable (ID: var_C1328897232_AU_AADC_ALKALINITY)
+     ~entityType: node
+     ~labels: ['Variable']
+     ~properties: {'description': 'EARTH SCIENCE OCEANS OCEAN CHEMISTRY ALKALINITY', 'dataset_id': 'C1328897232AU_AADC', 'long_name': 'OCEANS OCEAN CHEMISTRY ALKALINITY', 'variable_id': 'var_C1328897232_AU_AADC_ALKALINITY', 'name': 'ALKALINITY', 'standard_name': 'ALKALINITY', 'units': 'unknown', 'source': 'science_keywords', 'variable_type': 'nasa_cmr'}
+
+  24. --usesCoordinateSystem--> CoordinateSystem (ID: coordinatesystem_CARTESIAN)
+     ~entityType: node
+     ~labels: ['CoordinateSystem']
+     ~properties: {'name': 'CARTESIAN', 'units': 'Unknown', 'datum': 'Unknown', 'projection_type': 'Unknown'}
+I found a NOAA GHCN-M Version 2 dataset! This is exactly what I need. I can see it has global coverage and includes meteorological stations. Let me store this dataset first, then look for the newer Version 4 and search for more specific NYC area datasets.
+
+Action: store_dataset_relationships
+Action Input: dataset_NCEI_DSI_9100_02_15125Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ STORED DATASET RELATIONSHIPS: dataset_NCEI_DSI_9100_02_15125
+============================================================
+ Dataset: Global Historical Climatology Network Monthly GHCNM Version 2 (NCEI DSI 9100_02)
+ ID: dataset_NCEI_DSI_9100_02_15125
+💽 Database: climate_knowledge_graph.db
+ Links Found: 10 data access links stored
+   1. Unknown type: https://data.nodc.noaa.gov/cgi-bin/iso?id=gov.noaa.ncdc:C008...
+   2. Unknown type: ftp://ftp.ncdc.noaa.gov/pub/data/ghcn/v2/
+   3. Unknown type: http://onlinelibrary.wiley.com/doi/10.1002/(SICI)1097-0088(1...
+   ... and 7 more links stored
+
+ STORED RELATIONSHIPS (24 total):
+  • hasCESMVariable: 1 items
+    1. TOTAL_DISCHARGE_TO_OCEAN_LIQ (ID: cesm_var_TOTAL_DISCHARGE_TO_OCEAN_LIQ) | Units: m3s | Desc: MOSART total discharge into ocean LIQ
+
+  • hasConsortium: 1 items
+    1. CEOS (ID: consortium_1)
+
+  • hasContact: 1 items
+    1. Eugene Colbourne (ID: contact_person_C2089379376-NOAA_NCEI_0)
+
+  • hasDataCategory: 1 items
+    1. unnamed (ID: datacategory_15125)
+
+  • hasDataFormat: 1 items
+    1. ISO19115 (ID: dataformat_ISO19115) | Format: ISO19115
+
+  • hasLink: 10 items
+    1. unnamed (ID: link_dataset_NCEI_DSI_9100_02_15125_0)
+    2. unnamed (ID: link_dataset_NCEI_DSI_9100_02_15125_1)
+    3. unnamed (ID: link_dataset_NCEI_DSI_9100_02_15125_4)
+    ... and 7 more stored
+
+  • hasLocation: 1 items
+    1. unnamed (ID: location_105)
+
+  • hasOrganization: 1 items
+    1. DOCNOAANESDISNCEI (ID: organization_22)
+
+  • hasPlatform: 1 items
+    1. Unknown (ID: platform_0)
+
+  • hasSpatialResolution: 1 items
+    1. unnamed (ID: spatial_C2560369926-AMD_USAPDC) | Units: meters
+
+  • hasStation: 1 items
+    1. unnamed (ID: station_533)
+
+  • hasTemporalExtent: 1 items
+    1. unnamed (ID: temporalextent_15125)
+
+  • hasTemporalResolution: 1 items
+    1. unnamed (ID: temporal_C2103575633-NOAA_NCEI)
+
+  • hasVariable: 1 items
+    1. ALKALINITY (ID: var_C1328897232_AU_AADC_ALKALINITY) | Units: unknown | Desc: EARTH SCIENCE OCEANS OCEAN CHEMISTRY ALKALINITY
+
+  • usesCoordinateSystem: 1 items
+    1. CARTESIAN (ID: coordinatesystem_CARTESIAN) | Units: Unknown
+
+ STORAGE COMPLETE (CREATED):
+  • Dataset properties: 12 fields stored
+  • Data access links: 10 links stored
+  • Relationship types: 15 types stored
+  • Total connected nodes: 24 nodes stored
+  • SQLite database: climate_knowledge_graph.db
+  • Storage timestamp: 2025-09-22T23:40:34.938056
+Now let me search for the newer GHCN-M Version 4 dataset and look for more specific NYC area weather station data.
+
+Action: search_by_data_category
+Action Input: GHCN-M Version 4 monthly temperature Using vector search on 'DataCategory' nodes for: 'GHCN-M Version 4 monthly temperature'
+Batches: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1/1 [00:00<00:00, 124.91it/s] 
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Found 7 data categories for 'GHCN-M Version 4 monthly temperature':
+1. unnamed
+   ID: datacategory_15124 | Score: 0.823
+2. unnamed
+   ID: datacategory_23242 | Score: 0.814
+3. unnamed
+   ID: datacategory_24058 | Score: 0.810
+4. unnamed
+   ID: datacategory_18146 | Score: 0.804
+5. unnamed
+   ID: datacategory_15125 | Score: 0.699
+6. unnamed
+   ID: datacategory_15126 | Score: 0.632
+7. unnamed
+   ID: datacategory_15127 | Score: 0.384
+Let me inspect the top data category to find GHCN-M Version 4 datasets.
+
+Action: inspect_graph_node
+Action Input: datacategory_15124Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: datacategory_15124
+==================================================
+
+ Node Type: DataCategory
+ Node ID: datacategory_15124
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['DataCategory']
+  • ~properties: {'summary': 'Please note this dataset has been superseded by a newer version see below Users should not use this version except in rare cases eg when reproducing previ
+ous studies that used this version The Global Historical Climatology Network GHCN Version 1 is a comprehensive global surface baseline climate data set designed for monitoring and detecting climate change Comprised of surface station observations of temperature precipitation and pressure all GHCN data are monthly GHCN was produced jointly by th'}
+
+ RELATIONSHIPS (1 total):
+
+  1. --hasDataCategory--> Dataset (ID: dataset_NCEI_DSI_9100_01_15124)
+     ~entityType: node
+     ~labels: ['Dataset']
+     ~properties: {'processing_level_id': 'Not provided', 'dataset_id': 'Global Historical Climatology Network GHCN Version 1 Version Superseded', 'online_access_flag': 'True', 'versio
+n_id': 'Version 1', 'data_center': 'NOAA_NCEI', 'data_set_language': 'eng USA', 'title': 'Global Historical Climatology Network GHCN Version 1 Version Superseded', 'browse_flag': 'Fals
+e', 'short_name': 'NCEI DSI 9100_01', 'granule_count': '0', 'science_keywords': 'Category Earth Science Topic Atmosphere Term Atmospheric Temperature VariableLevel1 Surface Temperature
+ VariableLevel2 MaximumMinimum Temperature Category Earth Science Topic Atmosphere Term Atmospheric Temperature VariableLevel1 Surface Temperature VariableLevel2 Air Temperature Catego
+ry Earth Science Topic Atmosphere Term Atmospheric Pressure VariableLevel1 Surface Pressure Category Earth Science Topic Atmosphere Term Atmospheric Pressure VariableLevel1 Atmospheric Pressure Measurements Catego', 'entry_id': 'NCEI DSI 9100_01_Version 1'}
+This is GHCN Version 1 which is superseded. Let me check the next data category for Version 4.
+
+Action: inspect_graph_node
+Action Input: datacategory_23242Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: datacategory_23242
+==================================================
+
+ Node Type: DataCategory
+ Node ID: datacategory_23242
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['DataCategory']
+  • ~properties: {'summary': 'Monthly Summaries of Global Historical Climatology Network GHCNDaily is a dataset derived from GHCNDaily The data are produced by computing simple average
+s or monthly accumulations of the daily observations The meteorological elements calculated for the data set include but are not limited to monthly maximum and minimum temperature monthly precipitation ie rainfall and snow water equivalent snowfall and snow depth Users of these monthly summaries have access to simple meteorological summaries fo'}
+
+ RELATIONSHIPS (1 total):
+
+  1. --hasDataCategory--> Dataset (ID: dataset_gov_noaa_ncdc_C00841_23242)
+     ~entityType: node
+     ~labels: ['Dataset']
+     ~properties: {'processing_level_id': 'Not provided', 'dataset_id': 'Monthly Summaries of the Global Historical Climatology Network Daily GHCND', 'online_access_flag': 'False', 've
+rsion_id': 'Not Applicable', 'data_center': 'NOAA_NCEI', 'data_set_language': 'eng USA', 'title': 'Monthly Summaries of the Global Historical Climatology Network Daily GHCND', 'browse_
+flag': 'False', 'short_name': 'govnoaancdcC00841', 'granule_count': '0', 'science_keywords': 'Category Earth Science Topic Atmosphere Term Atmospheric Temperature VariableLevel1 Surfac
+e Temperature VariableLevel2 MaximumMinimum Temperature Category Earth Science Topic Atmosphere Term Atmospheric Temperature VariableLevel1 Surface Temperature VariableLevel2 Air Tempe
+rature Category Earth Science Topic Atmosphere Term Precipitation VariableLevel1 Precipitation Amount Category Earth Science Topic Atmosphere Term Precipitation VariableLevel1 Solid Precipitation VariableLevel2 Snow', 'entry_id': 'govnoaancdcC00841_Not Applicable'}
+This looks like GHCN-Daily monthly summaries, which is related but not exactly GHCN-M Version 4. Let me inspect this dataset to see its details and then continue searching.
+
+Action: inspect_graph_node
+Action Input: dataset_gov_noaa_ncdc_C00841_23242Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: dataset_gov_noaa_ncdc_C00841_23242
+==================================================
+
+ Node Type: Dataset
+ Node ID: dataset_gov_noaa_ncdc_C00841_23242
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['Dataset']
+  • ~properties: {'processing_level_id': 'Not provided', 'dataset_id': 'Monthly Summaries of the Global Historical Climatology Network Daily GHCND', 'online_access_flag': 'False', 'ver
+sion_id': 'Not Applicable', 'data_center': 'NOAA_NCEI', 'data_set_language': 'eng USA', 'title': 'Monthly Summaries of the Global Historical Climatology Network Daily GHCND', 'browse_f
+lag': 'False', 'short_name': 'govnoaancdcC00841', 'granule_count': '0', 'science_keywords': 'Category Earth Science Topic Atmosphere Term Atmospheric Temperature VariableLevel1 Surface
+ Temperature VariableLevel2 MaximumMinimum Temperature Category Earth Science Topic Atmosphere Term Atmospheric Temperature VariableLevel1 Surface Temperature VariableLevel2 Air Temper
+ature Category Earth Science Topic Atmosphere Term Precipitation VariableLevel1 Precipitation Amount Category Earth Science Topic Atmosphere Term Precipitation VariableLevel1 Solid Precipitation VariableLevel2 Snow', 'entry_id': 'govnoaancdcC00841_Not Applicable'}
+
+ RELATIONSHIPS (13 total):
+
+  1. --hasConsortium--> consortium (ID: consortium_1)
+     ~entityType: node
+     ~labels: ['consortium']
+     ~properties: {'name': 'CEOS'}
+
+  2. --hasContact--> Contact (ID: contact_person_C2244302379-AMD_KOPRI_0)
+     ~entityType: node
+     ~labels: ['Contact']
+     ~properties: {'name': 'Dong Seob Shin', 'roles': 'Investigator', 'contact_type': 'person', 'phone': 'dsshinkoprirekr', 'contact_id': 'contact_person_C2244302379AMD_KOPRI_0'}      
+
+  3. --hasDataCategory--> DataCategory (ID: datacategory_23242)
+     ~entityType: node
+     ~labels: ['DataCategory']
+     ~properties: {'summary': 'Monthly Summaries of Global Historical Climatology Network GHCNDaily is a dataset derived from GHCNDaily The data are produced by computing simple averag
+es or monthly accumulations of the daily observations The meteorological elements calculated for the data set include but are not limited to monthly maximum and minimum temperature monthly precipitation ie rainfall and snow water equivalent snowfall and snow depth Users of these monthly summaries have access to simple meteorological summaries fo'}
+
+  4. --hasDataFormat--> DataFormat (ID: dataformat_ISO19115)
+     ~entityType: node
+     ~labels: ['DataFormat']
+     ~properties: {'data_format': 'ISO19115', 'original_format': 'ISO19115', 'format_source': 'inferred'}
+
+  5. --hasLink--> Link (ID: link_dataset_gov_noaa_ncdc_C00841_23242_0)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://doi.org/10.7289/V5D21VHZ', 'link_type': 'DOI', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  6. --hasLocation--> Location (ID: location_105)
+     ~entityType: node
+     ~labels: ['Location']
+     ~properties: {'boxes': '90 180 90 180', 'place_names': 'France Colombia North Korea Croatia Guinea Malta Cook Is Falkland Is Dem Rep Congo Guernsey Syria Czechia Taiwan Brazil Sur
+iname Cayman Is Costa Rica Saint Lucia Algeria Brunei Jordan Iraq Greenland India Dhekelia Slovakia Nepal Benin Afghanistan Madagascar Belarus Solomon Is Baikonur Sri Lanka Tuvalu Mong
+olia Sweden Chile Libya Paraguay Mauritania Br Indian Ocean Ter Palestine Cabo Verde Chad Lithuania Slovenia Southern Patagonian Ice Field Nigeria Belgium Palau Pitcairn Is Clipperton I Albania'}
+
+  7. --hasOrganization--> organization (ID: organization_22)
+     ~entityType: node
+     ~labels: ['organization']
+     ~properties: {'name': 'DOCNOAANESDISNCEI'}
+
+  8. --hasPlatform--> platform (ID: platform_0)
+     ~entityType: node
+     ~labels: ['platform']
+     ~properties: {'name': 'Unknown'}
+
+  9. --hasStation--> Station (ID: station_533)
+     ~entityType: node
+     ~labels: ['Station']
+     ~properties: {'data_center': 'NOAA_NCEI', 'platforms': 'METEOROLOGICAL STATIONS Not provided'}
+
+  10. --hasTemporalExtent--> TemporalExtent (ID: temporalextent_23242)
+     ~entityType: node
+     ~labels: ['TemporalExtent']
+     ~properties: {'start_time': '18800101T000000000Z'}
+
+  11. --hasTemporalResolution--> TemporalResolution (ID: temporal_C1979932834-GHRC_DAAC)
+     ~entityType: node
+     ~labels: ['TemporalResolution']
+     ~properties: {'resolution': 'Monthly Context The RSS SSMI Ocean Product Grids Monthly Average from DMSP F14 netCDF dataset is part of the collec', 'temporal_id': 'temporal_C1979932834GHRC_DAAC', 'frequency': 'monthly'}
+
+  12. --hasVariable--> Variable (ID: var_C2089388621_NOAA_NCEI_SUSPENDED_SOLIDS)
+     ~entityType: node
+     ~labels: ['Variable']
+     ~properties: {'description': 'EARTH SCIENCE OCEANS OCEAN CHEMISTRY SUSPENDED SOLIDS', 'dataset_id': 'C2089388621NOAA_NCEI', 'long_name': 'OCEANS OCEAN CHEMISTRY SUSPENDED SOLIDS',
+ 'variable_id': 'var_C2089388621_NOAA_NCEI_SUSPENDED_SOLIDS', 'name': 'SUSPENDED SOLIDS', 'standard_name': 'SUSPENDED SOLIDS', 'units': 'unknown', 'source': 'science_keywords', 'variable_type': 'nasa_cmr'}
+
+  13. --usesCoordinateSystem--> CoordinateSystem (ID: coordinatesystem_CARTESIAN)
+     ~entityType: node
+     ~labels: ['CoordinateSystem']
+     ~properties: {'name': 'CARTESIAN', 'units': 'Unknown', 'datum': 'Unknown', 'projection_type': 'Unknown'}
+This is GHCN-Daily monthly summaries, which is useful but not exactly GHCN-M Version 4. Let me store this dataset as it's relevant, then continue searching for the specific GHCN-M Version 4 and NYC area stations.
+
+Action: store_dataset_relationships
+Action Input: dataset_gov_noaa_ncdc_C00841_23242Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ STORED DATASET RELATIONSHIPS: dataset_gov_noaa_ncdc_C00841_23242
+============================================================
+ Dataset: Monthly Summaries of the Global Historical Climatology Network Daily GHCND (govnoaancdcC00841)
+ ID: dataset_gov_noaa_ncdc_C00841_23242
+💽 Database: climate_knowledge_graph.db
+ Links Found: 1 data access links stored
+   1. Unknown type: https://doi.org/10.7289/V5D21VHZ
+
+ STORED RELATIONSHIPS (13 total):
+  • hasConsortium: 1 items
+    1. CEOS (ID: consortium_1)
+
+  • hasContact: 1 items
+    1. Dong Seob Shin (ID: contact_person_C2244302379-AMD_KOPRI_0)
+
+  • hasDataCategory: 1 items
+    1. unnamed (ID: datacategory_23242)
+
+  • hasDataFormat: 1 items
+    1. ISO19115 (ID: dataformat_ISO19115) | Format: ISO19115
+
+  • hasLink: 1 items
+    1. unnamed (ID: link_dataset_gov_noaa_ncdc_C00841_23242_0)
+
+  • hasLocation: 1 items
+    1. unnamed (ID: location_105)
+
+  • hasOrganization: 1 items
+    1. DOCNOAANESDISNCEI (ID: organization_22)
+
+  • hasPlatform: 1 items
+    1. Unknown (ID: platform_0)
+
+  • hasStation: 1 items
+    1. unnamed (ID: station_533)
+
+  • hasTemporalExtent: 1 items
+    1. unnamed (ID: temporalextent_23242)
+
+  • hasTemporalResolution: 1 items
+    1. unnamed (ID: temporal_C1979932834-GHRC_DAAC)
+
+  • hasVariable: 1 items
+    1. SUSPENDED SOLIDS (ID: var_C2089388621_NOAA_NCEI_SUSPENDED_SOLIDS) | Units: unknown | Desc: EARTH SCIENCE OCEANS OCEAN CHEMISTRY SUSPENDED SOL...
+
+  • usesCoordinateSystem: 1 items
+    1. CARTESIAN (ID: coordinatesystem_CARTESIAN) | Units: Unknown
+
+ STORAGE COMPLETE (CREATED):
+  • Dataset properties: 12 fields stored
+  • Data access links: 1 links stored
+  • Relationship types: 13 types stored
+  • Total connected nodes: 13 nodes stored
+  • SQLite database: climate_knowledge_graph.db
+  • Storage timestamp: 2025-09-22T23:40:50.390152
+Let me continue searching for GHCN-M Version 4 and NYC area weather station data. I'll check the next data category.
+
+Action: inspect_graph_node
+Action Input: datacategory_24058Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: datacategory_24058
+==================================================
+
+ Node Type: DataCategory
+ Node ID: datacategory_24058
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['DataCategory']
+  • ~properties: {'summary': 'The Global Historical Climatology Network GHCN is a baseline network of longrunning surface global stations for the purpose of monitoring and detecting cl
+imate change Monthlysummarized data from various global sources are processed on a daily basis assembled into version 3 of NCDCs GHCNM dataset The CISL Research Data Archive is hosting a copy of the monthlyaverage surface temperatures in support of UCARs Global Learning and Observation to Benefit the Environment GLOBE program'}
+
+ RELATIONSHIPS (1 total):
+
+  1. --hasDataCategory--> Dataset (ID: dataset_NCAR_DS564_1_24058)
+     ~entityType: node
+     ~labels: ['Dataset']
+     ~properties: {'processing_level_id': 'Not provided', 'dataset_id': 'NCDC Global Historical Climatology Network Monthly Version 3 GHCNMV3', 'online_access_flag': 'False', 'version_
+id': 'Not provided', 'data_center': 'SCIOPS', 'data_set_language': 'eng', 'title': 'NCDC Global Historical Climatology Network Monthly Version 3 GHCNMV3', 'browse_flag': 'False', 'shor
+t_name': 'NCAR_DS5641', 'granule_count': '0', 'science_keywords': 'Category EARTH SCIENCE Topic ATMOSPHERE Term ATMOSPHERIC TEMPERATURE VariableLevel1 SURFACE TEMPERATURE VariableLevel2 AIR TEMPERATURE', 'entry_id': 'NCAR_DS5641', 'archive_center': 'UCARNCARCISLRDA'}
+This is GHCN-M Version 3! Let me inspect this dataset to see its details and then continue searching for Version 4.
+
+Action: inspect_graph_node
+Action Input: dataset_NCAR_DS564_1_24058Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: dataset_NCAR_DS564_1_24058
+==================================================
+
+ Node Type: Dataset
+ Node ID: dataset_NCAR_DS564_1_24058
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['Dataset']
+  • ~properties: {'processing_level_id': 'Not provided', 'dataset_id': 'NCDC Global Historical Climatology Network Monthly Version 3 GHCNMV3', 'online_access_flag': 'False', 'version_i
+d': 'Not provided', 'data_center': 'SCIOPS', 'data_set_language': 'eng', 'title': 'NCDC Global Historical Climatology Network Monthly Version 3 GHCNMV3', 'browse_flag': 'False', 'short
+_name': 'NCAR_DS5641', 'granule_count': '0', 'science_keywords': 'Category EARTH SCIENCE Topic ATMOSPHERE Term ATMOSPHERIC TEMPERATURE VariableLevel1 SURFACE TEMPERATURE VariableLevel2 AIR TEMPERATURE', 'entry_id': 'NCAR_DS5641', 'archive_center': 'UCARNCARCISLRDA'}
+
+ RELATIONSHIPS (17 total):
+
+  1. --hasCESMVariable--> CESMVariable (ID: cesm_var_pH_3D)
+     ~entityType: node
+     ~labels: ['CESMVariable']
+     ~properties: {'domain': 'atmosphere', 'description': 'pH', 'cesm_name': 'pH_3D', 'long_name': 'pH', 'variable_id': 'cesm_var_pH_3D', 'name': 'pH_3D', 'standard_name': 'unknown_standard_name', 'units': '1', 'component': 'std', 'variable_type': 'cesm'}
+
+  2. --hasCESMVariable--> CESMVariable (ID: cesm_var_TWS)
+     ~entityType: node
+     ~labels: ['CESMVariable']
+     ~properties: {'domain': 'atmosphere', 'description': 'total water storage', 'cesm_name': 'TWS', 'long_name': 'total water storage', 'variable_id': 'cesm_var_TWS', 'name': 'TWS', 'standard_name': 'unknown_standard_name', 'units': 'mm', 'component': 'std', 'variable_type': 'cesm'}
+
+  3. --hasConsortium--> consortium (ID: consortium_2)
+     ~entityType: node
+     ~labels: ['consortium']
+     ~properties: {'name': 'Unknown'}
+
+  4. --hasContact--> Contact (ID: contact_person_C2244301488-AMD_KOPRI_0)
+     ~entityType: node
+     ~labels: ['Contact']
+     ~properties: {'name': 'Dong Seob Shin', 'roles': 'Investigator', 'contact_type': 'person', 'phone': 'dsshinkoprirekr', 'contact_id': 'contact_person_C2244301488AMD_KOPRI_0'}      
+
+  5. --hasDataCategory--> DataCategory (ID: datacategory_24058)
+     ~entityType: node
+     ~labels: ['DataCategory']
+     ~properties: {'summary': 'The Global Historical Climatology Network GHCN is a baseline network of longrunning surface global stations for the purpose of monitoring and detecting c
+limate change Monthlysummarized data from various global sources are processed on a daily basis assembled into version 3 of NCDCs GHCNM dataset The CISL Research Data Archive is hosting a copy of the monthlyaverage surface temperatures in support of UCARs Global Learning and Observation to Benefit the Environment GLOBE program'}
+
+  6. --hasDataFormat--> DataFormat (ID: dataformat_DIF10)
+     ~entityType: node
+     ~labels: ['DataFormat']
+     ~properties: {'data_format': 'DIF10', 'original_format': 'DIF10', 'format_source': 'inferred'}
+
+  7. --hasLink--> Link (ID: link_dataset_NCAR_DS564_1_24058_2)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'http://www.globe.gov/', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  8. --hasLink--> Link (ID: link_dataset_NCAR_DS564_1_24058_0)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://rda.ucar.edu/datasets/ds564.0/', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  9. --hasLink--> Link (ID: link_dataset_NCAR_DS564_1_24058_1)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'http://www.ncdc.noaa.gov/ghcnm/v3.php', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  10. --hasLocation--> Location (ID: location_14)
+     ~entityType: node
+     ~labels: ['Location']
+     ~properties: {}
+
+  11. --hasOrganization--> organization (ID: organization_57)
+     ~entityType: node
+     ~labels: ['organization']
+     ~properties: {'name': 'UCARNCARCISLRDA'}
+
+  12. --hasPlatform--> platform (ID: platform_0)
+     ~entityType: node
+     ~labels: ['platform']
+     ~properties: {'name': 'Unknown'}
+
+  13. --hasStation--> Station (ID: station_3027)
+     ~entityType: node
+     ~labels: ['Station']
+     ~properties: {'data_center': 'SCIOPS', 'platforms': 'Ships METEOROLOGICAL STATIONS WEATHER STATIONS'}
+
+  14. --hasTemporalExtent--> TemporalExtent (ID: temporalextent_24058)
+     ~entityType: node
+     ~labels: ['TemporalExtent']
+     ~properties: {'start_time': '17010101T000000000Z', 'end_time': '20150430T235959999Z'}
+
+  15. --hasTemporalResolution--> TemporalResolution (ID: temporal_C2231912389-CEOS_EXTRA)
+     ~entityType: node
+     ~labels: ['TemporalResolution']
+     ~properties: {'resolution': 'The revisit frequency is less than 3 days', 'temporal_id': 'temporal_C2231912389CEOS_EXTRA', 'frequency': 'daily'}
+
+  16. --hasVariable--> Variable (ID: var_C1214613570_SCIOPS_OCEAN_TEMPERATURE)
+     ~entityType: node
+     ~labels: ['Variable']
+     ~properties: {'description': 'EARTH SCIENCE OCEANS OCEAN TEMPERATURE', 'dataset_id': 'C1214613570SCIOPS', 'long_name': 'OCEANS OCEAN TEMPERATURE', 'variable_id': 'var_C1214613570_SCIOPS_OCEAN_TEMPERATURE', 'name': 'OCEAN TEMPERATURE', 'standard_name': 'OCEAN TEMPERATURE', 'units': 'unknown', 'source': 'science_keywords', 'variable_type': 'nasa_cmr'}
+
+  17. --usesCoordinateSystem--> CoordinateSystem (ID: coordinatesystem_coord_24058)
+     ~entityType: node
+     ~labels: ['CoordinateSystem']
+     ~properties: {'datum': 'Unknown', 'projection_type': 'Unknown', 'units': 'Unknown'}
+This is GHCN-M Version 3, which is good but I need to find Version 4. Let me store this dataset and continue searching for Version 4 and NYC area stations.
+
+Action: store_dataset_relationships
+Action Input: dataset_NCAR_DS564_1_24058Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ STORED DATASET RELATIONSHIPS: dataset_NCAR_DS564_1_24058
+============================================================
+ Dataset: NCDC Global Historical Climatology Network Monthly Version 3 GHCNMV3 (NCAR_DS5641)
+ ID: dataset_NCAR_DS564_1_24058
+💽 Database: climate_knowledge_graph.db
+ Links Found: 3 data access links stored
+   1. Unknown type: http://www.globe.gov/
+   2. Unknown type: https://rda.ucar.edu/datasets/ds564.0/
+   3. Unknown type: http://www.ncdc.noaa.gov/ghcnm/v3.php
+
+ STORED RELATIONSHIPS (17 total):
+  • hasCESMVariable: 2 items
+    1. pH_3D (ID: cesm_var_pH_3D) | Units: 1 | Desc: pH
+    2. TWS (ID: cesm_var_TWS) | Units: mm | Desc: total water storage
+
+  • hasConsortium: 1 items
+    1. Unknown (ID: consortium_2)
+
+  • hasContact: 1 items
+    1. Dong Seob Shin (ID: contact_person_C2244301488-AMD_KOPRI_0)
+
+  • hasDataCategory: 1 items
+    1. unnamed (ID: datacategory_24058)
+
+  • hasDataFormat: 1 items
+    1. DIF10 (ID: dataformat_DIF10) | Format: DIF10
+
+  • hasLink: 3 items
+    1. unnamed (ID: link_dataset_NCAR_DS564_1_24058_2)
+    2. unnamed (ID: link_dataset_NCAR_DS564_1_24058_0)
+    3. unnamed (ID: link_dataset_NCAR_DS564_1_24058_1)
+
+  • hasLocation: 1 items
+    1. unnamed (ID: location_14)
+
+  • hasOrganization: 1 items
+    1. UCARNCARCISLRDA (ID: organization_57)
+
+  • hasPlatform: 1 items
+    1. Unknown (ID: platform_0)
+
+  • hasStation: 1 items
+    1. unnamed (ID: station_3027)
+
+  • hasTemporalExtent: 1 items
+    1. unnamed (ID: temporalextent_24058)
+
+  • hasTemporalResolution: 1 items
+    1. unnamed (ID: temporal_C2231912389-CEOS_EXTRA)
+
+  • hasVariable: 1 items
+    1. OCEAN TEMPERATURE (ID: var_C1214613570_SCIOPS_OCEAN_TEMPERATURE) | Units: unknown | Desc: EARTH SCIENCE OCEANS OCEAN TEMPERATURE
+
+  • usesCoordinateSystem: 1 items
+    1. unnamed (ID: coordinatesystem_coord_24058) | Units: Unknown
+
+ STORAGE COMPLETE (CREATED):
+  • Dataset properties: 13 fields stored
+  • Data access links: 3 links stored
+  • Relationship types: 14 types stored
+  • Total connected nodes: 17 nodes stored
+  • SQLite database: climate_knowledge_graph.db
+  • Storage timestamp: 2025-09-22T23:40:59.728837
+Let me search more specifically for GHCN-M Version 4 and NYC area weather station data.
+
+Action: search_by_data_category
+Action Input: GHCN-M version 4 temperature station Using vector search on 'DataCategory' nodes for: 'GHCN-M version 4 temperature station'
+Batches: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1/1 [00:00<00:00, 124.75it/s] 
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Found 10 data categories for 'GHCN-M version 4 temperature station':
+1. unnamed
+   ID: datacategory_23242 | Score: 1.064
+2. unnamed
+   ID: datacategory_18148 | Score: 1.062
+3. unnamed
+   ID: datacategory_18146 | Score: 1.060
+4. unnamed
+   ID: datacategory_39078 | Score: 1.058
+5. unnamed
+   ID: datacategory_15398 | Score: 1.048
+6. unnamed
+   ID: datacategory_24058 | Score: 0.957
+7. unnamed
+   ID: datacategory_15126 | Score: 0.953
+8. unnamed
+   ID: datacategory_15125 | Score: 0.855
+9. unnamed
+   ID: datacategory_15124 | Score: 0.822
+10. unnamed
+   ID: datacategory_15127 | Score: 0.622
+Let me check the top new data categories that I haven't inspected yet to find GHCN-M Version 4.
+
+Action: inspect_graph_node
+Action Input: datacategory_18148Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: datacategory_18148
+==================================================
+
+ Node Type: DataCategory
+ Node ID: datacategory_18148
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['DataCategory']
+  • ~properties: {'summary': 'The Global Land Surface Temperature Databank contains monthly timescale mean maximum and minimum temperature for approximately 40000 stations globally It 
+was developed as part of the International Surface Temperature Initiative This is the global repository for all monthly timescale land surface observations from the 1800s to present and uses data deriving from subdaily daily and monthly observations It brings together data from more than 45 sources to create a single merged dataset It will be u'}
+
+ RELATIONSHIPS (1 total):
+
+  1. --hasDataCategory--> Dataset (ID: dataset_doi_10_7289_V5PK0D3G_18148)
+     ~entityType: node
+     ~labels: ['Dataset']
+     ~properties: {'processing_level_id': 'Not provided', 'dataset_id': 'International Surface Temperature Initiative ISTI Global Land Surface Temperature Databank Stage 3 Monthly', 'o
+nline_access_flag': 'True', 'version_id': 'v110', 'data_center': 'NOAA_NCEI', 'doi': 'doi107289V5PK0D3G', 'data_set_language': 'eng USA', 'title': 'International Surface Temperature In
+itiative ISTI Global Land Surface Temperature Databank Stage 3 Monthly', 'browse_flag': 'True', 'short_name': 'doi107289V5PK0D3G', 'granule_count': '0', 'science_keywords': 'Category E
+arth Science Topic Atmosphere Term Atmospheric Temperature VariableLevel1 Surface Temperature VariableLevel2 Air Temperature Category Earth Science Topic Atmosphere Term Atmospheric Temperature VariableLevel1 Surface Temperature VariableLevel2 MaximumMinimum Temperature', 'entry_id': 'doi107289V5PK0D3G_v110'}
+This looks like the International Surface Temperature Initiative (ISTI) Global Land Surface Temperature Databank, which is related to GHCN-M Version 4! Let me inspect this dataset to see its details.
+
+Action: inspect_graph_node
+Action Input: dataset_doi_10_7289_V5PK0D3G_18148Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: dataset_doi_10_7289_V5PK0D3G_18148
+==================================================
+
+ Node Type: Dataset
+ Node ID: dataset_doi_10_7289_V5PK0D3G_18148
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['Dataset']
+  • ~properties: {'processing_level_id': 'Not provided', 'dataset_id': 'International Surface Temperature Initiative ISTI Global Land Surface Temperature Databank Stage 3 Monthly', 'on
+line_access_flag': 'True', 'version_id': 'v110', 'data_center': 'NOAA_NCEI', 'doi': 'doi107289V5PK0D3G', 'data_set_language': 'eng USA', 'title': 'International Surface Temperature Ini
+tiative ISTI Global Land Surface Temperature Databank Stage 3 Monthly', 'browse_flag': 'True', 'short_name': 'doi107289V5PK0D3G', 'granule_count': '0', 'science_keywords': 'Category Ea
+rth Science Topic Atmosphere Term Atmospheric Temperature VariableLevel1 Surface Temperature VariableLevel2 Air Temperature Category Earth Science Topic Atmosphere Term Atmospheric Temperature VariableLevel1 Surface Temperature VariableLevel2 MaximumMinimum Temperature', 'entry_id': 'doi107289V5PK0D3G_v110'}
+
+ RELATIONSHIPS (17 total):
+
+  1. --hasCESMVariable--> CESMVariable (ID: cesm_var_snoice)
+     ~entityType: node
+     ~labels: ['CESMVariable']
+     ~properties: {'domain': 'atmosphere', 'description': 'snowice formation', 'cesm_name': 'snoice', 'long_name': 'snowice formation', 'variable_id': 'cesm_var_snoice', 'name': 'snoice', 'standard_name': 'unknown_standard_name', 'units': 'cmday', 'component': 'moar', 'variable_type': 'cesm'}
+
+  2. --hasConsortium--> consortium (ID: consortium_1)
+     ~entityType: node
+     ~labels: ['consortium']
+     ~properties: {'name': 'CEOS'}
+
+  3. --hasContact--> Contact (ID: contact_person_C1214053506-SCIOPS_1)
+     ~entityType: node
+     ~labels: ['Contact']
+     ~properties: {'name': 'BOB DATTORE', 'roles': 'Metadata Author', 'contact_type': 'person', 'phone': 'dattoreucaredu', 'contact_id': 'contact_person_C1214053506SCIOPS_1'}
+
+  4. --hasDataCategory--> DataCategory (ID: datacategory_18148)
+     ~entityType: node
+     ~labels: ['DataCategory']
+     ~properties: {'summary': 'The Global Land Surface Temperature Databank contains monthly timescale mean maximum and minimum temperature for approximately 40000 stations globally It
+ was developed as part of the International Surface Temperature Initiative This is the global repository for all monthly timescale land surface observations from the 1800s to present and uses data deriving from subdaily daily and monthly observations It brings together data from more than 45 sources to create a single merged dataset It will be u'}
+
+  5. --hasDataFormat--> DataFormat (ID: dataformat_ISO19115)
+     ~entityType: node
+     ~labels: ['DataFormat']
+     ~properties: {'data_format': 'ISO19115', 'original_format': 'ISO19115', 'format_source': 'inferred'}
+
+  6. --hasLink--> Link (ID: link_dataset_doi_10_7289_V5PK0D3G_18148_0)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'length': '10KB', 'hreflang': 'enUS', 'url': 'https://data.nodc.noaa.gov/cgi-bin/iso?id=gov.noaa.ncdc:C00849', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/data#'}
+
+  7. --hasLink--> Link (ID: link_dataset_doi_10_7289_V5PK0D3G_18148_3)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://www1.ncdc.noaa.gov/pub/data/metadata/images/C00849_International-Sfc-Temp-Initiative-Icon_for-web.jpg', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/browse#'}
+
+  8. --hasLink--> Link (ID: link_dataset_doi_10_7289_V5PK0D3G_18148_1)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'length': '5000KB', 'hreflang': 'enUS', 'url': 'ftp://ftp.ncdc.noaa.gov/pub/data/globaldatabank/monthly/stage3/', 'link_type': 'Other', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/data#'}
+
+  9. --hasLink--> Link (ID: link_dataset_doi_10_7289_V5PK0D3G_18148_2)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'length': '10KB', 'hreflang': 'enUS', 'url': 'ftp://ftp.ncdc.noaa.gov/pub/data/globaldatabank/monthly/stage3/README_STAGE3_MONTHLY', 'link_type': 'Other', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/data#'}
+
+  10. --hasLocation--> Location (ID: location_105)
+     ~entityType: node
+     ~labels: ['Location']
+     ~properties: {'boxes': '90 180 90 180', 'place_names': 'France Colombia North Korea Croatia Guinea Malta Cook Is Falkland Is Dem Rep Congo Guernsey Syria Czechia Taiwan Brazil Sur
+iname Cayman Is Costa Rica Saint Lucia Algeria Brunei Jordan Iraq Greenland India Dhekelia Slovakia Nepal Benin Afghanistan Madagascar Belarus Solomon Is Baikonur Sri Lanka Tuvalu Mong
+olia Sweden Chile Libya Paraguay Mauritania Br Indian Ocean Ter Palestine Cabo Verde Chad Lithuania Slovenia Southern Patagonian Ice Field Nigeria Belgium Palau Pitcairn Is Clipperton I Albania'}
+
+  11. --hasOrganization--> organization (ID: organization_22)
+     ~entityType: node
+     ~labels: ['organization']
+     ~properties: {'name': 'DOCNOAANESDISNCEI'}
+
+  12. --hasPlatform--> platform (ID: platform_0)
+     ~entityType: node
+     ~labels: ['platform']
+     ~properties: {'name': 'Unknown'}
+
+  13. --hasStation--> Station (ID: station_9)
+     ~entityType: node
+     ~labels: ['Station']
+     ~properties: {'data_center': 'NOAA_NCEI'}
+
+  14. --hasTemporalExtent--> TemporalExtent (ID: temporalextent_18148)
+     ~entityType: node
+     ~labels: ['TemporalExtent']
+     ~properties: {'updated': '20151015T000000000Z', 'start_time': '18000101T000000000Z'}
+
+  15. --hasTemporalResolution--> TemporalResolution (ID: temporal_C2103595534-NOAA_NCEI)
+     ~entityType: node
+     ~labels: ['TemporalResolution']
+     ~properties: {'resolution': 'The time period coverage is from 552 to 53 in calendar years before present BP', 'temporal_id': 'temporal_C2103595534NOAA_NCEI', 'frequency': 'yearly'}
+
+  16. --hasVariable--> Variable (ID: var_C2089387551_NOAA_NCEI_ATMOSPHERIC_PRESSURE)
+     ~entityType: node
+     ~labels: ['Variable']
+     ~properties: {'description': 'EARTH SCIENCE ATMOSPHERE ATMOSPHERIC PRESSURE', 'dataset_id': 'C2089387551NOAA_NCEI', 'long_name': 'ATMOSPHERE ATMOSPHERIC PRESSURE', 'variable_id': 
+'var_C2089387551_NOAA_NCEI_ATMOSPHERIC_PRESSURE', 'name': 'ATMOSPHERIC PRESSURE', 'standard_name': 'ATMOSPHERIC PRESSURE', 'units': 'unknown', 'source': 'science_keywords', 'variable_type': 'nasa_cmr'}
+
+  17. --usesCoordinateSystem--> CoordinateSystem (ID: coordinatesystem_CARTESIAN)
+     ~entityType: node
+     ~labels: ['CoordinateSystem']
+     ~properties: {'name': 'CARTESIAN', 'units': 'Unknown', 'datum': 'Unknown', 'projection_type': 'Unknown'}
+This is the ISTI Global Land Surface Temperature Databank, which is very relevant! It contains data from approximately 40,000 stations globally and includes GHCN-M data. Let me store this dataset and continue searching for more specific NYC area stations.
+
+Action: store_dataset_relationships
+Action Input: dataset_doi_10_7289_V5PK0D3G_18148Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ STORED DATASET RELATIONSHIPS: dataset_doi_10_7289_V5PK0D3G_18148
+============================================================
+ Dataset: International Surface Temperature Initiative ISTI Global Land Surface Temperature Databank Stage 3 Monthly (doi107289V5PK0D3G)
+ ID: dataset_doi_10_7289_V5PK0D3G_18148
+💽 Database: climate_knowledge_graph.db
+ Links Found: 4 data access links stored
+   1. Unknown type: https://data.nodc.noaa.gov/cgi-bin/iso?id=gov.noaa.ncdc:C008...
+   2. Unknown type: https://www1.ncdc.noaa.gov/pub/data/metadata/images/C00849_I...
+   3. Unknown type: ftp://ftp.ncdc.noaa.gov/pub/data/globaldatabank/monthly/stag...
+   ... and 1 more links stored
+
+ STORED RELATIONSHIPS (17 total):
+  • hasCESMVariable: 1 items
+    1. snoice (ID: cesm_var_snoice) | Units: cmday | Desc: snowice formation
+
+  • hasConsortium: 1 items
+    1. CEOS (ID: consortium_1)
+
+  • hasContact: 1 items
+    1. BOB DATTORE (ID: contact_person_C1214053506-SCIOPS_1)
+
+  • hasDataCategory: 1 items
+    1. unnamed (ID: datacategory_18148)
+
+  • hasDataFormat: 1 items
+    1. ISO19115 (ID: dataformat_ISO19115) | Format: ISO19115
+
+  • hasLink: 4 items
+    1. unnamed (ID: link_dataset_doi_10_7289_V5PK0D3G_18148_0)
+    2. unnamed (ID: link_dataset_doi_10_7289_V5PK0D3G_18148_3)
+    3. unnamed (ID: link_dataset_doi_10_7289_V5PK0D3G_18148_1)
+    ... and 1 more stored
+
+  • hasLocation: 1 items
+    1. unnamed (ID: location_105)
+
+  • hasOrganization: 1 items
+    1. DOCNOAANESDISNCEI (ID: organization_22)
+
+  • hasPlatform: 1 items
+    1. Unknown (ID: platform_0)
+
+  • hasStation: 1 items
+    1. unnamed (ID: station_9)
+
+  • hasTemporalExtent: 1 items
+    1. unnamed (ID: temporalextent_18148)
+
+  • hasTemporalResolution: 1 items
+    1. unnamed (ID: temporal_C2103595534-NOAA_NCEI)
+
+  • hasVariable: 1 items
+    1. ATMOSPHERIC PRESSURE (ID: var_C2089387551_NOAA_NCEI_ATMOSPHERIC_PRESSURE) | Units: unknown | Desc: EARTH SCIENCE ATMOSPHERE ATMOSPHERIC PRESSURE
+
+  • usesCoordinateSystem: 1 items
+    1. CARTESIAN (ID: coordinatesystem_CARTESIAN) | Units: Unknown
+
+ STORAGE COMPLETE (CREATED):
+  • Dataset properties: 13 fields stored
+  • Data access links: 4 links stored
+  • Relationship types: 14 types stored
+  • Total connected nodes: 17 nodes stored
+  • SQLite database: climate_knowledge_graph.db
+  • Storage timestamp: 2025-09-22T23:41:14.186645
+I need to ask for clarification about the specific requirements for this request, as I may not be able to find the exact NOAA GHCN-M Version 4 datasets with individual NYC area weather station data in the current database.
+
+Action: ask_follow_up_question
+Action Input: I've found several relevant NOAA temperature datasets including GHCN-M Version 2, GHCN-M Version 3, GHCN-Daily monthly summaries, and the ISTI Global Land Surface Tempera
+ture Databank (which incorporates GHCN-M data). However, I haven't found specific individual station datasets for the NYC metropolitan area stations you mentioned (Central Park, LaGuardia, JFK, Newark, Teterboro).
+
+The datasets I found are global collections that would contain data from these stations, but they're not broken down by individual stations in this database. Would you like me to:     
+
+1. Continue with the global GHCN-M datasets I've found (which contain the NYC station data within them)?
+2. Search for any additional NYC-specific weather station datasets?
+3. Focus on finding more direct access links to NOAA's station-specific data APIs?
+
+Also, are you specifically looking for GHCN-M Version 4, or would the other GHCN versions and related datasets I've found be acceptable for your research needs?🤔 **🎯 Research Context & Purpose**
+
+To help you find the most relevant climate datasets, I need some additional information:
+
+1. What is the main purpose of your research? (e.g., climate change analysis, weather forecasting, impact assessment)
+2. Are you comparing different time periods, locations, or datasets?
+3. Do you need datasets that are suitable for specific types of analysis (e.g., trend analysis, extreme events, correlations)?
+
+💡 **Context:** I've found several relevant NOAA temperature datasets including GHCN-M Version 2, GHCN-M Version 3, GHCN-Daily monthly summaries, and the ISTI Global Land Surface Tempe
+rature Databank (which incorporates GHCN-M data). However, I haven't found specific individual station datasets for the NYC metropolitan area stations you mentioned (Central Park, LaGuardia, JFK, Newark, Teterboro).
+
+The datasets I found are global collections that would contain data from these stations, but they're not broken down by individual stations in this database. Would you like me to:     
+
+1. Continue with the global GHCN-M datasets I've found (which contain the NYC station data within them)?
+2. Search for any additional NYC-specific weather station datasets?
+3. Focus on finding more direct access links to NOAA's station-specific data APIs?
+
+Also, are you specifically looking for GHCN-M Version 4, or would the other GHCN versions and related datasets I've found be acceptable for your research needs?
+
+
+🔴 **WAITING FOR USER INPUT** 🔴
+Please provide any of the above details that are relevant to your research:
+
+>>> Your response: The main purpose of my research is to analyze long-term climate change trends in the New York City metropolitan area, focusing on annual mean temperature at individu
+al weather stations. I want to compare the trends at Central Park, LaGuardia, JFK, Newark, and Teterboro, so I specifically need station-level monthly or annual data suitable for trend
+ analysis. Please prioritize GHCN-M Version 4, since that is the most up-to-date, but if only earlier versions are available, they are acceptable as fallback. Yes, you can use the global GHCN-M collections as long as they contain the station data, but I prefer direct access to station-specific APIs or files whenever possible.
+User provided the following clarification: The main purpose of my research is to analyze long-term climate change trends in the New York City metropolitan area, focusing on annual mean
+ temperature at individual weather stations. I want to compare the trends at Central Park, LaGuardia, JFK, Newark, and Teterboro, so I specifically need station-level monthly or annual
+ data suitable for trend analysis. Please prioritize GHCN-M Version 4, since that is the most up-to-date, but if only earlier versions are available, they are acceptable as fallback. Yes, you can use the global GHCN-M collections as long as they contain the station data, but I prefer direct access to station-specific APIs or files whenever possible.
+
+Now I can proceed with searching for datasets based on this information.Thank you for the clarification! Now I understand you need station-level data from the global GHCN-M collections for trend analysis in the NYC metropolitan area. Let me search for more GHCN-M datasets and look for any NYC-specific weather station data that might be available.
+
+Action: search_by_data_category
+Action Input: NOAA weather station New York temperature Using vector search on 'DataCategory' nodes for: 'NOAA weather station New York temperature'
+Batches: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1/1 [00:00<00:00, 125.00it/s] 
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Found 10 data categories for 'NOAA weather station New York temperature':
+1. unnamed
+   ID: datacategory_47364 | Score: 1.102
+2. unnamed
+   ID: datacategory_46180 | Score: 1.102
+3. unnamed
+   ID: datacategory_47171 | Score: 1.096
+4. unnamed
+   ID: datacategory_47091 | Score: 1.089
+5. unnamed
+   ID: datacategory_41520 | Score: 1.085
+6. unnamed
+   ID: datacategory_47176 | Score: 1.077
+7. unnamed
+   ID: datacategory_15808 | Score: 1.071
+8. unnamed
+   ID: datacategory_41582 | Score: 1.064
+9. unnamed
+   ID: datacategory_42731 | Score: 1.046
+10. unnamed
+   ID: datacategory_24067 | Score: 1.038
+Let me inspect these data categories to find NYC-specific weather station datasets.
+
+Action: inspect_graph_node
+Action Input: datacategory_47364Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: datacategory_47364
+==================================================
+
+ Node Type: DataCategory
+ Node ID: datacategory_47364
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['DataCategory']
+  • ~properties: {'summary': 'Temperature conductivity wind speeddirection and other data were collected using meteorological sensors and a thermosalinograph from NOAA Ship RONALD H BR
+OWN in the North Atlantic Ocean and Caribbean Sea from February 12 2004 to April 13 2004 Data were collected and submitted by the Office of NOAA Corps Operations as part of the NOAA Shipboard Sensor Data Acquisition NSSDAC project'}
+
+ RELATIONSHIPS (1 total):
+
+  1. --hasDataCategory--> Dataset (ID: dataset_gov_noaa_nodc_0001445_47364)
+     ~entityType: node
+     ~labels: ['Dataset']
+     ~properties: {'processing_level_id': 'Not provided', 'dataset_id': 'Underway physical and meteorological data collected by NOAA Ship RONALD H BROWN in the North Atlantic and Carib
+bean Sea from 20040212 to 20040413 NCEI Accession 0001445', 'online_access_flag': 'True', 'version_id': 'Not Applicable', 'data_center': 'NOAA_NCEI', 'data_set_language': 'enUS', 'titl
+e': 'Underway physical and meteorological data collected by NOAA Ship RONALD H BROWN in the North Atlantic and Caribbean Sea from 20040212 to 20040413 NCEI Accession 0001445', 'browse_
+flag': 'True', 'short_name': 'govnoaanodc0001445', 'granule_count': '0', 'science_keywords': 'Category EARTH SCIENCE Topic ATMOSPHERE Term ATMOSPHERIC PRESSURE Category EARTH SCIENCE T
+opic ATMOSPHERE Term ATMOSPHERIC TEMPERATURE Category EARTH SCIENCE Topic ATMOSPHERE Term ATMOSPHERIC WATER VAPOR VariableLevel1 WATER VAPOR INDICATORS VariableLevel2 HUMIDITY Variable
+Level3 RELATIVE HUMIDITY Category EARTH SCIENCE Topic ATMOSPHERE Term ATMOSPHERIC WINDS VariableLevel1 SURFACE WINDS VariableLevel2 WIND DIRECTION Category EARTH SCIENCE Topic ATMOSPHERE Term ATMOSPHERIC WINDS VariableLevel1 S', 'entry_id': 'govnoaanodc0001445_Not Applicable', 'archive_center': 'NOAA National Centers for Environmental Information'}
+This is ship-based data, not NYC weather station data. Let me check the next data category.
+
+Action: inspect_graph_node
+Action Input: datacategory_46180Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: datacategory_46180
+==================================================
+
+ Node Type: DataCategory
+ Node ID: datacategory_46180
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['DataCategory']
+  • ~properties: {'summary': 'The US Annual Climate Normals for 1981 to 2010 are 30year averages of meteorological parameters for thousands of US stations located across the 50 states 
+as well as US territories commonwealths the Compact of Free Association nations and one station in Canada NOAA Climate Normals are a large suite of data products that provide users with many tools to understand typical climate conditions for thousands of locations across the United States As many NWS stations as possible are used including thos'}
+
+ RELATIONSHIPS (1 total):
+
+  1. --hasDataCategory--> Dataset (ID: dataset_doi_10_7289_V5PN93JP_46180)
+     ~entityType: node
+     ~labels: ['Dataset']
+     ~properties: {'processing_level_id': 'Not provided', 'dataset_id': 'US Supplemental Climate Normals 19812010', 'online_access_flag': 'False', 'version_id': 'Not Applicable', 'data
+_center': 'NOAA_NCEI', 'doi': 'doi107289V5PN93JP', 'data_set_language': 'eng USA', 'title': 'US Supplemental Climate Normals 19812010', 'browse_flag': 'True', 'short_name': 'doi107289V
+5PN93JP', 'granule_count': '0', 'science_keywords': 'Category Earth Science Topic Atmosphere Term Atmospheric Temperature VariableLevel1 Surface Temperature VariableLevel2 MaximumMinim
+um Temperature Category Earth Science Topic Atmosphere Term Atmospheric Temperature VariableLevel1 Surface Temperature Category Earth Science Topic Atmosphere Term Atmospheric Temperat
+ure VariableLevel1 Temperature Anomalies Category Earth Science Topic Atmosphere Term Precipitation VariableLevel1 Precipitation Amount Category Earth Science Topic Atmosphere Term Prec', 'entry_id': 'doi107289V5PN93JP_Not Applicable'}
+This looks promising! This is US Climate Normals data for thousands of US stations, which would likely include the NYC area stations. Let me inspect this dataset to see its details.
+
+Action: inspect_graph_node
+Action Input: dataset_doi_10_7289_V5PN93JP_46180Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: dataset_doi_10_7289_V5PN93JP_46180
+==================================================
+
+ Node Type: Dataset
+ Node ID: dataset_doi_10_7289_V5PN93JP_46180
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['Dataset']
+  • ~properties: {'processing_level_id': 'Not provided', 'dataset_id': 'US Supplemental Climate Normals 19812010', 'online_access_flag': 'False', 'version_id': 'Not Applicable', 'data_
+center': 'NOAA_NCEI', 'doi': 'doi107289V5PN93JP', 'data_set_language': 'eng USA', 'title': 'US Supplemental Climate Normals 19812010', 'browse_flag': 'True', 'short_name': 'doi107289V5
+PN93JP', 'granule_count': '0', 'science_keywords': 'Category Earth Science Topic Atmosphere Term Atmospheric Temperature VariableLevel1 Surface Temperature VariableLevel2 MaximumMinimu
+m Temperature Category Earth Science Topic Atmosphere Term Atmospheric Temperature VariableLevel1 Surface Temperature Category Earth Science Topic Atmosphere Term Atmospheric Temperatu
+re VariableLevel1 Temperature Anomalies Category Earth Science Topic Atmosphere Term Precipitation VariableLevel1 Precipitation Amount Category Earth Science Topic Atmosphere Term Prec', 'entry_id': 'doi107289V5PN93JP_Not Applicable'}
+
+ RELATIONSHIPS (14 total):
+
+  1. --hasConsortium--> consortium (ID: consortium_1)
+     ~entityType: node
+     ~labels: ['consortium']
+     ~properties: {'name': 'CEOS'}
+
+  2. --hasContact--> Contact (ID: contact_person_C2103582655-NOAA_NCEI_3)
+     ~entityType: node
+     ~labels: ['Contact']
+     ~properties: {'name': 'Haltia E', 'roles': 'Technical Contact', 'contact_type': 'person', 'contact_id': 'contact_person_C2103582655NOAA_NCEI_3'}
+
+  3. --hasDataCategory--> DataCategory (ID: datacategory_46180)
+     ~entityType: node
+     ~labels: ['DataCategory']
+     ~properties: {'summary': 'The US Annual Climate Normals for 1981 to 2010 are 30year averages of meteorological parameters for thousands of US stations located across the 50 states
+ as well as US territories commonwealths the Compact of Free Association nations and one station in Canada NOAA Climate Normals are a large suite of data products that provide users with many tools to understand typical climate conditions for thousands of locations across the United States As many NWS stations as possible are used including thos'}
+
+  4. --hasDataFormat--> DataFormat (ID: dataformat_ISO19115)
+     ~entityType: node
+     ~labels: ['DataFormat']
+     ~properties: {'data_format': 'ISO19115', 'original_format': 'ISO19115', 'format_source': 'inferred'}
+
+  5. --hasLink--> Link (ID: link_dataset_doi_10_7289_V5PN93JP_46180_1)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://data.nodc.noaa.gov/cgi-bin/iso?id=gov.noaa.ncdc:C00820', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  6. --hasLink--> Link (ID: link_dataset_doi_10_7289_V5PN93JP_46180_0)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://www1.ncdc.noaa.gov/pub/data/metadata/images/1981-2010_ClimateNormals.jpg', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/browse#'}
+
+  7. --hasLink--> Link (ID: link_dataset_doi_10_7289_V5PN93JP_46180_2)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://www1.ncdc.noaa.gov/pub/data/normals/1981-2010/supplemental/documentation/afi-manuscript.pdf', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  8. --hasLocation--> Location (ID: location_46180)
+     ~entityType: node
+     ~labels: ['Location']
+     ~properties: {'boxes': '15 172 72 65', 'place_names': 'France North Korea Croatia Malta Czechia Guernsey Syria Taiwan Jordan Algeria Iraq Greenland Dhekelia India Slovakia Nepal A
+fghanistan Belarus Baikonur Mongolia Sweden Libya Mauritania Palestine Cabo Verde Chad Lithuania Slovenia Belgium Albania Hong Kong Kyrgyzstan Ukraine Bhutan China Montenegro Monaco Ku
+wait Eritrea Egypt Greece Tajikistan Jersey W Sahara Ireland Norway St Pierre and Miquelon Senegal Philippines Niger Bosnia and Herz Sint Maarten Japan Switzerland Montserrat Denmark Portugal '}
+
+  9. --hasOrganization--> organization (ID: organization_22)
+     ~entityType: node
+     ~labels: ['organization']
+     ~properties: {'name': 'DOCNOAANESDISNCEI'}
+
+  10. --hasPlatform--> platform (ID: platform_0)
+     ~entityType: node
+     ~labels: ['platform']
+     ~properties: {'name': 'Unknown'}
+
+  11. --hasStation--> Station (ID: station_533)
+     ~entityType: node
+     ~labels: ['Station']
+     ~properties: {'data_center': 'NOAA_NCEI', 'platforms': 'METEOROLOGICAL STATIONS Not provided'}
+
+  12. --hasTemporalExtent--> TemporalExtent (ID: temporalextent_46180)
+     ~entityType: node
+     ~labels: ['TemporalExtent']
+     ~properties: {'updated': '20150817T000000000Z', 'start_time': '19810101T000000000Z', 'end_time': '20101231T000000000Z'}
+
+  13. --hasVariable--> Variable (ID: var_C1214312630_AU_AADC_HEAVY_METALS_CONCENTRATION)
+     ~entityType: node
+     ~labels: ['Variable']
+     ~properties: {'description': 'EARTH SCIENCE HUMAN DIMENSIONS ENVIRONMENTAL IMPACTS HEAVY METALS CONCENTRATION', 'dataset_id': 'C1214312630AU_AADC', 'long_name': 'HUMAN DIMENSIONS 
+ENVIRONMENTAL IMPACTS HEAVY METALS CONCENTRATION', 'variable_id': 'var_C1214312630_AU_AADC_HEAVY_METALS_CONCENTRATION', 'name': 'HEAVY METALS CONCENTRATION', 'standard_name': 'HEAVY METALS CONCENTRATION', 'units': 'unknown', 'source': 'science_keywords', 'variable_type': 'nasa_cmr'}
+
+  14. --usesCoordinateSystem--> CoordinateSystem (ID: coordinatesystem_CARTESIAN)
+     ~entityType: node
+     ~labels: ['CoordinateSystem']
+     ~properties: {'name': 'CARTESIAN', 'units': 'Unknown', 'datum': 'Unknown', 'projection_type': 'Unknown'}
+This is US Climate Normals data for 1981-2010, which is useful but only covers a 30-year period and is normals data rather than the long-term station data needed for trend analysis. Let me store this dataset and continue searching for more comprehensive long-term datasets.
+
+Action: store_dataset_relationships
+Action Input: dataset_doi_10_7289_V5PN93JP_46180Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ STORED DATASET RELATIONSHIPS: dataset_doi_10_7289_V5PN93JP_46180
+============================================================
+ Dataset: US Supplemental Climate Normals 19812010 (doi107289V5PN93JP)
+ ID: dataset_doi_10_7289_V5PN93JP_46180
+💽 Database: climate_knowledge_graph.db
+ Links Found: 3 data access links stored
+   1. Unknown type: https://data.nodc.noaa.gov/cgi-bin/iso?id=gov.noaa.ncdc:C008...
+   2. Unknown type: https://www1.ncdc.noaa.gov/pub/data/metadata/images/1981-201...
+   3. Unknown type: https://www1.ncdc.noaa.gov/pub/data/normals/1981-2010/supple...
+
+ STORED RELATIONSHIPS (14 total):
+  • hasConsortium: 1 items
+    1. CEOS (ID: consortium_1)
+
+  • hasContact: 1 items
+    1. Haltia E (ID: contact_person_C2103582655-NOAA_NCEI_3)
+
+  • hasDataCategory: 1 items
+    1. unnamed (ID: datacategory_46180)
+
+  • hasDataFormat: 1 items
+    1. ISO19115 (ID: dataformat_ISO19115) | Format: ISO19115
+
+  • hasLink: 3 items
+    1. unnamed (ID: link_dataset_doi_10_7289_V5PN93JP_46180_1)
+    2. unnamed (ID: link_dataset_doi_10_7289_V5PN93JP_46180_0)
+    3. unnamed (ID: link_dataset_doi_10_7289_V5PN93JP_46180_2)
+
+  • hasLocation: 1 items
+    1. unnamed (ID: location_46180)
+
+  • hasOrganization: 1 items
+    1. DOCNOAANESDISNCEI (ID: organization_22)
+
+  • hasPlatform: 1 items
+    1. Unknown (ID: platform_0)
+
+  • hasStation: 1 items
+    1. unnamed (ID: station_533)
+
+  • hasTemporalExtent: 1 items
+    1. unnamed (ID: temporalextent_46180)
+
+  • hasVariable: 1 items
+    1. HEAVY METALS CONCENTRATION (ID: var_C1214312630_AU_AADC_HEAVY_METALS_CONCENTRATION) | Units: unknown | Desc: EARTH SCIENCE HUMAN DIMENSIONS ENVIRONMENTAL IMPAC...
+
+  • usesCoordinateSystem: 1 items
+    1. CARTESIAN (ID: coordinatesystem_CARTESIAN) | Units: Unknown
+
+ STORAGE COMPLETE (CREATED):
+  • Dataset properties: 13 fields stored
+  • Data access links: 3 links stored
+  • Relationship types: 12 types stored
+  • Total connected nodes: 14 nodes stored
+  • SQLite database: climate_knowledge_graph.db
+  • Storage timestamp: 2025-09-22T23:42:33.396848
+Let me search for more comprehensive long-term NOAA weather station datasets and look for any additional GHCN-M versions.
+
+Action: search_by_data_category
+Action Input: NOAA NCEI weather station long-term temperature records Using vector search on 'DataCategory' nodes for: 'NOAA NCEI weather station long-term temperature records'
+Batches: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1/1 [00:00<00:00, 90.86it/s] 
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Found 10 data categories for 'NOAA NCEI weather station long-term temperature records':
+1. unnamed
+   ID: datacategory_47515 | Score: 0.807
+2. unnamed
+   ID: datacategory_5317 | Score: 0.802
+3. unnamed
+   ID: datacategory_8211 | Score: 0.798
+4. unnamed
+   ID: datacategory_43029 | Score: 0.797
+5. unnamed
+   ID: datacategory_24067 | Score: 0.775
+6. unnamed
+   ID: datacategory_6728 | Score: 0.769
+7. unnamed
+   ID: datacategory_24068 | Score: 0.763
+8. unnamed
+   ID: datacategory_32561 | Score: 0.760
+9. unnamed
+   ID: datacategory_32562 | Score: 0.729
+10. unnamed
+   ID: datacategory_17037 | Score: 0.714
+Let me inspect some of these data categories to find more comprehensive long-term weather station datasets.
+
+Action: inspect_graph_node
+Action Input: datacategory_47515Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: datacategory_47515
+==================================================
+
+ Node Type: DataCategory
+ Node ID: datacategory_47515
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['DataCategory']
+  • ~properties: {'summary': 'This dataset has been superseded by a newer version This version of the data should not be used except in rare cases eg when reproducing studies that used
+ this earlier version The US Historical Climatology Network Monthly Data Version 2 consists of precipitation and temperature data corrected for changes in station location instrumentation and observing practices The vast majority of stations are from the NOAA Cooperative Observer Program COOP Network Stations have been selected according to cov'}
+
+ RELATIONSHIPS (1 total):
+
+  1. --hasDataCategory--> Dataset (ID: dataset_NCEI_DSI_6900_03_47515)
+     ~entityType: node
+     ~labels: ['Dataset']
+     ~properties: {'processing_level_id': 'Not provided', 'dataset_id': 'United States Historical Climatology Network USHCN Version 2 Superseded Version', 'online_access_flag': 'True',
+ 'version_id': 'Version 2', 'data_center': 'NOAA_NCEI', 'data_set_language': 'eng USA', 'title': 'United States Historical Climatology Network USHCN Version 2 Superseded Version', 'bro
+wse_flag': 'False', 'short_name': 'NCEI DSI 6900_03', 'granule_count': '0', 'science_keywords': 'Category Earth Science Topic Atmosphere Term Atmospheric Temperature VariableLevel1 Sur
+face Temperature VariableLevel2 MaximumMinimum Temperature Category Earth Science Topic Atmosphere Term Atmospheric Temperature VariableLevel1 Surface Temperature VariableLevel2 Air Temperature Category Earth Science Topic Atmosphere Term Precipitation VariableLevel1 Precipitation Amount', 'entry_id': 'NCEI DSI 6900_03_Version 2'}
+This is the US Historical Climatology Network (USHCN) Version 2, which is superseded but still relevant. This would contain long-term US weather station data. Let me inspect this dataset to see its details.
+
+Action: inspect_graph_node
+Action Input: dataset_NCEI_DSI_6900_03_47515Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: dataset_NCEI_DSI_6900_03_47515
+==================================================
+
+ Node Type: Dataset
+ Node ID: dataset_NCEI_DSI_6900_03_47515
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['Dataset']
+  • ~properties: {'processing_level_id': 'Not provided', 'dataset_id': 'United States Historical Climatology Network USHCN Version 2 Superseded Version', 'online_access_flag': 'True', 
+'version_id': 'Version 2', 'data_center': 'NOAA_NCEI', 'data_set_language': 'eng USA', 'title': 'United States Historical Climatology Network USHCN Version 2 Superseded Version', 'brow
+se_flag': 'False', 'short_name': 'NCEI DSI 6900_03', 'granule_count': '0', 'science_keywords': 'Category Earth Science Topic Atmosphere Term Atmospheric Temperature VariableLevel1 Surf
+ace Temperature VariableLevel2 MaximumMinimum Temperature Category Earth Science Topic Atmosphere Term Atmospheric Temperature VariableLevel1 Surface Temperature VariableLevel2 Air Temperature Category Earth Science Topic Atmosphere Term Precipitation VariableLevel1 Precipitation Amount', 'entry_id': 'NCEI DSI 6900_03_Version 2'}
+
+ RELATIONSHIPS (17 total):
+
+  1. --hasCESMVariable--> CESMVariable (ID: cesm_var_HUMIDEX_R)
+     ~entityType: node
+     ~labels: ['CESMVariable']
+     ~properties: {'domain': 'atmosphere', 'description': 'Rural 2 m Humidex', 'cesm_name': 'HUMIDEX_R', 'long_name': 'Rural 2 m Humidex', 'variable_id': 'cesm_var_HUMIDEX_R', 'name': 'HUMIDEX_R', 'standard_name': 'specific_humidity', 'units': 'C', 'component': 'std', 'variable_type': 'cesm'}
+
+  2. --hasConsortium--> consortium (ID: consortium_1)
+     ~entityType: node
+     ~labels: ['consortium']
+     ~properties: {'name': 'CEOS'}
+
+  3. --hasContact--> Contact (ID: contact_person_C2103578625-NOAA_NCEI_2)
+     ~entityType: node
+     ~labels: ['Contact']
+     ~properties: {'name': 'Moore MM', 'roles': 'Technical Contact', 'contact_type': 'person', 'contact_id': 'contact_person_C2103578625NOAA_NCEI_2'}
+
+  4. --hasDataCategory--> DataCategory (ID: datacategory_47515)
+     ~entityType: node
+     ~labels: ['DataCategory']
+     ~properties: {'summary': 'This dataset has been superseded by a newer version This version of the data should not be used except in rare cases eg when reproducing studies that use
+d this earlier version The US Historical Climatology Network Monthly Data Version 2 consists of precipitation and temperature data corrected for changes in station location instrumentation and observing practices The vast majority of stations are from the NOAA Cooperative Observer Program COOP Network Stations have been selected according to cov'}
+
+  5. --hasDataFormat--> DataFormat (ID: dataformat_ISO19115)
+     ~entityType: node
+     ~labels: ['DataFormat']
+     ~properties: {'data_format': 'ISO19115', 'original_format': 'ISO19115', 'format_source': 'inferred'}
+
+  6. --hasLink--> Link (ID: link_dataset_NCEI_DSI_6900_03_47515_0)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'length': '00KB', 'hreflang': 'enUS', 'url': 'https://data.nodc.noaa.gov/cgi-bin/iso?id=gov.noaa.ncdc:C00688', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/data#'}
+
+  7. --hasLink--> Link (ID: link_dataset_NCEI_DSI_6900_03_47515_1)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'length': '40KB', 'hreflang': 'enUS', 'url': 'https://www.ncei.noaa.gov/data/us-historical-climatology-network/2.0/', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/data#'}
+
+  8. --hasLink--> Link (ID: link_dataset_NCEI_DSI_6900_03_47515_2)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://doi.org/10.1175/2008BAMS2613.1', 'link_type': 'DOI', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  9. --hasLink--> Link (ID: link_dataset_NCEI_DSI_6900_03_47515_4)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://data.nodc.noaa.gov/cgi-bin/iso?id=gov.noaa.ncdc:C00421', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  10. --hasLink--> Link (ID: link_dataset_NCEI_DSI_6900_03_47515_3)
+     ~entityType: node
+     ~labels: ['Link']
+     ~properties: {'hreflang': 'enUS', 'url': 'https://data.nodc.noaa.gov/cgi-bin/iso?id=gov.noaa.ncdc:C00895', 'link_type': 'HTTP', 'link_rel': 'http://esipfed.org/ns/fedsearch/1.1/documentation#'}
+
+  11. --hasLocation--> Location (ID: location_12756)
+     ~entityType: node
+     ~labels: ['Location']
+     ~properties: {'boxes': '18 172 72 66', 'place_names': 'France North Korea Croatia Malta Czechia Guernsey Syria Taiwan Jordan Algeria Iraq Greenland Dhekelia India Slovakia Nepal A
+fghanistan Belarus Baikonur Mongolia Sweden Libya Mauritania Palestine Chad Lithuania Slovenia Belgium Albania Hong Kong Kyrgyzstan Ukraine Bhutan China Montenegro Monaco Kuwait Eritre
+a Egypt Greece Tajikistan Jersey W Sahara Ireland Norway St Pierre and Miquelon Philippines Niger Bosnia and Herz Sint Maarten Japan Switzerland Denmark Portugal StMartin Moldova Italy Azerbai'}
+
+  12. --hasOrganization--> organization (ID: organization_22)
+     ~entityType: node
+     ~labels: ['organization']
+     ~properties: {'name': 'DOCNOAANESDISNCEI'}
+
+  13. --hasPlatform--> platform (ID: platform_0)
+     ~entityType: node
+     ~labels: ['platform']
+     ~properties: {'name': 'Unknown'}
+
+  14. --hasStation--> Station (ID: station_9)
+     ~entityType: node
+     ~labels: ['Station']
+     ~properties: {'data_center': 'NOAA_NCEI'}
+
+  15. --hasTemporalExtent--> TemporalExtent (ID: temporalextent_47515)
+     ~entityType: node
+     ~labels: ['TemporalExtent']
+     ~properties: {'start_time': '18910101T000000000Z', 'end_time': '20130110T000000000Z'}
+
+  16. --hasVariable--> Variable (ID: var_C2244301298_AMD_KOPRI_MARINE_ECOSYSTEMS)
+     ~entityType: node
+     ~labels: ['Variable']
+     ~properties: {'description': 'EARTH SCIENCE BIOSPHERE ECOSYSTEMS MARINE ECOSYSTEMS', 'dataset_id': 'C2244301298AMD_KOPRI', 'long_name': 'BIOSPHERE ECOSYSTEMS MARINE ECOSYSTEMS', '
+variable_id': 'var_C2244301298_AMD_KOPRI_MARINE_ECOSYSTEMS', 'name': 'MARINE ECOSYSTEMS', 'standard_name': 'MARINE ECOSYSTEMS', 'units': 'unknown', 'source': 'science_keywords', 'variable_type': 'nasa_cmr'}
+
+  17. --usesCoordinateSystem--> CoordinateSystem (ID: coordinatesystem_CARTESIAN)
+     ~entityType: node
+     ~labels: ['CoordinateSystem']
+     ~properties: {'name': 'CARTESIAN', 'units': 'Unknown', 'datum': 'Unknown', 'projection_type': 'Unknown'}
+This is the US Historical Climatology Network (USHCN) Version 2, which contains long-term US weather station data from 1891-2013. This is very relevant for your NYC area trend analysis! Let me store this dataset and continue searching for the current version and any additional relevant datasets.
+
+Action: store_dataset_relationships
+Action Input: dataset_NCEI_DSI_6900_03_47515Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ STORED DATASET RELATIONSHIPS: dataset_NCEI_DSI_6900_03_47515
+============================================================
+ Dataset: United States Historical Climatology Network USHCN Version 2 Superseded Version (NCEI DSI 6900_03)
+ ID: dataset_NCEI_DSI_6900_03_47515
+💽 Database: climate_knowledge_graph.db
+ Links Found: 5 data access links stored
+   1. Unknown type: https://data.nodc.noaa.gov/cgi-bin/iso?id=gov.noaa.ncdc:C006...
+   2. Unknown type: https://www.ncei.noaa.gov/data/us-historical-climatology-net...
+   3. Unknown type: https://doi.org/10.1175/2008BAMS2613.1
+   ... and 2 more links stored
+
+ STORED RELATIONSHIPS (17 total):
+  • hasCESMVariable: 1 items
+    1. HUMIDEX_R (ID: cesm_var_HUMIDEX_R) | Units: C | Desc: Rural 2 m Humidex
+
+  • hasConsortium: 1 items
+    1. CEOS (ID: consortium_1)
+
+  • hasContact: 1 items
+    1. Moore MM (ID: contact_person_C2103578625-NOAA_NCEI_2)
+
+  • hasDataCategory: 1 items
+    1. unnamed (ID: datacategory_47515)
+
+  • hasDataFormat: 1 items
+    1. ISO19115 (ID: dataformat_ISO19115) | Format: ISO19115
+
+  • hasLink: 5 items
+    1. unnamed (ID: link_dataset_NCEI_DSI_6900_03_47515_0)
+    2. unnamed (ID: link_dataset_NCEI_DSI_6900_03_47515_1)
+    3. unnamed (ID: link_dataset_NCEI_DSI_6900_03_47515_2)
+    ... and 2 more stored
+
+  • hasLocation: 1 items
+    1. unnamed (ID: location_12756)
+
+  • hasOrganization: 1 items
+    1. DOCNOAANESDISNCEI (ID: organization_22)
+
+  • hasPlatform: 1 items
+    1. Unknown (ID: platform_0)
+
+  • hasStation: 1 items
+    1. unnamed (ID: station_9)
+
+  • hasTemporalExtent: 1 items
+    1. unnamed (ID: temporalextent_47515)
+
+  • hasVariable: 1 items
+    1. MARINE ECOSYSTEMS (ID: var_C2244301298_AMD_KOPRI_MARINE_ECOSYSTEMS) | Units: unknown | Desc: EARTH SCIENCE BIOSPHERE ECOSYSTEMS MARINE ECOSYSTE...
+
+  • usesCoordinateSystem: 1 items
+    1. CARTESIAN (ID: coordinatesystem_CARTESIAN) | Units: Unknown
+
+ STORAGE COMPLETE (CREATED):
+  • Dataset properties: 12 fields stored
+  • Data access links: 5 links stored
+  • Relationship types: 13 types stored
+  • Total connected nodes: 17 nodes stored
+  • SQLite database: climate_knowledge_graph.db
+  • Storage timestamp: 2025-09-22T23:42:47.331422
+Let me search for the current version of USHCN and any additional relevant datasets for NYC area weather stations.
+
+Action: search_by_data_category
+Action Input: USHCN current version temperature station data Using vector search on 'DataCategory' nodes for: 'USHCN current version temperature station data'
+Batches: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1/1 [00:00<00:00, 90.88it/s] 
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Found 10 data categories for 'USHCN current version temperature station data':
+1. unnamed
+   ID: datacategory_44481 | Score: 0.851
+2. unnamed
+   ID: datacategory_11813 | Score: 0.849
+3. unnamed
+   ID: datacategory_39816 | Score: 0.849
+4. unnamed
+   ID: datacategory_6728 | Score: 0.846
+5. unnamed
+   ID: datacategory_39190 | Score: 0.809
+6. unnamed
+   ID: datacategory_24079 | Score: 0.803
+7. unnamed
+   ID: datacategory_15124 | Score: 0.764
+8. unnamed
+   ID: datacategory_15125 | Score: 0.747
+9. unnamed
+   ID: datacategory_15127 | Score: 0.746
+10. unnamed
+   ID: datacategory_47514 | Score: 0.680
+Let me inspect the top data categories to find the current version of USHCN.
+
+Action: inspect_graph_node
+Action Input: datacategory_44481Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+Executing Neptune Analytics Query on g-kn6xkxo6r5...
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ NODE INSPECTION: datacategory_44481
+==================================================
+
+ Node Type: DataCategory
+ Node ID: datacategory_44481
+
+ NODE PROPERTIES:
+  • ~entityType: node
+  • ~labels: ['DataCategory']
+  • ~properties: {'summary': 'These folders contain csv files of terrestrial meteorological data time series using a standard met station setup on a 2m instrument stand There are four 
+sites on the Western Transect as shown below These stations were deployed in April 2012 Instrumentation is identical at each site with measurements collected hourly on the hour Time is reported using Alaska Daylight time Site Name Code Latitude Longitude Barrow BRW_Met 7122198 156783 Atqasuk ATQ_Met 7046677 156939 Reindeer Camp RDC_Met 6999841 '}
+
+ RELATIONSHIPS (1 total):
+
+  1. --hasDataCategory--> Dataset (ID: dataset_terrestrial_meteorology___hourly_time_series_calon_44481)
+     ~entityType: node
+     ~labels: ['Dataset']
+     ~properties: {'processing_level_id': 'Not provided', 'dataset_id': 'Terrestrial meteorology hourly time series CALON', 'online_access_flag': 'True', 'version_id': 'Not provided', 
+'data_center': 'SCIOPS', 'data_set_language': 'enUS', 'title': 'Terrestrial meteorology hourly time series CALON', 'browse_flag': 'False', 'short_name': 'terrestrial_meteorology__hourl
+y_time_series_calon', 'granule_count': '0', 'science_keywords': 'Category EARTH SCIENCE Topic ATMOSPHERE Term ATMOSPHERIC TEMPERATURE VariableLevel1 SURFACE TEMPERATURE VariableLevel2 AIR TEMPERATURE', 'entry_id': 'terrestrial_meteorology__hourly_time_series_calon', 'archive_center': 'ACADIS'}
+TEST FAILED: An error occurred (ThrottlingException) when calling the InvokeModel operation (reached max retries: 4): Too many tokens, please wait before trying again.

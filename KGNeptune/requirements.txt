@@ -1,0 +1,5 @@
+# KGNeptune folder dependencies
+boto3
+pandas
+numpy
+sentence-transformers

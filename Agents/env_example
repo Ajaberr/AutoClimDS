@@ -1,0 +1,13 @@
+# Earthdata
+EARTHDATA_USERNAME=your_username
+EARTHDATA_PASSWORD=your_new_password
+
+# NOAA
+NOAA_CDO_TOKEN=your_new_noaa_token
+NOAA_CDO_EMAIL=your_associated_email
+
+# AWS / Bedrock / Neptune / Graph
+BEDROCK_REGION=us-east-2
+BEDROCK_MODEL_ID=us.anthropic.claude-sonnet-4-20250514-v1:0
+NEPTUNE_REGION=us-east-2
+GRAPH_ID=g-xxxxxxx
