@@ -4372,7 +4372,7 @@ def create_nasa_cmr_agent():
         verbose=True,
         handle_parsing_errors=True,
         max_iterations=75,  # Increased for data loading workflow
-        max_execution_time=240  # 4 minutes timeout
+        max_execution_time=1200 #20 minutes timeout
     )
 
     return agent_executor
