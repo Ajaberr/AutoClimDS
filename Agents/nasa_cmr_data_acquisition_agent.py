@@ -66,7 +66,7 @@ from langchain.prompts import PromptTemplate
 from langchain.llms.base import LLM
 from langchain.callbacks.manager import CallbackManagerForLLMRun
 from langchain_core.callbacks import CallbackManagerForToolRun
-
+from langchain.callbacks.base import BaseCallbackHandler
 # AWS imports for Neptune connection
 from botocore.auth import SigV4Auth
 from botocore.awsrequest import AWSRequest
@@ -1010,26 +1010,26 @@ class NOAACDOApiConnector:
         """Dynamically resolve location names to NOAA location codes using live API lookup"""
         if not location_input:
             return None
-            
+
         # If already a location code (contains colon), return as-is
         if ':' in location_input and any(prefix in location_input.upper() for prefix in ['CITY:', 'ST:', 'FIPS:', 'ZIP:']):
             return location_input
-        
+
         # Otherwise, search for the location dynamically via NOAA API
         try:
             # Try different location types in priority order
             location_types = ['CITY', 'ST', 'ZIP', 'FIPS']
-            
+
             for loc_type in location_types:
                 locations = self.search_locations(location_input, loc_type)
                 if locations:
                     best_match = locations[0]  # Return best match
                     logger.info(f"Auto-resolved '{location_input}' to {best_match['id']} ({best_match['name']})")
                     return best_match['id']
-            
+
             logger.warning(f"No location code found for '{location_input}'")
             return None
-            
+
         except Exception as e:
             logger.error(f"Auto-resolution failed for '{location_input}': {e}")
             return None
@@ -3142,106 +3142,106 @@ class ExecutePythonCodeTool(BaseTool):
             import matplotlib
             matplotlib.use('Agg')  # Use non-GUI backend
             import matplotlib.pyplot as plt
-            
+
             output = f"🐍 EXECUTING PYTHON CODE\n"
             output += "=" * 40 + "\n\n"
-            
+
             # Capture stdout
             old_stdout = sys.stdout
             sys.stdout = captured_output = StringIO()
-            
+
             # Create a safe execution environment with common libraries
             exec_globals = {
                 '__builtins__': __builtins__,
                 'pd': None,
-                'np': None, 
+                'np': None,
                 'plt': plt,
                 'sns': None,
                 'xr': None,
                 'os': os,
                 'Path': None
             }
-            
+
             # Import common libraries safely
             try:
                 import pandas as pd
                 exec_globals['pd'] = pd
             except ImportError:
                 pass
-                
+
             try:
                 import numpy as np
                 exec_globals['np'] = np
             except ImportError:
                 pass
-                
+
             try:
                 import seaborn as sns
                 exec_globals['sns'] = sns
             except ImportError:
                 pass
-                
+
             try:
                 import xarray as xr
                 exec_globals['xr'] = xr
             except ImportError:
                 pass
-                
+
             try:
                 from pathlib import Path
                 exec_globals['Path'] = Path
             except ImportError:
                 pass
-            
+
             # Execute the code
             exec(python_code, exec_globals)
-            
+
             # Restore stdout and get captured output
             sys.stdout = old_stdout
             code_output = captured_output.getvalue()
-            
+
             # Show code that was executed
             output += f"📝 Code executed:\n"
             output += f"```python\n{python_code}\n```\n\n"
-            
+
             # Show output from code execution
             if code_output.strip():
                 output += f"📊 Output:\n"
                 output += f"```\n{code_output}\n```\n\n"
             else:
                 output += f"✅ Code executed successfully (no output)\n\n"
-                
+
             # Check for saved files (plots, etc.)
             current_files = os.listdir('.')
             plot_files = [f for f in current_files if f.endswith(('.png', '.jpg', '.svg', '.pdf'))]
             data_files = [f for f in current_files if f.endswith(('.csv', '.nc', '.h5', '.hdf5', '.json'))]
-            
+
             if plot_files:
                 output += f"📈 Generated plots:\n"
                 for plot_file in plot_files:
                     output += f"   • {plot_file}\n"
                 output += "\n"
-                
+
             if data_files:
                 output += f"💾 Available data files:\n"
                 for data_file in data_files:
                     output += f"   • {data_file}\n"
                 output += "\n"
-            
+
             output += f"✅ Python code execution completed successfully!\n"
             output += f"💡 Files are saved in the current directory for analysis.\n"
-            
+
             return output
-            
+
         except Exception as e:
             # Restore stdout
             sys.stdout = old_stdout
-            
+
             error_output = f"❌ Python execution error:\n"
             error_output += f"```\n{str(e)}\n```\n\n"
             error_output += f"🔍 Full traceback:\n"
             error_output += f"```\n{traceback.format_exc()}\n```\n"
-            
+
             return error_output
 
 class DownloadAndSaveDataTool(BaseTool):
@@ -3256,23 +3256,23 @@ class DownloadAndSaveDataTool(BaseTool):
             import requests
             from datetime import datetime
             import os
-            
+
             output = f"⬇️ DOWNLOAD AND SAVE DATA\n"
             output += "=" * 40 + "\n\n"
-            
+
             # Parse parameters
             params = {}
             for param in download_params.split():
                 if ':' in param:
                     key, value = param.split(':', 1)
                     params[key] = value
-            
+
             source_type = params.get('source_type', 'NOAA').upper()
             filename = params.get('filename', 'climate_data.csv')
-            
+
             output += f"📡 Source: {source_type}\n"
             output += f"💾 Target file: {filename}\n\n"
-            
+
             if source_type == 'NOAA':
                 # Download NOAA data directly to file
                 dataset = params.get('dataset', 'GHCND')
@@ -3280,7 +3280,7 @@ class DownloadAndSaveDataTool(BaseTool):
                 if not location:
                     output += f"❌ No location provided.\n"
                     return output
-                
+
                 # Auto-resolve location code
                 resolved_location = s3_connector.noaa_api.auto_resolve_location_code(location)
                 if resolved_location:
@@ -3293,17 +3293,17 @@ class DownloadAndSaveDataTool(BaseTool):
                 startdate = params.get('startdate', '2023-01-01')
                 enddate = params.get('enddate', '2023-12-31')
                 datatype = params.get('datatype', 'PRCP')
-                
+
                 output += f"🌡️ NOAA Parameters:\n"
                 output += f"   Dataset: {dataset}\n"
                 output += f"   Location: {location}\n"
                 output += f"   Date range: {startdate} to {enddate}\n"
                 output += f"   Data type: {datatype}\n\n"
-                
+
                 # Make NOAA API request
                 url = "https://www.ncei.noaa.gov/cdo-web/api/v2/data"
                 headers = {"token": NOAA_CDO_TOKEN} if NOAA_CDO_TOKEN else {}
-                
+
                 api_params = {
                     'datasetid': dataset,
                     'locationid': location,
@@ -3312,35 +3312,35 @@ class DownloadAndSaveDataTool(BaseTool):
                     'datatypeid': datatype,
                     'limit': 1000
                 }
-                
+
                 response = requests.get(url, headers=headers, params=api_params)
-                
+
                 if response.status_code == 200:
                     data = response.json()
                     records = data.get('results', [])
-                    
+
                     if records:
                         # Save directly to CSV
                         df = pd.DataFrame(records)
                         df.to_csv(filename, index=False)
-                        
+
                         output += f"✅ Successfully downloaded and saved {len(records)} records\n"
                         output += f"📁 File saved: {filename}\n"
                         output += f"📊 Columns: {', '.join(df.columns)}\n"
                         output += f"📏 Shape: {df.shape}\n\n"
-                        
+
                         # Show sample
                         output += f"📋 Sample data:\n"
                         output += str(df.head(3)) + "\n\n"
-                        
+
                     else:
                         output += f"❌ No data returned from NOAA API\n"
                         output += f"📋 API Response: {data}\n"
-                        
+
                 else:
                     output += f"❌ NOAA API request failed: {response.status_code}\n"
                     output += f"📋 Response: {response.text[:200]}\n"
-                    
+
             elif source_type == 'S3':
                 url = params.get('url', '')
                 if url:
@@ -3357,7 +3357,7 @@ class DownloadAndSaveDataTool(BaseTool):
                             elif filename.endswith('.nc'):
                                 if hasattr(data, 'to_netcdf'):
                                     data.to_netcdf(filename)
-                            
+
                             output += f"✅ Downloaded and saved S3 data to {filename}\n"
                         else:
                             output += f"❌ Failed to download S3 data: {data.get('error', 'Unknown error')}\n"
@@ -3365,14 +3365,14 @@ class DownloadAndSaveDataTool(BaseTool):
                         output += f"❌ S3 download error: {str(e)}\n"
                 else:
                     output += f"❌ No S3 URL provided\n"
-                    
+
             elif source_type == 'EARTHDATA':
                 url = params.get('url', '')
                 if url:
                     # Use Earthdata connector to download and save
                     try:
                         data = s3_connector.load_data_from_url_or_s3(url, sample_only=False)
-                        
+
                         # Handle stream response from Earthdata
                         if isinstance(data, dict) and "stream_response" in data:
                             # It's a stream - download the actual file
@@ -3382,7 +3382,7 @@ class DownloadAndSaveDataTool(BaseTool):
                                     if chunk:
                                         f.write(chunk)
                             output += f"✅ Downloaded Earthdata stream to {filename}\n"
-                            
+
                         elif data and not (isinstance(data, dict) and 'error' in data):
                             # Regular data - save based on file extension
                             if filename.endswith('.csv'):
@@ -3397,7 +3397,7 @@ class DownloadAndSaveDataTool(BaseTool):
                                 import json
                                 with open(filename, 'w') as f:
                                     json.dump(data, f, indent=2)
-                            
+
                             output += f"✅ Downloaded and saved Earthdata to {filename}\n"
                         else:
                             output += f"❌ Failed to download Earthdata: {data.get('error', 'Unknown error') if isinstance(data, dict) else 'No data returned'}\n"
@@ -3405,11 +3405,11 @@ class DownloadAndSaveDataTool(BaseTool):
                         output += f"❌ Earthdata download error: {str(e)}\n"
                 else:
                     output += f"❌ No Earthdata URL provided\n"
-            
+
             else:
                 output += f"❌ Unsupported source type: {source_type}\n"
                 output += f"💡 Supported: NOAA, S3, Earthdata\n"
-            
+
             # Check if file was actually created
             if os.path.exists(filename):
                 file_size = os.path.getsize(filename)
@@ -3417,9 +3417,9 @@ class DownloadAndSaveDataTool(BaseTool):
                 output += f"✅ Data successfully downloaded and saved!\n"
             else:
                 output += f"❌ File was not created: {filename}\n"
-                
+
             return output
-            
+
         except Exception as e:
             return f"❌ Download and save error: {str(e)}"
 
@@ -3433,17 +3433,17 @@ class SaveDownloadedDataTool(BaseTool):
             import json
             import pandas as pd
             from datetime import datetime
-            
+
             output = f"💾 SAVING DOWNLOADED DATA\n"
             output += "=" * 40 + "\n\n"
-            
+
             # Check if we have NOAA data in memory (from download_noaa_data tool)
             if hasattr(s3_connector.noaa_api, 'last_downloaded_data') and s3_connector.noaa_api.last_downloaded_data:
                 data = s3_connector.noaa_api.last_downloaded_data
-                
+
                 output += f"📊 Data Found: {len(data)} records\n"
                 output += f"📁 Saving as: {filename}.{format_type}\n\n"
-                
+
                 if format_type.lower() == "csv":
                     # Convert to DataFrame and save as CSV
                     df = pd.DataFrame(data)
@@ -3452,7 +3452,7 @@ class SaveDownloadedDataTool(BaseTool):
                     output += f"✅ Saved to: {csv_filename}\n"
                     output += f"📋 Columns: {', '.join(df.columns)}\n"
                     output += f"📏 Shape: {df.shape}\n"
-                    
+
                 elif format_type.lower() == "json":
                     # Save as JSON
                     json_filename = f"{filename}.json"
@@ -3460,7 +3460,7 @@ class SaveDownloadedDataTool(BaseTool):
                         json.dump(data, f, indent=2)
                     output += f"✅ Saved to: {json_filename}\n"
                     output += f"📊 Records: {len(data)}\n"
-                    
+
                 elif format_type.lower() == "netcdf":
                     # Save as NetCDF (if xarray data)
                     try:
@@ -3483,12 +3483,12 @@ class SaveDownloadedDataTool(BaseTool):
                         csv_filename = f"{filename}.csv"
                         df.to_csv(csv_filename, index=False)
                         output += f"✅ Saved to: {csv_filename}\n"
-                        
+
                 else:
                     output += f"❌ Unsupported format: {format_type}\n"
                     output += f"💡 Supported formats: csv, json, netcdf\n"
                     return output
-                    
+
                 # Show sample of saved data
                 if isinstance(data, list) and len(data) > 0:
                     sample = data[0]
@@ -3496,16 +3496,16 @@ class SaveDownloadedDataTool(BaseTool):
                     if isinstance(sample, dict):
                         for key, value in list(sample.items())[:5]:
                             output += f"   {key}: {value}\n"
-                    
+
                 output += f"\n🎯 Data saved successfully! File is ready for analysis.\n"
                 output += f"💡 You can now open {filename}.{format_type} in Excel, Python, or other tools.\n"
-                
+
             else:
                 output += f"❌ No downloaded data found in memory.\n"
                 output += f"💡 Use 'download_noaa_data' first to download data, then save it.\n"
-                
+
             return output
-            
+
         except Exception as e:
             return f"❌ Error saving data: {str(e)}"
 
@@ -4091,6 +4091,36 @@ class AddS3PathToDatasetTool(BaseTool):
         return metadata
 
 # --- Create NASA CMR Data Acquisition Agent ---
+def emit_event(evt_type: str, **payload):
+    print(f'[EVT]{json.dumps({"type": evt_type, "payload": payload}, ensure_ascii=False)}', flush=True)
+class JsonlEventCallback(BaseCallbackHandler):
+    def on_llm_new_token(self, token: str, **kwargs):
+        # Streaming token (front-end frame rendering, low latency)
+        emit_event("token", text=token)
+
+    def on_agent_action(self, action, **kwargs):
+        # ReAct: Action / Action Input
+        # action.tool, action.tool_input
+        emit_event("tool_start", name=str(action.tool))
+        # Only used as log, do not rewrite the text
+        emit_event("tool_log", text=f"Action Input: {action.tool_input}")
+
+    def on_tool_start(self, serialized, input_str, **kwargs):
+        # LangChain Tool callback (some versions will go here first)
+        name = (serialized or {}).get("name") or "tool"
+        emit_event("tool_start", name=name)
+        if input_str:
+            emit_event("tool_log", text=f"Action Input: {input_str}")
+
+    def on_tool_end(self, output, **kwargs):
+        # Observation
+        if output:
+            emit_event("tool_log", text=str(output))
+
+    def on_agent_finish(self, finish, **kwargs):
+        # ReAct: Final Answer
+        final_text = getattr(finish, "return_values", {}).get("output") or str(finish)
+        emit_event("final", text=final_text)
 
 def create_nasa_cmr_agent():
     """Create the NASA CMR Data Acquisition LangChain agent"""
@@ -4229,8 +4259,7 @@ def create_nasa_cmr_agent():
             print("Please let me know your preferences, and I'll help you process and analyze the climate data effectively!")
 
             user_response = input("\n>>> Your response: ")
-
-            return f"User provided the following clarification: {user_response}\n\nNow I can proceed with processing and analyzing the climate data based on this information."
+            return f"User provided the following clarification: {user_response}\n\nNow I can proceed ..."
 
     # Define all available tools (prioritized order - Database First!)
     tools = [
@@ -4363,7 +4392,7 @@ def create_nasa_cmr_agent():
         k=5,  # Keep last 5 exchanges
         return_messages=True
     )
-
+    handler = JsonlEventCallback()
     # Create agent executor
     agent_executor = AgentExecutor(
         agent=agent,
@@ -4372,7 +4401,8 @@ def create_nasa_cmr_agent():
         verbose=True,
         handle_parsing_errors=True,
         max_iterations=75,  # Increased for data loading workflow
-        max_execution_time=1200 #20 minutes timeout
+        max_execution_time=1200, #20 minutes timeout
+        callbacks = [handler],
     )
 
     return agent_executor
@@ -4444,6 +4474,3 @@ if __name__ == "__main__":
         print("   - Neptune Analytics is not accessible")
         print("   - S3 access is not available")
         print("   - Required Python packages are not installed")
-
-
-                    
