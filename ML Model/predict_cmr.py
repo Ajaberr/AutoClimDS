@@ -169,31 +169,59 @@ def extract_meaningful_tokens(text):
     return filtered_tokens[:20]  # Limit to top 20 tokens
 
 def extract_dataset_summary(cmr_entry):
-    """Extract comprehensive text summary from CMR dataset entry"""
+    """Extract comprehensive text summary from CMR dataset entry
+
+    Handles both NASA CMR and NOAA OneStop formats:
+    - NASA: uses 'summary', 'abstract' fields
+    - NOAA: uses 'description', 'keywords' fields
+    """
     summary_parts = []
-    
+
     # Dataset information
     dataset = cmr_entry.get('Dataset', {})
     if dataset.get('title'):
         summary_parts.append(dataset['title'])
+
+    # NASA CMR format
     if dataset.get('summary'):
         summary_parts.append(dataset['summary'])
     if dataset.get('abstract'):
         summary_parts.append(dataset['abstract'])
-    
-    # DataCategory summary - This is where most content is stored!
+
+    # NOAA OneStop format
+    if dataset.get('description'):
+        summary_parts.append(dataset['description'])
+
+    # NOAA keywords (list of strings)
+    if dataset.get('keywords'):
+        keywords = dataset['keywords']
+        if isinstance(keywords, list):
+            # Join keywords as comma-separated text
+            keywords_text = ', '.join(str(k) for k in keywords if k)
+            if keywords_text:
+                summary_parts.append(keywords_text)
+
+    # DataCategory information
     data_category = cmr_entry.get('DataCategory', {})
+
+    # NASA CMR format: DataCategory has 'summary'
     if data_category.get('summary'):
         summary_parts.append(data_category['summary'])
-    
-    # Variables information
+
+    # NOAA OneStop format: DataCategory has 'name' and 'description'
+    if data_category.get('name'):
+        summary_parts.append(data_category['name'])
+    if data_category.get('description'):
+        summary_parts.append(data_category['description'])
+
+    # Variables information (same structure for both NASA and NOAA)
     variables = cmr_entry.get('Variable', [])
     for var in variables:
         for field in ['name', 'long_name', 'description', 'standard_name']:
             if var.get(field):
                 summary_parts.append(var[field])
-    
-    # Additional metadata
+
+    # Additional metadata (same structure for both NASA and NOAA)
     if cmr_entry.get('Platform'):
         platforms = cmr_entry['Platform']
         if isinstance(platforms, list):
@@ -202,7 +230,7 @@ def extract_dataset_summary(cmr_entry):
                     summary_parts.append(f"Platform: {platform['short_name']}")
         elif platforms.get('short_name'):
             summary_parts.append(f"Platform: {platforms['short_name']}")
-    
+
     if cmr_entry.get('Instrument'):
         instruments = cmr_entry['Instrument']
         if isinstance(instruments, list):
@@ -211,7 +239,7 @@ def extract_dataset_summary(cmr_entry):
                     summary_parts.append(f"Instrument: {instrument['short_name']}")
         elif instruments.get('short_name'):
             summary_parts.append(f"Instrument: {instruments['short_name']}")
-    
+
     # Join all parts
     full_summary = ' '.join(summary_parts)
     return full_summary.strip()
@@ -276,29 +304,131 @@ def deduplicate_datasets(cmr_data):
     
     return deduplicated_data
 
+def load_and_combine_datasets():
+    """Load and combine NASA CMR and NOAA datasets"""
+    all_datasets = []
+
+    # Load NASA CMR data
+    print("📖 Loading NASA CMR data...")
+    try:
+        nasa_data_path = os.path.join(os.path.dirname(script_dir), 'NasaCMRData/json_files/individual_cmr_data.json')
+        print(f"   Loading NASA JSON file from {nasa_data_path}...")
+        with open(nasa_data_path, 'r', encoding='utf-8') as f:
+            nasa_raw_data = json.load(f)
+        print(f"✓ Loaded {len(nasa_raw_data)} NASA CMR datasets")
+
+        # NASA format is already a list of records
+        all_datasets.extend(nasa_raw_data)
+
+    except FileNotFoundError:
+        print(f"⚠️  Could not find NASA data at {nasa_data_path}")
+
+    # Load NOAA data
+    print("📖 Loading NOAA OneStop data...")
+    try:
+        noaa_data_path = os.path.join(os.path.dirname(script_dir), 'NasaCMRData/noaa_json/noaa_nasa_enhanced_multi_query.json')
+        print(f"   Loading NOAA JSON file from {noaa_data_path}...")
+        with open(noaa_data_path, 'r', encoding='utf-8') as f:
+            noaa_raw_data = json.load(f)
+
+        # NOAA format: {Dataset: [...], RelatedUrl: [...], Variable: [...], ...}
+        # Need to reconstruct into list of records like NASA format
+        if isinstance(noaa_raw_data, dict):
+            datasets = noaa_raw_data.get('Dataset', [])
+            related_urls = noaa_raw_data.get('RelatedUrl', [])
+            variables = noaa_raw_data.get('Variable', [])
+            data_categories = noaa_raw_data.get('DataCategory', [])
+            platforms = noaa_raw_data.get('Platform', [])
+            instruments = noaa_raw_data.get('Instrument', [])
+
+            print(f"✓ Loaded {len(datasets)} NOAA datasets")
+            print(f"   - {len(related_urls)} RelatedUrls")
+            print(f"   - {len(variables)} Variables")
+            print(f"   - {len(data_categories)} DataCategories")
+
+            # Build lookup dictionaries for efficient matching
+            dataset_to_urls = {}
+            dataset_to_vars = {}
+            dataset_to_datacats = {}
+            dataset_to_platforms = {}
+            dataset_to_instruments = {}
+
+            for url in related_urls:
+                dataset_id = url.get('dataset_id', url.get('entry_id'))
+                if dataset_id:
+                    if dataset_id not in dataset_to_urls:
+                        dataset_to_urls[dataset_id] = []
+                    dataset_to_urls[dataset_id].append(url)
+
+            for var in variables:
+                dataset_id = var.get('dataset_id', var.get('entry_id'))
+                if dataset_id:
+                    if dataset_id not in dataset_to_vars:
+                        dataset_to_vars[dataset_id] = []
+                    dataset_to_vars[dataset_id].append(var)
+
+            for dc in data_categories:
+                dataset_id = dc.get('dataset_id', dc.get('entry_id'))
+                if dataset_id:
+                    if dataset_id not in dataset_to_datacats:
+                        dataset_to_datacats[dataset_id] = []
+                    dataset_to_datacats[dataset_id].append(dc)
+
+            for platform in platforms:
+                dataset_id = platform.get('dataset_id', platform.get('entry_id'))
+                if dataset_id:
+                    if dataset_id not in dataset_to_platforms:
+                        dataset_to_platforms[dataset_id] = []
+                    dataset_to_platforms[dataset_id].append(platform)
+
+            for instrument in instruments:
+                dataset_id = instrument.get('dataset_id', instrument.get('entry_id'))
+                if dataset_id:
+                    if dataset_id not in dataset_to_instruments:
+                        dataset_to_instruments[dataset_id] = []
+                    dataset_to_instruments[dataset_id].append(instrument)
+
+            # Reconstruct NOAA datasets into NASA-like format
+            for dataset in datasets:
+                dataset_id = dataset.get('dataset_id', dataset.get('entry_id'))
+
+                # Create record with Dataset and associated entities
+                record = {
+                    'Dataset': dataset,
+                    'RelatedUrl': dataset_to_urls.get(dataset_id, []),
+                    'Variable': dataset_to_vars.get(dataset_id, []),
+                    'DataCategory': dataset_to_datacats.get(dataset_id, [{}])[0] if dataset_to_datacats.get(dataset_id) else {},
+                    'Platform': dataset_to_platforms.get(dataset_id, []),
+                    'Instrument': dataset_to_instruments.get(dataset_id, [])
+                }
+                all_datasets.append(record)
+
+    except FileNotFoundError:
+        print(f"⚠️  Could not find NOAA data at {noaa_data_path}")
+    except Exception as e:
+        print(f"⚠️  Error loading NOAA data: {e}")
+
+    print(f"✓ Combined total: {len(all_datasets)} datasets (NASA + NOAA)")
+    return all_datasets
+
 def predict_cmr_datasets(confidence_threshold=0.3):
     """Predict CESM variables for CMR datasets"""
     # Load model
     model, tokenizer, id2label = load_trained_model()
     if model is None:
         return
-    
-    # Load CMR data
-    print("è Loading NASA CMR data...")
-    try:
-        print("   Loading large JSON file (634MB)...")
-        cmr_data_path = os.path.join(os.path.dirname(script_dir), 'NasaCMRData/json_files/individual_cmr_data.json')
-        with open(cmr_data_path, 'r', encoding='utf-8') as f:
-            raw_cmr_data = json.load(f)
-        print(f" Loaded {len(raw_cmr_data)} CMR datasets")
-        
-        # Deduplicate datasets
-        cmr_data = deduplicate_datasets(raw_cmr_data)
-        
-    except FileNotFoundError:
-        print(f"¥î Could not find {cmr_data_path}")
+
+    # Load and combine both NASA and NOAA data
+    print("📚 Loading NASA CMR and NOAA OneStop data...")
+    raw_cmr_data = load_and_combine_datasets()
+
+    if not raw_cmr_data:
+        print("❌ No data loaded from either NASA or NOAA sources")
         return
-    
+
+    # Deduplicate datasets
+    cmr_data = deduplicate_datasets(raw_cmr_data)
+
     print(f" Using confidence threshold: {confidence_threshold}")
     print(f"ì Processing {len(cmr_data)} datasets...")
     
@@ -540,7 +670,7 @@ def analyze_cmr_predictions(results, confidence_threshold):
 
 def main():
     """Main function"""
-    print("¢░∩╕Å  NASA CMR Dataset åÆ CESM Variable Predictor")
+    print("🌍  NASA CMR + NOAA OneStop Dataset → CESM Variable Predictor")
     print("=" * 60)
     
     # Run predictions with 0.3 confidence threshold (better coverage with optimized tokens)
