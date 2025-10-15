@@ -169,11 +169,13 @@ def extract_meaningful_tokens(text):
     return filtered_tokens[:20]  # Limit to top 20 tokens
 
 def extract_dataset_summary(cmr_entry):
-    """Extract comprehensive text summary from CMR dataset entry
+    """Extract comprehensive text summary from dataset entry
 
-    Handles both NASA CMR and NOAA OneStop formats:
-    - NASA: uses 'summary', 'abstract' fields
-    - NOAA: uses 'description', 'keywords' fields
+    Handles multiple formats:
+    - NASA CMR: uses 'summary', 'abstract' fields
+    - NOAA OneStop: uses 'description', 'keywords' fields
+    - CMIP6: uses enriched variable and experiment descriptions
+    - ERA5: uses comprehensive reanalysis descriptions
     """
     summary_parts = []
 
@@ -240,6 +242,44 @@ def extract_dataset_summary(cmr_entry):
         elif instruments.get('short_name'):
             summary_parts.append(f"Instrument: {instruments['short_name']}")
 
+    # Handle CMIP6 simulation data
+    data_source = cmr_entry.get('data_source', '')
+    if data_source == 'CMIP6':
+        # CMIP6 datasets have enriched variable and experiment descriptions
+        if dataset.get('data_type') == 'CMIP6_SIMULATION':
+            # Add CMIP6-specific context for better CESM variable matching
+            summary_parts.append("Climate model simulation from CMIP6 (Coupled Model Intercomparison Project Phase 6)")
+            summary_parts.append("Earth system model output data for climate research and analysis")
+
+            # Variables already have enriched descriptions from controlled vocabularies
+            variables = cmr_entry.get('Variable', [])
+            for var in variables:
+                if var.get('variable_type') == 'CMIP6_VARIABLE':
+                    # These descriptions are already enriched with long_name, units, standard_name
+                    if var.get('description'):
+                        summary_parts.append(f"Variable data: {var['description']}")
+                    if var.get('realm'):
+                        summary_parts.append(f"Model realm: {var['realm']}")
+                    if var.get('cell_methods'):
+                        summary_parts.append(f"Cell methods: {var['cell_methods']}")
+
+    # Handle ERA5 reanalysis data
+    elif data_source == 'ERA5':
+        # ERA5 datasets have comprehensive reanalysis descriptions
+        if dataset.get('data_type') == 'ERA5_REANALYSIS':
+            # Add ERA5-specific context for better CESM variable matching
+            summary_parts.append("Atmospheric reanalysis data from ERA5 (ECMWF Reanalysis v5)")
+            summary_parts.append("Comprehensive atmospheric and surface variable data for climate analysis")
+
+            # Variables have detailed descriptions from ERA5 metadata
+            variables = cmr_entry.get('Variable', [])
+            for var in variables:
+                if var.get('variable_type') == 'ERA5_VARIABLE':
+                    if var.get('description'):
+                        summary_parts.append(f"Reanalysis variable: {var['description']}")
+                    if var.get('units'):
+                        summary_parts.append(f"Units: {var['units']}")
+
     # Join all parts
     full_summary = ' '.join(summary_parts)
     return full_summary.strip()
@@ -304,8 +344,188 @@ def deduplicate_datasets(cmr_data):
     
     return deduplicated_data
 
+def convert_cmip6_to_common_format(cmip6_record):
+    """Convert CMIP6 record to common dataset format for prediction"""
+    # Load controlled vocabularies for enriched descriptions
+    script_parent_dir = os.path.dirname(script_dir)
+    cmip6_vocabularies = {}
+
+    # Load variable descriptions
+    try:
+        variable_vocab_path = os.path.join(script_parent_dir, 'CMIP6Data/CMIP6Meta/CMIP6_variable_id.json')
+        with open(variable_vocab_path, 'r') as f:
+            cmip6_vocabularies['variable_id'] = json.load(f)
+    except:
+        cmip6_vocabularies['variable_id'] = {}
+
+    # Load experiment descriptions
+    try:
+        experiment_vocab_path = os.path.join(script_parent_dir, 'CMIP6Data/CMIP6Meta/CMIP6_experiment_id.json')
+        with open(experiment_vocab_path, 'r') as f:
+            cmip6_vocabularies['experiment_id'] = json.load(f)
+    except:
+        cmip6_vocabularies['experiment_id'] = {}
+
+    # Build enriched variable description
+    variable_id = cmip6_record.get('variable_id', '')
+    variable_info = cmip6_vocabularies['variable_id'].get(variable_id, {})
+
+    variable_description_parts = []
+    if variable_info.get('long_name'):
+        variable_description_parts.append(variable_info['long_name'])
+    if variable_info.get('units'):
+        variable_description_parts.append(f"Units: {variable_info['units']}")
+    if variable_info.get('standard_name'):
+        variable_description_parts.append(f"Standard name: {variable_info['standard_name']}")
+
+    variable_description = " | ".join(variable_description_parts) if variable_description_parts else variable_id
+
+    # Build enriched experiment description
+    experiment_id = cmip6_record.get('experiment_id', '')
+    experiment_info = cmip6_vocabularies['experiment_id'].get(experiment_id, {})
+    experiment_description = experiment_info.get('description', experiment_id)
+
+    # Create dataset record in common format
+    dataset = {
+        'title': f"CMIP6 {cmip6_record.get('source_id', '')} {experiment_id} {variable_id}",
+        'id': f"cmip6_{cmip6_record.get('instance_id', '')}",
+        'description': f"CMIP6 climate model simulation data from {cmip6_record.get('source_id', '')} model. Variable: {variable_description}. Experiment: {experiment_description}. Frequency: {cmip6_record.get('frequency', '')}. Grid: {cmip6_record.get('grid_label', '')}.",
+        'summary': f"Climate simulation data for {variable_description} from the {experiment_description} using {cmip6_record.get('source_id', '')} model at {cmip6_record.get('frequency', '')} frequency.",
+        'keywords': [
+            'CMIP6', 'climate simulation', 'model data',
+            cmip6_record.get('activity_id', ''),
+            cmip6_record.get('source_id', ''),
+            cmip6_record.get('experiment_id', ''),
+            cmip6_record.get('variable_id', ''),
+            cmip6_record.get('frequency', ''),
+            cmip6_record.get('realm', ''),
+            'earth system model',
+            variable_info.get('realm', ''),
+            variable_info.get('cell_methods', '')
+        ],
+        'data_type': 'CMIP6_SIMULATION'
+    }
+
+    # Create variable record
+    variable = {
+        'name': variable_id,
+        'long_name': variable_info.get('long_name', variable_id),
+        'description': variable_description,
+        'standard_name': variable_info.get('standard_name', ''),
+        'units': variable_info.get('units', ''),
+        'realm': variable_info.get('realm', ''),
+        'cell_methods': variable_info.get('cell_methods', ''),
+        'variable_type': 'CMIP6_VARIABLE'
+    }
+
+    # Create data category
+    data_category = {
+        'name': f"CMIP6 {cmip6_record.get('activity_id', '')}",
+        'description': f"CMIP6 {cmip6_record.get('activity_id', '')} activity data from {cmip6_record.get('institution_id', '')} institution"
+    }
+
+    return {
+        'Dataset': dataset,
+        'Variable': [variable],
+        'DataCategory': data_category,
+        'Platform': [{'short_name': cmip6_record.get('source_id', '')}],
+        'Instrument': [],
+        'RelatedUrl': [],
+        'data_source': 'CMIP6'
+    }
+
+def convert_era5_to_common_format(era5_data):
+    """Convert ERA5 record to common dataset format for prediction"""
+    dataset_id = era5_data.get('id', '')
+    title = era5_data.get('title', dataset_id)
+
+    # Extract comprehensive description from webpages data
+    description_parts = []
+
+    # Add basic info
+    description_parts.append(f"ERA5 reanalysis data: {title}")
+
+    # Extract from webpages content
+    webpages = era5_data.get('webpages', {})
+    sections = webpages.get('body', {}).get('main', {}).get('sections', [])
+
+    for section in sections:
+        if section.get('id') == 'overview':
+            blocks = section.get('blocks', [])
+            for block in blocks:
+                if block.get('id') == 'data_description':
+                    content = block.get('content', [])
+                    if content and isinstance(content, list):
+                        desc_data = content[0]
+                        for key, value in desc_data.items():
+                            if value and isinstance(value, str):
+                                description_parts.append(f"{key.replace('_', ' ').title()}: {value}")
+
+    # Extract variables
+    variables = []
+    for section in sections:
+        if section.get('id') == 'overview':
+            blocks = section.get('blocks', [])
+            for block in blocks:
+                if block.get('id') == 'main_variables-accordion':
+                    inner_blocks = block.get('blocks', [])
+                    for inner_block in inner_blocks:
+                        if inner_block.get('id') == 'main_variables':
+                            content = inner_block.get('content', [])
+
+                            # Handle table format
+                            if isinstance(content, list):
+                                for var in content:
+                                    if isinstance(var, dict) and var.get('name'):
+                                        variables.append({
+                                            'name': var.get('name', ''),
+                                            'long_name': var.get('description', ''),
+                                            'description': var.get('description', ''),
+                                            'units': var.get('units', ''),
+                                            'variable_type': 'ERA5_VARIABLE'
+                                        })
+
+                            # Handle labels format
+                            elif isinstance(content, dict):
+                                labels = content.get('labels', {})
+                                for var_key, var_name in labels.items():
+                                    if var_name:
+                                        variables.append({
+                                            'name': var_name,
+                                            'long_name': var_name,
+                                            'description': f"ERA5 {var_name} variable",
+                                            'units': '',
+                                            'variable_type': 'ERA5_VARIABLE'
+                                        })
+
+    # Create dataset record
+    dataset = {
+        'title': title,
+        'id': f"era5_{dataset_id}",
+        'description': " | ".join(description_parts),
+        'summary': f"ERA5 atmospheric reanalysis data providing comprehensive information about {', '.join([v['name'] for v in variables[:5]])}",
+        'keywords': era5_data.get('keywords', []) + ['ERA5', 'reanalysis', 'atmospheric data', 'ECMWF'],
+        'data_type': 'ERA5_REANALYSIS'
+    }
+
+    # Create data category
+    data_category = {
+        'name': 'ERA5 Reanalysis',
+        'description': 'European Centre for Medium-Range Weather Forecasts (ECMWF) fifth generation atmospheric reanalysis data'
+    }
+
+    return {
+        'Dataset': dataset,
+        'Variable': variables,
+        'DataCategory': data_category,
+        'Platform': [{'short_name': 'ERA5'}],
+        'Instrument': [],
+        'RelatedUrl': [],
+        'data_source': 'ERA5'
+    }
+
 def load_and_combine_datasets():
-    """Load and combine NASA CMR and NOAA datasets"""
+    """Load and combine NASA CMR, NOAA, CMIP6, and ERA5 datasets"""
     all_datasets = []
 
     # Load NASA CMR data
@@ -408,22 +628,89 @@ def load_and_combine_datasets():
     except Exception as e:
         print(f"⚠️  Error loading NOAA data: {e}")
 
-    print(f"✓ Combined total: {len(all_datasets)} datasets (NASA + NOAA)")
+    # Load CMIP6 data
+    print("🌡️ Loading CMIP6 simulation data...")
+    try:
+        cmip6_data_path = os.path.join(os.path.dirname(script_dir), 'CMIP6Data/CMIP6Meta/220514_CMIP6_metaData_restartedInd-24949000.json')
+        print(f"   Loading CMIP6 JSON file from {cmip6_data_path}...")
+
+        import ijson
+        cmip6_count = 0
+        max_cmip6_records = 5000  # Limit for performance
+
+        with open(cmip6_data_path, 'rb') as f:
+            parser = ijson.parse(f)
+            current_record = {}
+
+            for prefix, event, value in parser:
+                if prefix.endswith('.item'):
+                    if current_record:
+                        # Convert CMIP6 record to common format
+                        cmip6_record = convert_cmip6_to_common_format(current_record)
+                        all_datasets.append(cmip6_record)
+                        cmip6_count += 1
+
+                        if cmip6_count >= max_cmip6_records:
+                            break
+                    current_record = {}
+                elif '.' in prefix and not prefix.endswith('.item'):
+                    # Build the current record
+                    key = prefix.split('.')[-1]
+                    current_record[key] = value
+
+            # Don't forget the last record
+            if current_record and cmip6_count < max_cmip6_records:
+                cmip6_record = convert_cmip6_to_common_format(current_record)
+                all_datasets.append(cmip6_record)
+                cmip6_count += 1
+
+        print(f"✓ Loaded {cmip6_count} CMIP6 simulation datasets")
+
+    except FileNotFoundError:
+        print(f"⚠️  Could not find CMIP6 data at {cmip6_data_path}")
+    except Exception as e:
+        print(f"⚠️  Error loading CMIP6 data: {e}")
+
+    # Load ERA5 data
+    print("🌍 Loading ERA5 reanalysis data...")
+    try:
+        era5_dir = os.path.join(os.path.dirname(script_dir), 'ERA5Data/ERA5Meta')
+        era5_files = [f for f in os.listdir(era5_dir) if f.endswith('.json')]
+        era5_count = 0
+
+        for json_file in era5_files:
+            filepath = os.path.join(era5_dir, json_file)
+            with open(filepath, 'r', encoding='utf-8') as f:
+                era5_data = json.load(f)
+
+            # Convert ERA5 record to common format
+            era5_record = convert_era5_to_common_format(era5_data)
+            all_datasets.append(era5_record)
+            era5_count += 1
+
+        print(f"✓ Loaded {era5_count} ERA5 reanalysis datasets")
+
+    except FileNotFoundError:
+        print(f"⚠️  Could not find ERA5 data directory")
+    except Exception as e:
+        print(f"⚠️  Error loading ERA5 data: {e}")
+
+    print(f"✓ Combined total: {len(all_datasets)} datasets (NASA + NOAA + CMIP6 + ERA5)")
     return all_datasets
 
 def predict_cmr_datasets(confidence_threshold=0.3):
-    """Predict CESM variables for CMR datasets"""
+    """Predict CESM variables for NASA CMR, NOAA, CMIP6, and ERA5 datasets"""
     # Load model
     model, tokenizer, id2label = load_trained_model()
     if model is None:
         return
 
-    # Load and combine both NASA and NOAA data
-    print("📚 Loading NASA CMR and NOAA OneStop data...")
+    # Load and combine all dataset types
+    print("📚 Loading NASA CMR, NOAA OneStop, CMIP6, and ERA5 data...")
     raw_cmr_data = load_and_combine_datasets()
 
     if not raw_cmr_data:
-        print("❌ No data loaded from either NASA or NOAA sources")
+        print("❌ No data loaded from any sources (NASA, NOAA, CMIP6, ERA5)")
         return
 
     # Deduplicate datasets
@@ -440,6 +727,7 @@ def predict_cmr_datasets(confidence_threshold=0.3):
         # Extract dataset information
         dataset_title = cmr_entry.get('Dataset', {}).get('title', f'Dataset_{i+1}')
         dataset_id = cmr_entry.get('Dataset', {}).get('id', f'ID_{i+1}')
+        data_source = cmr_entry.get('data_source', '')  # Check if this is simulation data
         
         # Create comprehensive summary
         full_summary = extract_dataset_summary(cmr_entry)
@@ -449,30 +737,49 @@ def predict_cmr_datasets(confidence_threshold=0.3):
             continue
         
         try:
-            # Extract meaningful tokens from the dataset
-            meaningful_tokens = extract_meaningful_tokens(full_summary)
-            
-            if not meaningful_tokens:
-                print(f"[{i+1:4d}] Üá∩╕Å  No meaningful tokens after extraction: {dataset_title[:50]}...")
-                continue
-            
-            # Test each token and collect all predictions
+            # For simulation data (CMIP6/ERA5), use the full description directly
+            # For observational data (NASA/NOAA), use token-based approach
             all_predictions = []
-            
-            for token in meaningful_tokens:  # Test all extracted tokens
+
+            if data_source in ['CMIP6', 'ERA5']:
+                # Simulation data: use entire comprehensive description
                 try:
                     predicted_cesm, confidence = predict_cesm_variable(
-                        token, model, tokenizer, id2label
+                        full_summary, model, tokenizer, id2label
                     )
-                    
+
                     all_predictions.append({
                         'variable': predicted_cesm,
                         'confidence': confidence,
-                        'token': token
+                        'token': 'full_description'
                     })
-                        
+
                 except Exception as e:
+                    print(f"[{i+1:4d}] ¥î Error predicting for simulation data: {e}")
                     continue
+
+            else:
+                # Observational data: use token-based approach
+                meaningful_tokens = extract_meaningful_tokens(full_summary)
+
+                if not meaningful_tokens:
+                    print(f"[{i+1:4d}] Üá∩╕Å  No meaningful tokens after extraction: {dataset_title[:50]}...")
+                    continue
+
+                for token in meaningful_tokens:  # Test all extracted tokens
+                    try:
+                        predicted_cesm, confidence = predict_cesm_variable(
+                            token, model, tokenizer, id2label
+                        )
+
+                        all_predictions.append({
+                            'variable': predicted_cesm,
+                            'confidence': confidence,
+                            'token': token
+                        })
+
+                    except Exception as e:
+                        continue
             
             if not all_predictions:
                 continue
@@ -499,19 +806,29 @@ def predict_cmr_datasets(confidence_threshold=0.3):
                 predictions.sort(key=lambda x: x['confidence'], reverse=True)
                 
                 individual_best = predictions[0]['confidence']
-                
-                # If individual prediction already meets threshold, use it directly
-                if individual_best >= confidence_threshold:
+
+                # For simulation data (CMIP6/ERA5), always use the highest confidence prediction
+                # For observational data (NASA/NOAA), use confidence threshold
+                if data_source in ['CMIP6', 'ERA5']:
+                    # Simulation data: always take the most likely CESM variable
                     aggregated_confidence = individual_best
                     use_individual = True
+                    meets_threshold_requirement = True
                 else:
-                    # Otherwise, try group aggregation with top 2 confidences
-                    top_2_sum = sum(p['confidence'] for p in predictions[:2])
-                    aggregated_confidence = top_2_sum
-                    use_individual = False
-                
-                # Only consider groups that meet the confidence threshold
-                if aggregated_confidence >= confidence_threshold:
+                    # Observational data: use threshold-based selection
+                    if individual_best >= confidence_threshold:
+                        aggregated_confidence = individual_best
+                        use_individual = True
+                        meets_threshold_requirement = True
+                    else:
+                        # Otherwise, try group aggregation with top 2 confidences
+                        top_2_sum = sum(p['confidence'] for p in predictions[:2])
+                        aggregated_confidence = top_2_sum
+                        use_individual = False
+                        meets_threshold_requirement = aggregated_confidence >= confidence_threshold
+
+                # Only consider groups that meet the requirements
+                if meets_threshold_requirement:
                     # Get group info for display
                     group_members = []
                     if group_key.startswith("group_"):
@@ -532,7 +849,7 @@ def predict_cmr_datasets(confidence_threshold=0.3):
                         'tokens': [p['token'] for p in predictions[:2]]
                     })
             
-            # If no groups meet the threshold, skip this dataset
+            # If no groups meet the requirements, skip this dataset
             if not group_candidates:
                 continue
             
@@ -548,10 +865,15 @@ def predict_cmr_datasets(confidence_threshold=0.3):
                 
                 total_predictions += 1
                 quality, emoji = classify_prediction_quality(best_total_confidence)
-                
-                # Since we already filtered by threshold, all predictions meet the threshold
-                meets_threshold = True
-                reliable_predictions += 1
+
+                # For simulation data, always meets threshold. For observational data, check threshold
+                if data_source in ['CMIP6', 'ERA5']:
+                    meets_threshold = True  # Simulation data always accepted
+                else:
+                    meets_threshold = best_total_confidence >= confidence_threshold
+
+                if meets_threshold:
+                    reliable_predictions += 1
                 
                 result = {
                     'dataset_id': dataset_id,
@@ -561,11 +883,12 @@ def predict_cmr_datasets(confidence_threshold=0.3):
                     'aggregated_confidence': best_total_confidence,
                     'quality_rating': quality,
                     'meets_threshold': meets_threshold,
+                    'data_source': data_source,  # Track whether this is simulation or observational data
                     'best_matching_tokens': best_tokens[:2],
                     'group_type': best_group,
                     'group_members': best_group_members,
                     'used_individual_confidence': used_individual,
-                    'total_tokens_processed': len(meaningful_tokens),
+                    'total_tokens_processed': 1 if data_source in ['CMIP6', 'ERA5'] else len(meaningful_tokens) if 'meaningful_tokens' in locals() else 0,
                     'input_summary': full_summary[:500] + "..." if len(full_summary) > 500 else full_summary,
                     'full_summary_length': len(full_summary)
                 }
@@ -573,7 +896,8 @@ def predict_cmr_datasets(confidence_threshold=0.3):
             
             # Print progress
             if (i + 1) % 50 == 0 or (i + 1) <= 10:
-                print(f"[{i+1:4d}] è {dataset_title[:40]}... ({len(group_candidates)} predictions)")
+                source_tag = f"[{data_source}]" if data_source in ['CMIP6', 'ERA5'] else "[OBS]"
+                print(f"[{i+1:4d}] {source_tag} è {dataset_title[:40]}... ({len(group_candidates)} predictions)")
                 for j, candidate in enumerate(group_candidates):
                     quality, emoji = classify_prediction_quality(candidate['aggregated_confidence'])
                     confidence_type = "IND" if candidate.get('use_individual', False) else "AGG"
@@ -586,7 +910,8 @@ def predict_cmr_datasets(confidence_threshold=0.3):
                     else:
                         print(f"           Individual variable (no group)")
                 
-                print(f"       Processed {len(meaningful_tokens)} total tokens")
+                tokens_processed = 1 if data_source in ['CMIP6', 'ERA5'] else len(meaningful_tokens) if 'meaningful_tokens' in locals() else 0
+                print(f"       Processed {tokens_processed} total {'description' if data_source in ['CMIP6', 'ERA5'] else 'tokens'}")
         
         except Exception as e:
             print(f"[{i+1:4d}] ¥î Error processing dataset: {e}")
@@ -632,6 +957,23 @@ def analyze_cmr_predictions(results, confidence_threshold):
     
     print(f"Total datasets processed: {total}")
     print(f"Reliable predictions (ëÑ{confidence_threshold}): {reliable} ({reliable/total*100:.1f}%)")
+
+    # Show breakdown by data source
+    source_counts = {}
+    source_reliable = {}
+    for r in results:
+        source = r.get('data_source', 'Unknown')
+        source_counts[source] = source_counts.get(source, 0) + 1
+        if r['meets_threshold']:
+            source_reliable[source] = source_reliable.get(source, 0) + 1
+
+    print(f"\nBreakdown by data source:")
+    for source in ['CMIP6', 'ERA5', '', 'Unknown']:  # '' for NASA/NOAA observational data
+        if source in source_counts:
+            source_label = source if source else 'NASA/NOAA (Observational)'
+            reliable_count = source_reliable.get(source, 0)
+            total_count = source_counts[source]
+            print(f"  {source_label}: {reliable_count}/{total_count} ({reliable_count/total_count*100:.1f}% reliable)")
     
     # Confidence distribution (using aggregated confidence)
     confidence_ranges = {
@@ -670,10 +1012,15 @@ def analyze_cmr_predictions(results, confidence_threshold):
 
 def main():
     """Main function"""
-    print("🌍  NASA CMR + NOAA OneStop Dataset → CESM Variable Predictor")
-    print("=" * 60)
-    
-    # Run predictions with 0.3 confidence threshold (better coverage with optimized tokens)
+    print("🌍  NASA CMR + NOAA + CMIP6 + ERA5 Dataset → CESM Variable Predictor")
+    print("=" * 70)
+    print("📊  Prediction Strategy:")
+    print("   • CMIP6/ERA5 (Simulation): Use full description → highest confidence CESM variable")
+    print("   • NASA/NOAA (Observational): Use token extraction → 0.3 confidence threshold")
+    print()
+
+    # Run predictions with 0.3 confidence threshold for observational data
+    # Simulation data (CMIP6/ERA5) will always use the highest confidence prediction
     results = predict_cmr_datasets(confidence_threshold=0.3)
     
     if results:
