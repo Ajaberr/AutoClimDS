@@ -17,11 +17,18 @@ import logging
 import uuid
 import boto3
 import re
-import pandas as pd
 import sys
-import numpy as np
+import pandas as pd  # Re-enabled - pandas is working
+import numpy as np   # Re-enabled with pandas
 from collections import defaultdict
 from difflib import SequenceMatcher
+
+# Configure logging first
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 def clean_csv_text(text):
     """
@@ -51,13 +58,6 @@ except ImportError:
     SENTENCE_TRANSFORMERS_AVAILABLE = False
     logger.warning("sentence-transformers not available. Install with: pip install sentence-transformers")
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
 # Suppress transformers and sentence-transformers verbose logging
 logging.getLogger("transformers").setLevel(logging.WARNING)
 logging.getLogger("sentence_transformers").setLevel(logging.WARNING)
@@ -69,15 +69,37 @@ if not SENTENCE_TRANSFORMERS_AVAILABLE:
 
 class JSONToCSVConverter:
     """Class for converting JSON data to Neptune OpenCypher CSV format."""
-    
-    def __init__(self, generate_embeddings=False):
+
+    def __init__(self, generate_embeddings=False, reliable_domains_file=None):
         """Initialize the converter."""
         self.reset_state()
         self.generate_embeddings = generate_embeddings
         self.embedding_model = None
         self.embedding_batch_size = 100
         self.embedding_queue = []  # Store (node_id, text) tuples
-        
+
+        # Load reliable parent domains
+        self.reliable_domains = set()
+        if reliable_domains_file and os.path.exists(reliable_domains_file):
+            self._load_reliable_domains(reliable_domains_file)
+
+        # Climate data file extensions
+        self.climate_data_extensions = {'.nc', '.nc3', '.nc4', '.hdf', '.hdf5', '.h5',
+                                         '.grib', '.grib2', '.grb', '.grb2', '.csv',
+                                         '.zarr', '.netcdf'}
+
+        # CMIP6 controlled vocabulary lookups for enrichment
+        self.cmip6_vocabulary_lookups = {
+            'variable_id': {},
+            'frequency': {},
+            'institution_id': {},
+            'experiment_id': {},
+            'activity_id': {},
+            'source_id': {},
+            'realm': {},
+            'grid_label': {}
+        }
+
         # Initialize embedding model if requested
         if self.generate_embeddings and SENTENCE_TRANSFORMERS_AVAILABLE:
             self._load_embedding_model()
@@ -97,6 +119,7 @@ class JSONToCSVConverter:
             "Variable",          # NASA CMR variables
             "CESMVariable",      # CESM variables
             "Component",         # CESM components
+            "ClimateSimulation", # Climate simulation datasets (CMIP6, ERA5)
             "Contact",           # Contact information
             "Project",           # Project information
             "SpatialResolution", # Spatial resolution info
@@ -105,7 +128,26 @@ class JSONToCSVConverter:
             "ScienceKeyword",    # Science keywords
             "ProcessingLevel",   # Processing levels
             "Link",              # Data access links (S3, Earthdata, etc.)
-            
+
+            # Unified simulation data nodes (replaces CMIP6 and ERA5 specific nodes)
+            "SimDataset",        # Main simulation dataset entity (replaces ClimateSimulation)
+            "SimTemporalResolution", # Temporal frequency/resolution
+            "SimSpatialCoverage", # Geographic coverage
+            "SimHorizontalResolution", # Spatial grid resolution
+            "SimVariable",       # Physical variables (unified for ERA5 & CMIP6)
+            "SimFileFormat",     # Data file formats
+            "SimVerticalLevel",  # Vertical levels/domains
+            "SimProvider",       # Data providers/institutions (unified)
+            "SimDataType",       # Data type (Gridded, etc.)
+            "SimProjection",     # Map projections
+            "SimUpdateFrequency", # Update frequency
+
+            # CMIP6 specific nodes (experiment design)
+            "CMIP6Experiment",   # CMIP6 experiments
+            "CMIP6Activity",     # CMIP6 activity MIPs
+            "CMIP6Source",       # CMIP6 model sources
+            "CMIP6Realm",        # CMIP6 earth system realms
+
             # Climate ML workflow nodes
             "SurrogateModelingWorkflow",        # Physics-first: neural operators as surrogates
             "HybridMLPhysicsWorkflow",          # Physics-first: hybrid ML-physics simulations  
@@ -142,6 +184,7 @@ class JSONToCSVConverter:
             # Variable relationships
             "hasVariable": ("Dataset", "Variable"),           # Dataset -> NASA CMR Variable
             # "hasCESMVariable": ("Dataset", "CESMVariable"), # REMOVED: Created separately via ML predictions
+            "mapsToCESMVariable": ("SimDataset", "CESMVariable"), # SimDataset -> CESMVariable (simulation data ML mapping)
             "belongsToComponent": ("CESMVariable", "Component"),  # CESM Variable -> Component
             "similarCESMVariable": ("CESMVariable", "CESMVariable"), # CESMVariable -> CESMVariable (string similarity based grouping)
             
@@ -361,12 +404,15 @@ class JSONToCSVConverter:
         self.keyword_cache = {}
         self.processing_cache = {}
         self.relationship_id_counter = 0
-        
+
         # CESM variable to dataset mapping
         self.cesm_variable_mappings = {}
-        
+
         # Link node creation counter
         self.link_nodes_created = 0
+
+        # NOAA format: Store RelatedUrl array for lookup
+        self.related_urls_by_dataset = {}
 
 
 
@@ -422,16 +468,80 @@ class JSONToCSVConverter:
     def load_cesm_variables(self):
         """Load CESM variables from the raw CSV file."""
         try:
-            cesm_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "NasaCMRData", "cesm_variables_raw.csv")
+            # Fixed path - CESM variables are in cesm_variables subdirectory
+            cesm_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "NasaCMRData", "cesm_variables", "cesm_variables_raw.csv")
             if os.path.exists(cesm_file_path):
-                df = pd.read_csv(cesm_file_path)
-                return df.to_dict('records')
+                # Use standard CSV module instead of pandas
+                cesm_variables = []
+                with open(cesm_file_path, 'r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        cesm_variables.append(row)
+
+                logger.info(f"✓ Loaded {len(cesm_variables)} CESM variables from {cesm_file_path}")
+                return cesm_variables
             else:
                 logger.warning(f"CESM variables file not found at {cesm_file_path}")
                 return []
         except Exception as e:
             logger.error(f"Error loading CESM variables: {e}")
             return []
+
+    def _load_reliable_domains(self, filepath):
+        """Load reliable parent domains from CSV file."""
+        try:
+            df = pd.read_csv(filepath)
+            # Extract parent domains (assuming column name is 'Parent Domain')
+            if 'Parent Domain' in df.columns:
+                self.reliable_domains = set(df['Parent Domain'].str.strip())
+                logger.info(f"✓ Loaded {len(self.reliable_domains)} reliable parent domains")
+            else:
+                logger.warning(f"'Parent Domain' column not found in {filepath}")
+        except Exception as e:
+            logger.error(f"Error loading reliable domains from {filepath}: {e}")
+
+    def _extract_parent_domain(self, url):
+        """Extract parent domain (scheme + netloc) from URL."""
+        from urllib.parse import urlparse
+        try:
+            parsed = urlparse(url)
+            if parsed.scheme and parsed.netloc:
+                return f"{parsed.scheme}://{parsed.netloc}"
+        except Exception:
+            pass
+        return None
+
+    def _has_climate_data_extension(self, url):
+        """Check if URL has a climate data file extension."""
+        url_lower = url.lower()
+        return any(url_lower.endswith(ext) for ext in self.climate_data_extensions)
+
+    def _check_reliable_link(self, links):
+        """Check if any link in the list is reliable (matches known domain or has data file extension)."""
+        if not links or not isinstance(links, list):
+            return False
+
+        for link in links:
+            if isinstance(link, dict):
+                href = link.get('href', '')
+            elif isinstance(link, str):
+                href = link
+            else:
+                continue
+
+            if not href:
+                continue
+
+            # Check if has climate data file extension
+            if self._has_climate_data_extension(href):
+                return True
+
+            # Check if parent domain is in reliable domains list
+            parent_domain = self._extract_parent_domain(href)
+            if parent_domain and parent_domain in self.reliable_domains:
+                return True
+
+        return False
 
     def _load_embedding_model(self):
         """Load the sentence transformer model for embedding generation - same as machine_learning.py."""
@@ -496,7 +606,31 @@ class JSONToCSVConverter:
                 text_parts.append(f"Component: {component}")
             
             return " | ".join(text_parts) if text_parts else "CESM Variable"
-            
+
+        elif node_type == "SimVariable":
+            variable_name = item.get('variable_name', '')
+            description = item.get('description', '')
+            units = item.get('units', '')
+            standard_name = item.get('standard_name', '')
+            long_name = item.get('long_name', '')
+            source_type = item.get('source_type', '')
+
+            text_parts = []
+            if variable_name:
+                text_parts.append(f"Variable name: {variable_name}")
+            if description:
+                text_parts.append(f"Description: {description}")
+            if units:
+                text_parts.append(f"Units: {units}")
+            if standard_name:
+                text_parts.append(f"Standard name: {standard_name}")
+            if long_name:
+                text_parts.append(f"Long name: {long_name}")
+            if source_type:
+                text_parts.append(f"Source: {source_type}")
+
+            return " | ".join(text_parts) if text_parts else "Simulation Variable"
+
         elif node_type == "ScienceKeyword":
             category = item.get('category', '')
             topic = item.get('topic', '')
@@ -730,6 +864,35 @@ class JSONToCSVConverter:
                 logger.error(f"¥î Error reading {json_file}: {e}")
                 raise
 
+            # Pre-process RelatedUrl for NOAA format (separate array at top level)
+            if 'RelatedUrl' in data and isinstance(data['RelatedUrl'], list):
+                logger.info(f"Processing NOAA format: found {len(data['RelatedUrl'])} RelatedUrls")
+                for related_url in data['RelatedUrl']:
+                    dataset_id = related_url.get('dataset_id')
+                    if dataset_id:
+                        if dataset_id not in self.related_urls_by_dataset:
+                            self.related_urls_by_dataset[dataset_id] = []
+                        # Convert NOAA RelatedUrl format to NASA links format
+                        link = {
+                            'href': related_url.get('url', ''),
+                            'rel': related_url.get('type', ''),
+                            'description': related_url.get('description', ''),
+                            'length': related_url.get('length', ''),
+                            'hreflang': related_url.get('hreflang', '')
+                        }
+                        self.related_urls_by_dataset[dataset_id].append(link)
+                logger.info(f"✓ Indexed RelatedUrls for {len(self.related_urls_by_dataset)} datasets")
+
+            # Load and add CESM variables to data if not already present
+            if 'CESMVariable' not in data:
+                logger.info("🔬 Loading CESM variables from CSV file...")
+                cesm_variables = self.load_cesm_variables()
+                if cesm_variables:
+                    data['CESMVariable'] = cesm_variables
+                    logger.info(f"✓ Added {len(cesm_variables)} CESM variables to data")
+                else:
+                    logger.warning("⚠️  No CESM variables loaded - CESMVariable processing will be skipped")
+
             # Process each node type
             nodes_processed = 0
             for node_type in self.collections:
@@ -820,9 +983,23 @@ class JSONToCSVConverter:
             raise
 
     def process_dataset_with_links(self, dataset, index):
-        """Process a dataset and extract its links as separate Link nodes"""
-        # First, extract links and create Link nodes
+        """Process a dataset and extract its links as separate Link nodes
+
+        Handles both NASA CMR format (links embedded in dataset) and
+        NOAA OneStop format (RelatedUrl in separate top-level array)
+        """
+        # Get dataset ID for NOAA format lookup
+        noaa_dataset_id = dataset.get('dataset_id') or dataset.get('entry_id')
+
+        # First, extract links - check both NASA format and NOAA format
         links = dataset.get('links', [])
+
+        # NOAA format: Check if we have RelatedUrls for this dataset
+        if noaa_dataset_id and noaa_dataset_id in self.related_urls_by_dataset:
+            noaa_links = self.related_urls_by_dataset[noaa_dataset_id]
+            # Merge with any existing links
+            links = links + noaa_links if links else noaa_links
+
         dataset_id = self.create_node_id('Dataset', dataset, index)
         
         if links and isinstance(links, list):
@@ -889,9 +1066,23 @@ class JSONToCSVConverter:
         
         # Add type-specific properties
         if node_type == 'Dataset':
+            # Get dataset ID for NOAA format lookup
+            noaa_dataset_id = item.get('dataset_id') or item.get('entry_id')
+
+            # Check if dataset has reliable links
+            # Check both NASA embedded links and NOAA RelatedUrls
+            links = item.get('links', [])
+            if noaa_dataset_id and noaa_dataset_id in self.related_urls_by_dataset:
+                noaa_links = self.related_urls_by_dataset[noaa_dataset_id]
+                links = links + noaa_links if links else noaa_links
+
+            has_reliable_link = self._check_reliable_link(links)
+
             properties.update({
                 'short_name': item.get('short_name', ''),
                 'title': item.get('title', ''),
+                'description': item.get('description', ''),  # NOAA field
+                'keywords': str(item.get('keywords', [])),  # NOAA field
                 'links': str(item.get('links', [])),
                 'data_center': item.get('data_center', ''),
                 'dataset_id': item.get('dataset_id', ''),
@@ -900,6 +1091,7 @@ class JSONToCSVConverter:
                 'processing_level_id': item.get('processing_level_id', ''),
                 'online_access_flag': item.get('online_access_flag', False),
                 'browse_flag': item.get('browse_flag', False),
+                'has_reliable_link': has_reliable_link,
                 'science_keywords': str(item.get('science_keywords', [])),
                 'doi': item.get('doi', ''),
                 'doi_authority': item.get('doi_authority', ''),
@@ -909,7 +1101,9 @@ class JSONToCSVConverter:
                 'native_id': item.get('native_id', ''),
                 'granule_count': item.get('granule_count', 0),
                 'day_night_flag': item.get('day_night_flag', ''),
-                'cloud_cover': item.get('cloud_cover', '')
+                'cloud_cover': item.get('cloud_cover', ''),
+                'begin_date': item.get('begin_date', ''),  # NOAA field
+                'end_date': item.get('end_date', '')  # NOAA field
             })
         elif node_type == 'DataCategory':
             properties.update({
@@ -1056,10 +1250,10 @@ class JSONToCSVConverter:
             })
         
         # Queue embedding for specific vertex types
-        if self.generate_embeddings and node_type in ["DataCategory", "Variable", "CESMVariable", "ScienceKeyword", 
+        if self.generate_embeddings and node_type in ["DataCategory", "Variable", "CESMVariable", "SimVariable", "ScienceKeyword",
                                                       "Location", "SpatialResolution", "TemporalResolution",
                                                       "SurrogateModelingWorkflow", "HybridMLPhysicsWorkflow", "EquationDiscoveryWorkflow",
-                                                      "ParameterizationBenchmarkWorkflow", "UncertaintyQuantificationWorkflow", 
+                                                      "ParameterizationBenchmarkWorkflow", "UncertaintyQuantificationWorkflow",
                                                       "ParameterInferenceWorkflow", "SubseasonalForecastingWorkflow", "TransferLearningWorkflow"]:
             text_for_embedding = self._create_text_for_embedding(node_type, item)
             self._queue_embedding(node_id, text_for_embedding)
@@ -1468,18 +1662,50 @@ class JSONToCSVConverter:
                 if not meets_threshold or aggregated_confidence < 0.3:
                     continue
                 
-                # Extract dataset index from ML dataset ID (e.g., "ID_4" -> 3 as 0-based index)
+                # Handle different dataset ID formats for observational vs simulation data
                 try:
-                    dataset_index = int(ml_dataset_id.split('_')[1]) - 1  # Convert to 0-based index
-                    if dataset_index < 0 or dataset_index >= len(datasets):
-                        logger.warning(f"Dataset index {dataset_index} out of range for {ml_dataset_id}")
-                        failed_mappings += 1
-                        continue
-                    
-                    # Get the actual dataset and create its ID
-                    dataset = datasets[dataset_index]
-                    dataset_id = self.create_node_id('Dataset', dataset, dataset_index)
-                    
+                    if ml_dataset_id.startswith('cmip6_') or ml_dataset_id.startswith('era5_'):
+                        # Handle simulation datasets - look for existing SimDataset nodes
+                        simulation_dataset_id = None
+
+                        # Find the corresponding SimDataset node by matching the ML dataset ID
+                        for node_id, node in self.nodes.items():
+                            if (node.get('type') == 'SimDataset' and
+                                node_id == ml_dataset_id):
+                                simulation_dataset_id = node_id
+                                break
+
+                        if simulation_dataset_id:
+                            dataset_id = simulation_dataset_id
+                            logger.debug(f"Found simulation dataset: {dataset_id}")
+                        else:
+                            logger.debug(f"Could not find SimDataset node for ML ID: {ml_dataset_id}")
+                            failed_mappings += 1
+                            continue
+
+                    else:
+                        # Handle observational dataset IDs (e.g., "ID_4" -> 3 as 0-based index)
+                        if '_' not in ml_dataset_id:
+                            logger.warning(f"Invalid dataset ID format: {ml_dataset_id}")
+                            failed_mappings += 1
+                            continue
+
+                        id_parts = ml_dataset_id.split('_')
+                        if len(id_parts) < 2 or not id_parts[1].isdigit():
+                            logger.warning(f"Invalid dataset ID format: {ml_dataset_id} - expected format ID_NUMBER")
+                            failed_mappings += 1
+                            continue
+
+                        dataset_index = int(id_parts[1]) - 1  # Convert to 0-based index
+                        if dataset_index < 0 or dataset_index >= len(datasets):
+                            logger.warning(f"Dataset index {dataset_index} out of range for {ml_dataset_id}")
+                            failed_mappings += 1
+                            continue
+
+                        # Get the actual dataset and create its ID
+                        dataset = datasets[dataset_index]
+                        dataset_id = self.create_node_id('Dataset', dataset, dataset_index)
+
                 except (ValueError, IndexError) as e:
                     logger.error(f"Invalid dataset ID format: {ml_dataset_id} - {e}")
                     failed_mappings += 1
@@ -1496,21 +1722,37 @@ class JSONToCSVConverter:
                 # Don't add prediction metadata to CESM variable node - keep it intrinsic
                 # Prediction metadata goes in the relationship properties instead
                 
-                # Create hasCESMVariable relationship - with existence check
+                # Create appropriate CESM relationship based on dataset type
                 if dataset_id in self.nodes and cesm_var_id in self.nodes:
                     self.relationship_id_counter += 1
+
+                    # Determine relationship type and source types based on dataset
+                    if ml_dataset_id.startswith('cmip6_') or ml_dataset_id.startswith('era5_'):
+                        # Simulation dataset to CESM variable
+                        relationship_type = 'mapsToCESMVariable'
+                        from_type = 'SimDataset'
+                        to_type = 'CESMVariable'
+                    else:
+                        # Observational dataset to CESM variable
+                        relationship_type = 'hasCESMVariable'
+                        from_type = 'Dataset'
+                        to_type = 'CESMVariable'
+
                     self.relationships.append({
                         'id': f"rel_{self.relationship_id_counter}",
                         'from': dataset_id,
                         'to': cesm_var_id,
-                        'type': 'hasCESMVariable',
+                        'type': relationship_type,
+                        'from_type': from_type,
+                        'to_type': to_type,
                         'individual_confidence': individual_confidence,
                         'aggregated_confidence': aggregated_confidence,
                         'quality_rating': quality_rating,
                         'prediction_method': 'climatebert_model',
                         'best_matching_tokens': str(prediction_row.get('best_matching_tokens', '')),
                         'group_type': str(prediction_row.get('group_type', '')),
-                        'meets_threshold': meets_threshold
+                        'meets_threshold': meets_threshold,
+                        'data_source': prediction_row.get('data_source', '')
                     })
                 else:
                     logger.debug(f"Skipped hasCESMVariable relationship: dataset_id={dataset_id} exists={dataset_id in self.nodes}, cesm_var_id={cesm_var_id} exists={cesm_var_id in self.nodes}")
@@ -1524,14 +1766,21 @@ class JSONToCSVConverter:
                 failed_mappings += 1
                 continue
         
-        cesm_relationship_count = len([r for r in self.relationships if r['type'] == 'hasCESMVariable'])
-        logger.info(f" Created {cesm_relationship_count} hasCESMVariable relationships")
+        # Count both observational and simulation CESM relationships
+        obs_cesm_count = len([r for r in self.relationships if r['type'] == 'hasCESMVariable'])
+        sim_cesm_count = len([r for r in self.relationships if r['type'] == 'mapsToCESMVariable'])
+        total_cesm_count = obs_cesm_count + sim_cesm_count
+
+        logger.info(f" Created {obs_cesm_count} hasCESMVariable relationships (observational data)")
+        logger.info(f" Created {sim_cesm_count} mapsToCESMVariable relationships (simulation data)")
+        logger.info(f" Total CESM relationships: {total_cesm_count}")
         logger.info(f" Successfully processed {successful_mappings} predictions, {failed_mappings} failed")
         
-        # Print quality distribution from relationships
+        # Print quality distribution from relationships (both observational and simulation)
         quality_counts = {}
         for rel in self.relationships:
-            if rel.get('type') == 'hasCESMVariable' and rel.get('prediction_method') == 'climatebert_model':
+            if (rel.get('type') in ['hasCESMVariable', 'mapsToCESMVariable'] and
+                rel.get('prediction_method') == 'climatebert_model'):
                 quality = rel.get('quality_rating', 'UNKNOWN')
                 quality_counts[quality] = quality_counts.get(quality, 0) + 1
         
@@ -2106,6 +2355,1130 @@ class JSONToCSVConverter:
                 
         logger.info(f" Created {successful_similarity_relationships} CESM variable similarity relationships (threshold: {threshold})")
 
+    def _process_cmip6_experiments(self, experiments_dict):
+        """Process CMIP6 experiment_id controlled vocabulary."""
+        count = 0
+        for exp_id, exp_data in experiments_dict.items():
+            if isinstance(exp_data, dict):
+                node_id = f"cmip6_experiment_{exp_id}"
+                node = {
+                    'id': node_id,
+                    'type': 'CMIP6Experiment',
+                    'experiment_id': exp_id,
+                    'experiment_name': exp_data.get('experiment', ''),
+                    'description': exp_data.get('description', ''),
+                    'tier': str(exp_data.get('tier', '')),
+                    'min_number_yrs_per_sim': str(exp_data.get('min_number_yrs_per_sim', '')),
+                    'activity_ids': str(exp_data.get('activity_id', [])),
+                    'parent_experiment_ids': str(exp_data.get('parent_experiment_id', [])),
+                    'required_model_components': str(exp_data.get('required_model_components', [])),
+                    'start_year': str(exp_data.get('start_year', '')),
+                    'end_year': str(exp_data.get('end_year', ''))
+                }
+                self.nodes[node_id] = node
+                count += 1
+        logger.info(f"  ✓ Created {count} CMIP6Experiment nodes")
+
+    def _process_cmip6_activities(self, activities_dict):
+        """Process CMIP6 activity_id controlled vocabulary."""
+        count = 0
+        for activity_id, description in activities_dict.items():
+            node_id = f"cmip6_activity_{activity_id}"
+            node = {
+                'id': node_id,
+                'type': 'CMIP6Activity',
+                'activity_id': activity_id,
+                'description': description
+            }
+            self.nodes[node_id] = node
+            count += 1
+        logger.info(f"  ✓ Created {count} CMIP6Activity nodes")
+
+    def _process_cmip6_frequencies(self, frequencies_dict):
+        """Process CMIP6 frequency controlled vocabulary using unified SimTemporalResolution."""
+        count = 0
+        for freq_id, description in frequencies_dict.items():
+            # Use unified temporal resolution creation
+            node_id = self._create_or_get_sim_temporal_resolution(freq_id)
+            count += 1
+        logger.info(f"  ✓ Created {count} unified SimTemporalResolution nodes from CMIP6 frequencies")
+
+    def _process_cmip6_institutions(self, institutions_dict):
+        """Process CMIP6 institution_id controlled vocabulary using unified SimProvider."""
+        count = 0
+        for inst_id, full_name in institutions_dict.items():
+            # Use unified provider creation
+            node_id = self._create_or_get_sim_provider(full_name, 'research_institution')
+            count += 1
+        logger.info(f"  ✓ Created {count} unified SimProvider nodes from CMIP6 institutions")
+
+    def _process_cmip6_variables(self, variables_dict):
+        """Process CMIP6 variable_id controlled vocabulary using unified SimVariable."""
+        count = 0
+        for var_id, description in variables_dict.items():
+            # Use unified variable creation
+            node_id = self._create_or_get_sim_variable(var_id, '', description, 'CMIP6')
+            count += 1
+        logger.info(f"  ✓ Created {count} unified SimVariable nodes from CMIP6 variables")
+
+    def _process_cmip6_sources(self, sources_dict):
+        """Process CMIP6 source_id controlled vocabulary."""
+        count = 0
+        for source_id, source_data in sources_dict.items():
+            if isinstance(source_data, dict):
+                node_id = f"cmip6_source_{source_id}"
+                node = {
+                    'id': node_id,
+                    'type': 'CMIP6Source',
+                    'source_id': source_id,
+                    'label': source_data.get('label', ''),
+                    'label_extended': source_data.get('label_extended', ''),
+                    'release_year': str(source_data.get('release_year', '')),
+                    'activity_participation': str(source_data.get('activity_participation', [])),
+                    'institution_ids': str(source_data.get('institution_id', [])),
+                    'cohort': str(source_data.get('cohort', []))
+                }
+                self.nodes[node_id] = node
+                count += 1
+        logger.info(f"  ✓ Created {count} CMIP6Source nodes")
+
+    def _process_cmip6_realms(self, realms_dict):
+        """Process CMIP6 realm controlled vocabulary."""
+        count = 0
+        for realm_id, description in realms_dict.items():
+            node_id = f"cmip6_realm_{realm_id}"
+            node = {
+                'id': node_id,
+                'type': 'CMIP6Realm',
+                'realm_id': realm_id,
+                'description': description
+            }
+            self.nodes[node_id] = node
+            count += 1
+        logger.info(f"  ✓ Created {count} CMIP6Realm nodes")
+
+    def _process_cmip6_grid_labels(self, grid_labels_dict):
+        """Process CMIP6 grid_label controlled vocabulary using unified SimSpatialCoverage."""
+        count = 0
+        for grid_id, description in grid_labels_dict.items():
+            # Use unified spatial coverage creation
+            node_id = self._create_or_get_sim_spatial_coverage(grid_id)
+            count += 1
+        logger.info(f"  ✓ Created {count} unified SimSpatialCoverage nodes from CMIP6 grid labels")
+
+    def _create_cmip6_relationships(self):
+        """Create relationships between CMIP6 nodes."""
+        rel_count = 0
+
+        # Create relationships from experiments to activities
+        for node_id, node in self.nodes.items():
+            if node.get('type') == 'CMIP6Experiment':
+                # Link to activities
+                activity_ids = node.get('activity_ids', '[]')
+                if activity_ids and activity_ids != '[]':
+                    try:
+                        activity_list = eval(activity_ids) if isinstance(activity_ids, str) else activity_ids
+                        for activity_id in activity_list:
+                            target_id = f"cmip6_activity_{activity_id}"
+                            if target_id in self.nodes:
+                                rel = {
+                                    'id': f"rel_{node_id}_partOfActivity_{target_id}",
+                                    'type': 'partOfActivity',
+                                    'from': node_id,
+                                    'to': target_id,
+                                    'from_type': 'CMIP6Experiment',
+                                    'to_type': 'CMIP6Activity'
+                                }
+                                self.relationships.append(rel)
+                                rel_count += 1
+                    except:
+                        pass
+
+                # Link to parent experiments
+                parent_exp_ids = node.get('parent_experiment_ids', '[]')
+                if parent_exp_ids and parent_exp_ids != '[]':
+                    try:
+                        parent_list = eval(parent_exp_ids) if isinstance(parent_exp_ids, str) else parent_exp_ids
+                        for parent_id in parent_list:
+                            target_id = f"cmip6_experiment_{parent_id}"
+                            if target_id in self.nodes:
+                                rel = {
+                                    'id': f"rel_{node_id}_derivedFrom_{target_id}",
+                                    'type': 'derivedFrom',
+                                    'from': node_id,
+                                    'to': target_id,
+                                    'from_type': 'CMIP6Experiment',
+                                    'to_type': 'CMIP6Experiment'
+                                }
+                                self.relationships.append(rel)
+                                rel_count += 1
+                    except:
+                        pass
+
+            # Create relationships from sources to institutions
+            elif node.get('type') == 'CMIP6Source':
+                institution_ids = node.get('institution_ids', '[]')
+                if institution_ids and institution_ids != '[]':
+                    try:
+                        inst_list = eval(institution_ids) if isinstance(institution_ids, str) else institution_ids
+                        for inst_id in inst_list:
+                            target_id = f"cmip6_institution_{inst_id}"
+                            if target_id in self.nodes:
+                                rel = {
+                                    'id': f"rel_{node_id}_developedBy_{target_id}",
+                                    'type': 'developedBy',
+                                    'from': node_id,
+                                    'to': target_id,
+                                    'from_type': 'CMIP6Source',
+                                    'to_type': 'CMIP6Institution'
+                                }
+                                self.relationships.append(rel)
+                                rel_count += 1
+                    except:
+                        pass
+
+                # Link sources to activities they participate in
+                activity_participation = node.get('activity_participation', '[]')
+                if activity_participation and activity_participation != '[]':
+                    try:
+                        activity_list = eval(activity_participation) if isinstance(activity_participation, str) else activity_participation
+                        for activity_id in activity_list:
+                            target_id = f"cmip6_activity_{activity_id}"
+                            if target_id in self.nodes:
+                                rel = {
+                                    'id': f"rel_{node_id}_participatesIn_{target_id}",
+                                    'type': 'participatesIn',
+                                    'from': node_id,
+                                    'to': target_id,
+                                    'from_type': 'CMIP6Source',
+                                    'to_type': 'CMIP6Activity'
+                                }
+                                self.relationships.append(rel)
+                                rel_count += 1
+                    except:
+                        pass
+
+        logger.info(f"  ✓ Created {rel_count} CMIP6 relationships")
+
+    # Standardization mappings for unified simulation data extraction
+    TEMPORAL_RESOLUTION_STANDARDS = {
+        # ERA5 → Standard
+        'Hourly': 'hourly',
+        'Daily': 'daily',
+        'Monthly': 'monthly',
+        'Annual': 'annual',
+        # CMIP6 → Standard
+        '1hr': 'hourly',
+        '3hr': '3hourly',
+        '6hr': '6hourly',
+        'day': 'daily',
+        'mon': 'monthly',
+        'yr': 'annual',
+        'fx': 'fixed',
+        'subhrPt': 'subhourly'
+    }
+
+    SPATIAL_COVERAGE_STANDARDS = {
+        # ERA5 → Standard
+        'Global': 'global',
+        'Regional': 'regional',
+        # CMIP6 grid_label → Standard
+        'gn': 'global_native',
+        'gr': 'global_regridded',
+        'gm': 'global_mean',
+        'gna': 'antarctica_native',
+        'gra': 'antarctica_regridded'
+    }
+
+
+    def _create_or_get_sim_temporal_resolution(self, resolution_value):
+        """Create or get standardized SimTemporalResolution node."""
+        # Standardize the resolution value
+        standard_res = self.TEMPORAL_RESOLUTION_STANDARDS.get(resolution_value, resolution_value.lower())
+        node_id = f"simtempres_{standard_res}"
+
+        if node_id not in self.nodes:
+            self.nodes[node_id] = {
+                'id': node_id,
+                'type': 'SimTemporalResolution',
+                'resolution_id': standard_res,
+                'description': resolution_value,
+                'frequency_type': 'time_series'
+            }
+
+        return node_id
+
+    def _create_or_get_sim_spatial_coverage(self, coverage_value):
+        """Create or get standardized SimSpatialCoverage node."""
+        # Standardize the coverage value
+        standard_cov = self.SPATIAL_COVERAGE_STANDARDS.get(coverage_value, coverage_value.lower())
+        node_id = f"simspacov_{standard_cov}"
+
+        if node_id not in self.nodes:
+            self.nodes[node_id] = {
+                'id': node_id,
+                'type': 'SimSpatialCoverage',
+                'coverage_id': standard_cov,
+                'description': coverage_value,
+                'coverage_type': 'geographic'
+            }
+
+        return node_id
+
+    def _create_or_get_sim_horizontal_resolution(self, resolution_value, native_resolution=''):
+        """Create or get standardized SimHorizontalResolution node."""
+        # Create standardized ID
+        res_id = resolution_value.replace('°', 'deg').replace(' x ', 'x').replace(' ', '_').replace('.', 'p').lower()
+        node_id = f"simhorizres_{res_id}"
+
+        if node_id not in self.nodes:
+            self.nodes[node_id] = {
+                'id': node_id,
+                'type': 'SimHorizontalResolution',
+                'resolution_id': res_id,
+                'description': resolution_value,
+                'grid_spacing': resolution_value,
+                'native_resolution': native_resolution
+            }
+
+        return node_id
+
+    def _create_or_get_sim_variable(self, variable_name, units='', description='', source_type=''):
+        """Create or get standardized SimVariable node."""
+        # Create standardized ID
+        var_id = variable_name.replace(' ', '_').replace('-', '_').replace('(', '').replace(')', '').lower()
+        node_id = f"simvar_{var_id}"
+
+        if node_id not in self.nodes:
+            self.nodes[node_id] = {
+                'id': node_id,
+                'type': 'SimVariable',
+                'variable_id': var_id,
+                'variable_name': variable_name,
+                'description': description[:500] if description else '',
+                'units': units,
+                'domain': self._infer_variable_domain(variable_name),
+                'source_type': source_type  # 'ERA5', 'CMIP6', etc.
+            }
+
+        return node_id
+
+    def _infer_variable_domain(self, var_name):
+        """Infer variable domain from name."""
+        var_lower = var_name.lower()
+        if any(term in var_lower for term in ['temperature', 'temp', 'dewpoint']):
+            return 'atmosphere'
+        elif any(term in var_lower for term in ['precipitation', 'rain', 'snow', 'evaporation']):
+            return 'hydrology'
+        elif any(term in var_lower for term in ['wind', 'pressure']):
+            return 'atmosphere'
+        elif any(term in var_lower for term in ['soil', 'land', 'vegetation', 'canopy']):
+            return 'land'
+        elif any(term in var_lower for term in ['sea', 'ocean', 'lake']):
+            return 'ocean'
+        return 'other'
+
+    def _create_or_get_sim_provider(self, provider_name, organization_type=''):
+        """Create or get standardized SimProvider node."""
+        if not provider_name:
+            return None
+
+        # Create standardized ID
+        prov_id = provider_name.replace(' ', '_').replace('-', '_').lower()
+        node_id = f"simprov_{prov_id}"
+
+        if node_id not in self.nodes:
+            self.nodes[node_id] = {
+                'id': node_id,
+                'type': 'SimProvider',
+                'provider_id': prov_id,
+                'name': provider_name,
+                'organization_type': organization_type or self._infer_org_type(provider_name)
+            }
+
+        return node_id
+
+    def _infer_org_type(self, provider_name):
+        """Infer organization type from provider name."""
+        name_lower = provider_name.lower()
+        if any(term in name_lower for term in ['copernicus', 'ecmwf']):
+            return 'operational_center'
+        elif any(term in name_lower for term in ['nasa', 'noaa', 'ncar']):
+            return 'government_agency'
+        elif any(term in name_lower for term in ['university', 'institute', 'institut']):
+            return 'research_institution'
+        return 'other'
+
+    def _create_or_get_sim_file_format(self, format_value):
+        """Create or get standardized SimFileFormat node."""
+        format_lower = format_value.lower()
+        node_id = f"simformat_{format_lower}"
+
+        if node_id not in self.nodes:
+            self.nodes[node_id] = {
+                'id': node_id,
+                'type': 'SimFileFormat',
+                'format_id': format_lower,
+                'description': format_value,
+                'mime_type': self._get_mime_type(format_lower)
+            }
+
+        return node_id
+
+    def _get_mime_type(self, format_name):
+        """Get MIME type for file format."""
+        mime_map = {
+            'netcdf': 'application/netcdf',
+            'grib': 'application/x-grib',
+            'zarr': 'application/zarr',
+            'hdf': 'application/x-hdf'
+        }
+        return mime_map.get(format_name, 'application/octet-stream')
+
+    def _create_or_get_sim_data_type(self, data_type_value):
+        """Create or get standardized SimDataType node."""
+        data_type_lower = data_type_value.lower()
+        node_id = f"simdatatype_{data_type_lower}"
+
+        if node_id not in self.nodes:
+            self.nodes[node_id] = {
+                'id': node_id,
+                'type': 'SimDataType',
+                'data_type_id': data_type_lower,
+                'description': data_type_value
+            }
+
+        return node_id
+
+    def _create_or_get_sim_projection(self, projection_value):
+        """Create or get standardized SimProjection node."""
+        # Standardize projection name
+        proj_id = projection_value.replace(' ', '_').replace('-', '_').replace('.', '').lower()
+        node_id = f"simprojection_{proj_id}"
+
+        if node_id not in self.nodes:
+            self.nodes[node_id] = {
+                'id': node_id,
+                'type': 'SimProjection',
+                'projection_id': proj_id,
+                'description': projection_value
+            }
+
+        return node_id
+
+    def _create_or_get_sim_vertical_level(self, vertical_info, level_type=''):
+        """Create or get standardized SimVerticalLevel node."""
+        # Create standardized ID from vertical info
+        if 'pressure levels' in vertical_info.lower():
+            level_id = f"pressure_levels"
+        elif 'surface' in vertical_info.lower():
+            level_id = f"surface"
+        elif 'hpa' in vertical_info.lower():
+            level_id = f"pressure_range"
+        else:
+            level_id = vertical_info.replace(' ', '_').replace('-', '_').lower()[:20]
+
+        node_id = f"simvertlevel_{level_id}"
+
+        if node_id not in self.nodes:
+            self.nodes[node_id] = {
+                'id': node_id,
+                'type': 'SimVerticalLevel',
+                'level_id': level_id,
+                'description': vertical_info,
+                'level_type': level_type or self._infer_vertical_level_type(vertical_info)
+            }
+
+        return node_id
+
+    def _infer_vertical_level_type(self, vertical_info):
+        """Infer vertical level type from description."""
+        info_lower = vertical_info.lower()
+        if 'pressure' in info_lower or 'hpa' in info_lower:
+            return 'pressure'
+        elif 'surface' in info_lower:
+            return 'surface'
+        elif 'soil' in info_lower or 'depth' in info_lower:
+            return 'soil'
+        elif 'height' in info_lower or 'altitude' in info_lower:
+            return 'height'
+        return 'other'
+
+    def _create_or_get_sim_update_frequency(self, update_freq_value):
+        """Create or get standardized SimUpdateFrequency node."""
+        # Standardize update frequency
+        freq_lower = update_freq_value.lower().replace('(', '').replace(')', '')
+        freq_id = freq_lower.replace(' ', '_').replace('-', '_')
+        node_id = f"simupdatefreq_{freq_id}"
+
+        if node_id not in self.nodes:
+            self.nodes[node_id] = {
+                'id': node_id,
+                'type': 'SimUpdateFrequency',
+                'frequency_id': freq_id,
+                'description': update_freq_value
+            }
+
+        return node_id
+
+    def _extract_era5_properties_unified(self, dataset_id, webpages_data, keyword_props):
+        """Extract ALL ERA5 properties and create unified nodes with relationships."""
+        try:
+            sections = webpages_data.get('body', {}).get('main', {}).get('sections', [])
+            for section in sections:
+                if section.get('id') == 'overview':
+                    blocks = section.get('blocks', [])
+                    for block in blocks:
+                        # Extract data description properties - extract ALL available properties
+                        if block.get('id') == 'data_description':
+                            content = block.get('content', [])
+                            if content:
+                                desc_data = content[0]
+
+                                # Extract ALL properties that exist in desc_data
+                                for prop_key, prop_value in desc_data.items():
+                                    if prop_value and isinstance(prop_value, str) and prop_value.strip():
+                                        self._create_property_node_and_relationship(dataset_id, prop_key, prop_value)
+
+                        # Extract variables - handle both table format and labels format
+                        elif block.get('id') == 'main_variables-accordion':
+                            inner_blocks = block.get('blocks', [])
+                            for inner_block in inner_blocks:
+                                if inner_block.get('id') == 'main_variables':
+                                    content = inner_block.get('content', [])
+
+                                    # Handle table format (array of objects with name, units, description)
+                                    if isinstance(content, list):
+                                        for var in content:
+                                            if isinstance(var, dict):
+                                                var_name = var.get('name', '')
+                                                var_units = var.get('units', '')
+                                                var_desc = var.get('description', '')
+
+                                                if var_name:
+                                                    var_id = self._create_or_get_sim_variable(var_name, var_units, var_desc, 'ERA5')
+                                                    self._create_relationship(dataset_id, var_id, 'hasVariable', 'SimDataset', 'SimVariable')
+
+                                    # Handle labels format (object with key-value pairs)
+                                    elif isinstance(content, dict):
+                                        labels = content.get('labels', {})
+                                        for var_key, var_name in labels.items():
+                                            if var_name:
+                                                var_id = self._create_or_get_sim_variable(var_name, '', '', 'ERA5')
+                                                self._create_relationship(dataset_id, var_id, 'hasVariable', 'SimDataset', 'SimVariable')
+
+            # Create provider relationship
+            provider_name = keyword_props.get('provider', '')
+            if provider_name:
+                provider_id = self._create_or_get_sim_provider(provider_name)
+                self._create_relationship(dataset_id, provider_id, 'providedBy', 'SimDataset', 'SimProvider')
+
+        except Exception as e:
+            logger.debug(f"  Warning: Could not extract unified properties for {dataset_id}: {e}")
+
+    def _create_property_node_and_relationship(self, dataset_id, prop_key, prop_value):
+        """Create appropriate unified node based on property key and create relationship."""
+        prop_key_lower = prop_key.lower()
+
+        # Map property keys to unified node creation methods
+        if 'temporal_resolution' in prop_key_lower:
+            node_id = self._create_or_get_sim_temporal_resolution(prop_value)
+            self._create_relationship(dataset_id, node_id, 'hasTemporalResolution', 'SimDataset', 'SimTemporalResolution')
+
+        elif 'horizontal_coverage' in prop_key_lower or 'spatial_coverage' in prop_key_lower:
+            node_id = self._create_or_get_sim_spatial_coverage(prop_value)
+            self._create_relationship(dataset_id, node_id, 'hasSpatialCoverage', 'SimDataset', 'SimSpatialCoverage')
+
+        elif 'horizontal_resolution' in prop_key_lower:
+            node_id = self._create_or_get_sim_horizontal_resolution(prop_value)
+            self._create_relationship(dataset_id, node_id, 'hasHorizontalResolution', 'SimDataset', 'SimHorizontalResolution')
+
+        elif 'file_format' in prop_key_lower:
+            node_id = self._create_or_get_sim_file_format(prop_value)
+            self._create_relationship(dataset_id, node_id, 'hasFileFormat', 'SimDataset', 'SimFileFormat')
+
+        elif 'data_type' in prop_key_lower:
+            node_id = self._create_or_get_sim_data_type(prop_value)
+            self._create_relationship(dataset_id, node_id, 'hasDataType', 'SimDataset', 'SimDataType')
+
+        elif 'projection' in prop_key_lower:
+            node_id = self._create_or_get_sim_projection(prop_value)
+            self._create_relationship(dataset_id, node_id, 'hasProjection', 'SimDataset', 'SimProjection')
+
+        elif 'vertical_resolution' in prop_key_lower or 'vertical_coverage' in prop_key_lower:
+            node_id = self._create_or_get_sim_vertical_level(prop_value)
+            self._create_relationship(dataset_id, node_id, 'hasVerticalLevel', 'SimDataset', 'SimVerticalLevel')
+
+        elif 'update_frequency' in prop_key_lower:
+            node_id = self._create_or_get_sim_update_frequency(prop_value)
+            self._create_relationship(dataset_id, node_id, 'hasUpdateFrequency', 'SimDataset', 'SimUpdateFrequency')
+
+    def _load_cmip6_vocabularies(self, cmip6_dir, vocab_files):
+        """Load all CMIP6 controlled vocabularies into lookup dictionaries for enrichment."""
+        logger.info("📚 Loading CMIP6 controlled vocabularies for enrichment...")
+
+        for json_file in vocab_files:
+            filepath = os.path.join(cmip6_dir, json_file)
+            try:
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+
+                # Load into appropriate lookup dictionary
+                if 'variable_id' in data:
+                    self.cmip6_vocabulary_lookups['variable_id'] = data['variable_id']
+                    logger.debug(f"  ✓ Loaded {len(data['variable_id'])} variable descriptions")
+
+                elif 'frequency' in data:
+                    self.cmip6_vocabulary_lookups['frequency'] = data['frequency']
+                    logger.debug(f"  ✓ Loaded {len(data['frequency'])} frequency descriptions")
+
+                elif 'institution_id' in data:
+                    self.cmip6_vocabulary_lookups['institution_id'] = data['institution_id']
+                    logger.debug(f"  ✓ Loaded {len(data['institution_id'])} institution descriptions")
+
+                elif 'experiment_id' in data:
+                    self.cmip6_vocabulary_lookups['experiment_id'] = data['experiment_id']
+                    logger.debug(f"  ✓ Loaded {len(data['experiment_id'])} experiment descriptions")
+
+                elif 'activity_id' in data:
+                    self.cmip6_vocabulary_lookups['activity_id'] = data['activity_id']
+                    logger.debug(f"  ✓ Loaded {len(data['activity_id'])} activity descriptions")
+
+                elif 'source_id' in data:
+                    self.cmip6_vocabulary_lookups['source_id'] = data['source_id']
+                    logger.debug(f"  ✓ Loaded {len(data['source_id'])} source descriptions")
+
+                elif 'realm' in data:
+                    self.cmip6_vocabulary_lookups['realm'] = data['realm']
+                    logger.debug(f"  ✓ Loaded {len(data['realm'])} realm descriptions")
+
+                elif 'grid_label' in data:
+                    self.cmip6_vocabulary_lookups['grid_label'] = data['grid_label']
+                    logger.debug(f"  ✓ Loaded {len(data['grid_label'])} grid label descriptions")
+
+            except Exception as e:
+                logger.error(f"  ❌ Error loading vocabulary from {json_file}: {e}")
+
+        total_entries = sum(len(vocab) for vocab in self.cmip6_vocabulary_lookups.values())
+        logger.info(f"✓ Loaded {total_entries} total vocabulary entries for enrichment")
+
+    def _process_cmip6_datasets_sample(self, metadata_file, sample_size=1000):
+        """Process a sample of CMIP6 datasets using data-driven extraction."""
+        import ijson
+
+        try:
+            logger.info(f"📊 Sampling {sample_size} CMIP6 datasets from metadata file")
+
+            count = 0
+            with open(metadata_file, 'rb') as f:
+                # Use ijson to parse large JSON file incrementally
+                parser = ijson.kvitems(f, '', multiple_values=True)
+
+                for dataset_key, dataset_data in parser:
+                    if count >= sample_size:
+                        break
+
+                    # Create CMIP6 dataset as SimDataset
+                    dataset_id = f"cmip6_{dataset_key}"
+
+                    # Extract basic dataset properties
+                    dataset_node = {
+                        'id': dataset_id,
+                        'type': 'SimDataset',
+                        'simulation_type': 'CMIP6',
+                        'name': dataset_key,
+                        'description': dataset_data.get('experiment', '')[:1000],
+                        'license': dataset_data.get('license', '')[:500],
+                        'creation_date': dataset_data.get('creation_date', ''),
+                        'mip_era': dataset_data.get('mip_era', ''),
+                        'product': dataset_data.get('product', ''),
+                        'realm': dataset_data.get('realm', ''),
+                        'calendar': dataset_data.get('calendar', ''),
+                        'variant_label': dataset_data.get('variant_label', ''),
+                        'tracking_id': dataset_data.get('tracking_id', '')
+                    }
+
+                    self.nodes[dataset_id] = dataset_node
+
+                    # Extract ALL properties and create unified nodes - data-driven approach
+                    self._extract_cmip6_properties_unified(dataset_id, dataset_data)
+
+                    count += 1
+
+                    if count % 100 == 0:
+                        logger.debug(f"  Processed {count} CMIP6 datasets...")
+
+            logger.info(f"✓ Processed {count} CMIP6 datasets with unified property extraction")
+
+        except Exception as e:
+            logger.error(f"❌ Error processing CMIP6 datasets: {e}")
+            # Fallback: try simple JSON loading with limited sample
+            try:
+                logger.info(f"📊 Falling back to simple JSON loading with smaller sample")
+                with open(metadata_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+
+                sample_keys = list(data.keys())[:min(100, len(data))]
+                for i, dataset_key in enumerate(sample_keys):
+                    dataset_data = data[dataset_key]
+                    dataset_id = f"cmip6_{dataset_key}"
+
+                    dataset_node = {
+                        'id': dataset_id,
+                        'type': 'SimDataset',
+                        'simulation_type': 'CMIP6',
+                        'name': dataset_key,
+                        'description': dataset_data.get('experiment', '')[:1000]
+                    }
+
+                    self.nodes[dataset_id] = dataset_node
+                    self._extract_cmip6_properties_unified(dataset_id, dataset_data)
+
+                logger.info(f"✓ Processed {len(sample_keys)} CMIP6 datasets (fallback)")
+
+            except Exception as e2:
+                logger.error(f"❌ Fallback also failed: {e2}")
+
+    def _extract_cmip6_properties_unified(self, dataset_id, dataset_data):
+        """Extract ALL CMIP6 dataset properties and create unified nodes with relationships."""
+        try:
+            # Extract ALL scalar properties
+            for prop_key, prop_value in dataset_data.items():
+                if isinstance(prop_value, str) and prop_value.strip() and prop_key not in ['license', 'description']:
+                    self._create_cmip6_property_node_and_relationship(dataset_id, prop_key, prop_value)
+
+            # Handle nominal_resolution specially (it's a dict)
+            nominal_res = dataset_data.get('nominal_resolution', {})
+            if isinstance(nominal_res, dict):
+                for domain, resolution in nominal_res.items():
+                    if resolution and resolution.strip():
+                        # Create horizontal resolution nodes for each domain
+                        res_id = self._create_or_get_sim_horizontal_resolution(f"{domain}: {resolution}")
+                        self._create_relationship(dataset_id, res_id, 'hasHorizontalResolution', 'SimDataset', 'SimHorizontalResolution')
+
+            # Handle grid_info specially if present
+            grid_info = dataset_data.get('grid_info', {})
+            if isinstance(grid_info, dict):
+                for grid_key, grid_value in grid_info.items():
+                    if isinstance(grid_value, str) and grid_value.strip():
+                        # Extract grid information as properties
+                        if 'len:' in grid_value or 'first:' in grid_value:
+                            # This looks like coordinate info, could be useful for spatial coverage
+                            pass  # Skip for now as format is complex
+
+        except Exception as e:
+            logger.debug(f"  Warning: Could not extract CMIP6 properties for {dataset_id}: {e}")
+
+    def _create_cmip6_property_node_and_relationship(self, dataset_id, prop_key, prop_value):
+        """Create appropriate unified node based on CMIP6 property key and create relationship with enriched descriptions."""
+        prop_key_lower = prop_key.lower()
+
+        # Map CMIP6 DRS fields to unified node types with enriched descriptions
+        if prop_key_lower == 'frequency':
+            # Get enriched description from controlled vocabulary
+            freq_description = self._get_enriched_description('frequency', prop_value)
+            node_id = self._create_or_get_sim_temporal_resolution_enriched(prop_value, freq_description)
+            self._create_relationship(dataset_id, node_id, 'hasTemporalResolution', 'SimDataset', 'SimTemporalResolution')
+
+        elif prop_key_lower == 'grid_label':
+            # Get enriched description from controlled vocabulary
+            grid_description = self._get_enriched_description('grid_label', prop_value)
+            node_id = self._create_or_get_sim_spatial_coverage_enriched(prop_value, grid_description)
+            self._create_relationship(dataset_id, node_id, 'hasSpatialCoverage', 'SimDataset', 'SimSpatialCoverage')
+
+        elif prop_key_lower == 'variable_id':
+            # Get enriched description from controlled vocabulary
+            var_description = self._get_enriched_description('variable_id', prop_value)
+            node_id = self._create_or_get_sim_variable(prop_value, '', var_description, 'CMIP6')
+            self._create_relationship(dataset_id, node_id, 'hasVariable', 'SimDataset', 'SimVariable')
+
+        elif prop_key_lower == 'institution':
+            node_id = self._create_or_get_sim_provider(prop_value, 'research_institution')
+            self._create_relationship(dataset_id, node_id, 'providedBy', 'SimDataset', 'SimProvider')
+
+        elif prop_key_lower == 'institution_id':
+            # Get enriched description from controlled vocabulary
+            inst_description = self._get_enriched_description('institution_id', prop_value)
+            node_id = self._create_or_get_sim_provider(inst_description or prop_value, 'research_institution')
+            self._create_relationship(dataset_id, node_id, 'providedBy', 'SimDataset', 'SimProvider')
+
+        elif prop_key_lower == 'realm':
+            # Get enriched description from controlled vocabulary
+            realm_description = self._get_enriched_description('realm', prop_value)
+            node_id = self._create_or_get_sim_spatial_coverage_enriched(f"realm_{prop_value}", realm_description)
+            self._create_relationship(dataset_id, node_id, 'hasRealm', 'SimDataset', 'SimSpatialCoverage')
+
+        elif prop_key_lower == 'calendar':
+            # Calendar is a temporal property
+            node_id = self._create_or_get_sim_temporal_resolution_enriched(f"calendar_{prop_value}", f"Calendar: {prop_value}")
+            self._create_relationship(dataset_id, node_id, 'hasCalendar', 'SimDataset', 'SimTemporalResolution')
+
+    def _get_enriched_description(self, vocab_type, value):
+        """Get enriched description from controlled vocabulary lookups."""
+        try:
+            vocab_data = self.cmip6_vocabulary_lookups.get(vocab_type, {})
+
+            if isinstance(vocab_data, dict):
+                if vocab_type == 'experiment_id' and value in vocab_data:
+                    # Experiment descriptions are complex objects
+                    exp_data = vocab_data[value]
+                    if isinstance(exp_data, dict):
+                        return exp_data.get('description', exp_data.get('experiment', ''))
+                elif value in vocab_data:
+                    # Simple string descriptions
+                    return vocab_data[value]
+
+            return ''
+        except Exception as e:
+            logger.debug(f"Could not get enriched description for {vocab_type}:{value}: {e}")
+            return ''
+
+    def _create_or_get_sim_temporal_resolution_enriched(self, resolution_value, description=''):
+        """Create or get SimTemporalResolution with enriched description."""
+        standard_res = self.TEMPORAL_RESOLUTION_STANDARDS.get(resolution_value, resolution_value.lower())
+        node_id = f"simtempres_{standard_res}"
+
+        if node_id not in self.nodes:
+            self.nodes[node_id] = {
+                'id': node_id,
+                'type': 'SimTemporalResolution',
+                'resolution_id': standard_res,
+                'description': description or resolution_value,
+                'original_value': resolution_value,
+                'frequency_type': 'time_series'
+            }
+        elif description and not self.nodes[node_id].get('description'):
+            # Add description if we have one and node doesn't
+            self.nodes[node_id]['description'] = description
+
+        return node_id
+
+    def _create_or_get_sim_spatial_coverage_enriched(self, coverage_value, description=''):
+        """Create or get SimSpatialCoverage with enriched description."""
+        standard_cov = self.SPATIAL_COVERAGE_STANDARDS.get(coverage_value, coverage_value.lower())
+        node_id = f"simspacov_{standard_cov}"
+
+        if node_id not in self.nodes:
+            self.nodes[node_id] = {
+                'id': node_id,
+                'type': 'SimSpatialCoverage',
+                'coverage_id': standard_cov,
+                'description': description or coverage_value,
+                'original_value': coverage_value,
+                'coverage_type': 'geographic'
+            }
+        elif description and not self.nodes[node_id].get('description'):
+            # Add description if we have one and node doesn't
+            self.nodes[node_id]['description'] = description
+
+        return node_id
+
+    def _create_relationship(self, from_id, to_id, rel_type, from_type, to_type):
+        """Helper method to create relationships."""
+        rel = {
+            'id': f"rel_{from_id}_{rel_type}_{to_id}",
+            'type': rel_type,
+            'from': from_id,
+            'to': to_id,
+            'from_type': from_type,
+            'to_type': to_type
+        }
+        self.relationships.append(rel)
+
+    def _extract_era5_keywords(self, keywords_list):
+        """Extract structured properties from ERA5 keywords array."""
+        props = {
+            'product_type': '',
+            'temporal_coverage': '',
+            'spatial_coverage': '',
+            'variable_domain': [],
+            'provider': ''
+        }
+
+        for keyword in keywords_list:
+            if isinstance(keyword, str):
+                if keyword.startswith('Product type:'):
+                    props['product_type'] = keyword.replace('Product type:', '').strip()
+                elif keyword.startswith('Temporal coverage:'):
+                    props['temporal_coverage'] = keyword.replace('Temporal coverage:', '').strip()
+                elif keyword.startswith('Spatial coverage:'):
+                    props['spatial_coverage'] = keyword.replace('Spatial coverage:', '').strip()
+                elif keyword.startswith('Variable domain:'):
+                    props['variable_domain'].append(keyword.replace('Variable domain:', '').strip())
+                elif keyword.startswith('Provider:'):
+                    props['provider'] = keyword.replace('Provider:', '').strip()
+
+        return props
+
+    def _extract_era5_variables(self, dataset_id, webpages_data):
+        """Extract ERA5 variables from the main_variables table in webpages."""
+        variables = []
+
+        try:
+            sections = webpages_data.get('body', {}).get('main', {}).get('sections', [])
+            for section in sections:
+                if section.get('id') == 'overview':
+                    blocks = section.get('blocks', [])
+                    for block in blocks:
+                        if block.get('id') == 'main_variables-accordion':
+                            inner_blocks = block.get('blocks', [])
+                            for inner_block in inner_blocks:
+                                if inner_block.get('id') == 'main_variables':
+                                    content = inner_block.get('content', [])
+                                    for idx, var in enumerate(content):
+                                        var_id = f"{dataset_id}_var_{idx}"
+                                        var_node = {
+                                            'id': var_id,
+                                            'type': 'ERA5Variable',
+                                            'variable_name': var.get('name', ''),
+                                            'description': var.get('description', '')[:500],
+                                            'units': var.get('units', ''),
+                                            'dataset_id': dataset_id
+                                        }
+                                        variables.append(var_node)
+        except Exception as e:
+            logger.debug(f"  Warning: Could not extract variables for {dataset_id}: {e}")
+
+        return variables
+
+    def _extract_era5_data_description(self, dataset_id, webpages_data):
+        """Extract ERA5 data description (resolution, coverage, format) from webpages."""
+        try:
+            sections = webpages_data.get('body', {}).get('main', {}).get('sections', [])
+            for section in sections:
+                if section.get('id') == 'overview':
+                    blocks = section.get('blocks', [])
+                    for block in blocks:
+                        if block.get('id') == 'data_description':
+                            content = block.get('content', [])
+                            if content:
+                                desc_data = content[0]
+                                desc_id = f"{dataset_id}_description"
+                                desc_node = {
+                                    'id': desc_id,
+                                    'type': 'ERA5DataDescription',
+                                    'data_type': desc_data.get('data_type', ''),
+                                    'projection': desc_data.get('projection', ''),
+                                    'horizontal_coverage': desc_data.get('horizontal_coverage', ''),
+                                    'horizontal_resolution': desc_data.get('horizontal_resolution', ''),
+                                    'vertical_coverage': desc_data.get('vertical_coverage', ''),
+                                    'vertical_resolution': desc_data.get('vertical_resolution', '')[:500],
+                                    'temporal_coverage': desc_data.get('temporal_coverage', ''),
+                                    'temporal_resolution': desc_data.get('temporal_resolution', ''),
+                                    'file_format': desc_data.get('file_format', ''),
+                                    'update_frequency': desc_data.get('update_frequency', ''),
+                                    'dataset_id': dataset_id
+                                }
+                                return desc_node
+        except Exception as e:
+            logger.debug(f"  Warning: Could not extract data description for {dataset_id}: {e}")
+
+        return None
+
+    def _process_era5_providers(self, provider_name):
+        """Create or get provider node."""
+        if not provider_name:
+            return None
+
+        provider_id = f"era5_provider_{provider_name.replace(' ', '_').lower()}"
+
+        # Only create if doesn't exist
+        if provider_id not in self.nodes:
+            provider_node = {
+                'id': provider_id,
+                'type': 'ERA5Provider',
+                'provider_name': provider_name
+            }
+            self.nodes[provider_id] = provider_node
+
+        return provider_id
+
+    def process_climate_simulations(self):
+        """Process CMIP6 and ERA5 climate simulation JSON files."""
+        script_parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+        # Process CMIP6 files
+        cmip6_dir = os.path.join(script_parent_dir, 'CMIP6Data', 'CMIP6Meta')
+        if os.path.exists(cmip6_dir):
+            # First load controlled vocabularies into lookup dictionaries for enrichment
+            cmip6_vocab_files = [f for f in os.listdir(cmip6_dir) if f.endswith('.json') and f.startswith('CMIP6_')]
+            logger.info(f"📊 Loading {len(cmip6_vocab_files)} CMIP6 controlled vocabularies for enrichment")
+            self._load_cmip6_vocabularies(cmip6_dir, cmip6_vocab_files)
+
+            # Then process controlled vocabularies to create unified nodes
+            logger.info(f"📊 Processing CMIP6 controlled vocabulary files")
+            for json_file in cmip6_vocab_files:
+                filepath = os.path.join(cmip6_dir, json_file)
+                try:
+                    with open(filepath, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+
+                    # Process based on vocabulary type
+                    if 'experiment_id' in data:
+                        self._process_cmip6_experiments(data['experiment_id'])
+                    elif 'activity_id' in data:
+                        self._process_cmip6_activities(data['activity_id'])
+                    elif 'frequency' in data:
+                        self._process_cmip6_frequencies(data['frequency'])
+                    elif 'institution_id' in data:
+                        self._process_cmip6_institutions(data['institution_id'])
+                    elif 'variable_id' in data:
+                        self._process_cmip6_variables(data['variable_id'])
+                    elif 'source_id' in data:
+                        self._process_cmip6_sources(data['source_id'])
+                    elif 'realm' in data:
+                        self._process_cmip6_realms(data['realm'])
+                    elif 'grid_label' in data:
+                        self._process_cmip6_grid_labels(data['grid_label'])
+                    else:
+                        logger.debug(f"  ⏭️  Skipping non-vocabulary file: {json_file}")
+
+                except Exception as e:
+                    logger.error(f"  ❌ Error processing CMIP6 vocabulary file {json_file}: {e}")
+
+            # Process CMIP6 dataset metadata (sample from the large file)
+            cmip6_metadata_file = os.path.join(cmip6_dir, '220514_CMIP6_metaData_restartedInd-24949000.json')
+            if os.path.exists(cmip6_metadata_file):
+                logger.info(f"📊 Processing CMIP6 dataset metadata (sampling due to size)")
+                self._process_cmip6_datasets_sample(cmip6_metadata_file)
+            else:
+                logger.warning(f"CMIP6 metadata file not found: {cmip6_metadata_file}")
+
+        else:
+            logger.warning(f"CMIP6 directory not found: {cmip6_dir}")
+
+        # Process ERA5 files with enhanced extraction
+        era5_dir = os.path.join(script_parent_dir, 'ERA5Data', 'ERA5Meta')
+        if os.path.exists(era5_dir):
+            era5_files = [f for f in os.listdir(era5_dir) if f.endswith('.json')]
+            logger.info(f"🌡️  Found {len(era5_files)} ERA5 files")
+
+            for json_file in era5_files:
+                filepath = os.path.join(era5_dir, json_file)
+                try:
+                    with open(filepath, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+
+                    # ERA5 files follow STAC format
+                    simulation_id = f"era5_{data.get('id', json_file.replace('.json', ''))}"
+
+                    # Extract structured keywords
+                    keywords_list = data.get('keywords', [])
+                    keyword_props = self._extract_era5_keywords(keywords_list)
+
+                    # Extract extent details
+                    extent = data.get('extent', {})
+                    spatial = extent.get('spatial', {})
+                    temporal = extent.get('temporal', {})
+                    bbox = spatial.get('bbox', [[]])[0] if spatial.get('bbox') else []
+                    temporal_interval = temporal.get('interval', [[]])[0] if temporal.get('interval') else []
+
+                    # Create ERA5 dataset node using unified SimDataset type
+                    node = {
+                        'id': simulation_id,
+                        'type': 'SimDataset',
+                        'simulation_type': 'ERA5',
+                        'name': data.get('title', json_file.replace('.json', '')),
+                        'description': data.get('description', '')[:1000],
+                        'license': data.get('license', ''),
+                        'doi': data.get('sci:doi', ''),
+                        'published': data.get('published', ''),
+                        'updated': data.get('updated', ''),
+                        'source_file': json_file,
+                        'stac_version': data.get('stac_version', ''),
+                        # Extent details
+                        'bbox_west': str(bbox[0]) if len(bbox) > 0 else '',
+                        'bbox_south': str(bbox[1]) if len(bbox) > 1 else '',
+                        'bbox_east': str(bbox[2]) if len(bbox) > 2 else '',
+                        'bbox_north': str(bbox[3]) if len(bbox) > 3 else '',
+                        'temporal_start': temporal_interval[0] if len(temporal_interval) > 0 else '',
+                        'temporal_end': temporal_interval[1] if len(temporal_interval) > 1 else ''
+                    }
+
+                    self.nodes[simulation_id] = node
+
+                    # Extract properties from webpages data and create unified nodes
+                    webpages_data = data.get('webpages', {})
+                    self._extract_era5_properties_unified(simulation_id, webpages_data, keyword_props)
+
+
+                    # Extract links and create related dataset relationships
+                    links = data.get('links', [])
+                    related_datasets = data.get('related datasets', [])
+
+                    # Create Link nodes
+                    if links:
+                        for idx, link in enumerate(links[:10]):  # Limit to 10 links
+                            link_id = f"{simulation_id}_link_{idx}"
+                            link_node = {
+                                'id': link_id,
+                                'type': 'Link',
+                                'url': link.get('href', ''),
+                                'link_type': link.get('rel', ''),
+                                'link_rel': link.get('rel', ''),
+                                'title': link.get('title', ''),
+                                'mime_type': link.get('type', '')
+                            }
+                            self.nodes[link_id] = link_node
+
+                            # Create hasLink relationship
+                            rel = {
+                                'id': f"rel_{simulation_id}_hasLink_{link_id}",
+                                'type': 'hasLink',
+                                'from': simulation_id,
+                                'to': link_id,
+                                'from_type': 'SimDataset',
+                                'to_type': 'Link'
+                            }
+                            self.relationships.append(rel)
+
+                    # Create relatedTo relationships for related datasets
+                    for idx, related in enumerate(related_datasets[:5]):  # Limit to 5
+                        if related.get('rel') == 'related' and related.get('href'):
+                            # Extract related dataset ID from href
+                            href = related.get('href', '')
+                            related_id_part = href.split('/')[-1] if '/' in href else ''
+                            if related_id_part:
+                                related_dataset_id = f"era5_{related_id_part}"
+                                rel = {
+                                    'id': f"rel_{simulation_id}_relatedTo_{related_dataset_id}_{idx}",
+                                    'type': 'relatedTo',
+                                    'from': simulation_id,
+                                    'to': related_dataset_id,
+                                    'from_type': 'SimDataset',
+                                    'to_type': 'SimDataset',
+                                    'relationship_type': 'related'
+                                }
+                                self.relationships.append(rel)
+
+                    logger.debug(f"  ✓ Processed ERA5: {data.get('title', json_file)} ({len(variables)} variables)")
+
+                except Exception as e:
+                    logger.error(f"  ❌ Error processing ERA5 file {json_file}: {e}")
+
+        else:
+            logger.warning(f"ERA5 directory not found: {era5_dir}")
+
+        # Create relationships between CMIP6 nodes
+        logger.info("🔗 Creating CMIP6 relationships...")
+        self._create_cmip6_relationships()
+
+        # Log unified summary
+        cmip6_vocab_count = sum(1 for n in self.nodes.values() if n.get('type', '').startswith('CMIP6'))
+        sim_dataset_count = sum(1 for n in self.nodes.values() if n.get('type') == 'SimDataset')
+        sim_variable_count = sum(1 for n in self.nodes.values() if n.get('type') == 'SimVariable')
+        sim_provider_count = sum(1 for n in self.nodes.values() if n.get('type') == 'SimProvider')
+        sim_temporal_res_count = sum(1 for n in self.nodes.values() if n.get('type') == 'SimTemporalResolution')
+        sim_spatial_cov_count = sum(1 for n in self.nodes.values() if n.get('type') == 'SimSpatialCoverage')
+        sim_horiz_res_count = sum(1 for n in self.nodes.values() if n.get('type') == 'SimHorizontalResolution')
+        sim_file_format_count = sum(1 for n in self.nodes.values() if n.get('type') == 'SimFileFormat')
+
+        logger.info(f"✓ Created {cmip6_vocab_count} CMIP6 experiment/activity/source/realm nodes")
+        logger.info(f"✓ Created {sim_dataset_count} unified SimDataset nodes")
+        logger.info(f"✓ Created {sim_variable_count} unified SimVariable nodes")
+        logger.info(f"✓ Created {sim_provider_count} unified SimProvider nodes")
+        logger.info(f"✓ Created {sim_temporal_res_count} SimTemporalResolution, {sim_spatial_cov_count} SimSpatialCoverage, {sim_horiz_res_count} SimHorizontalResolution, {sim_file_format_count} SimFileFormat nodes")
+
     def convert_to_csvs(self, input_file, output_dir):
         """Convert JSON data to Neptune CSV format."""
         try:
@@ -2135,7 +3508,11 @@ class JSONToCSVConverter:
                 raise FileNotFoundError(f"Input JSON file not found: {input_file_path}")
                 
             self.process_json_file(input_file_path)
-            
+
+            # Process climate simulation files (CMIP6 and ERA5)
+            logger.info("🌍 Processing climate simulation datasets...")
+            self.process_climate_simulations()
+
             # Write CSV files (Windows-compatible path)
             output_dir_path = os.path.abspath(output_dir)
             logger.info(f"Writing CSV files to: {output_dir_path}")
@@ -2205,18 +3582,22 @@ def upload_to_s3(local_dir, bucket_name, prefix):
         return False
 
 def main():
-    parser = argparse.ArgumentParser(description='Convert JSON to Neptune CSV format')
-    parser.add_argument('--input', default='../NasaCMRData/json_files/structured_cmr_data.json', help='Input JSON file path')
+    parser = argparse.ArgumentParser(description='Convert JSON to Neptune CSV format (NASA CMR and NOAA OneStop)')
+    parser.add_argument('--input', default='../NasaCMRData/noaa_json/noaa_nasa_enhanced_multi_query.json',
+                       help='Input JSON file path (default: NOAA OneStop data)')
     parser.add_argument('--output-dir', default='neptune_csvs', help='Output directory for CSV files')
     parser.add_argument('--upload-s3', help='S3 bucket name to upload files (optional)')
     parser.add_argument('--s3-prefix', default='neptune-data/', help='S3 prefix for uploaded files')
     parser.add_argument('--generate-embeddings', action='store_true', default=True,
                        help='Generate text embeddings for DataCategory, Variable, CESMVariable, ScienceKeyword, Location, SpatialResolution, and TemporalResolution vertices (default: True)')
-    
+    parser.add_argument('--reliable-domains', default='../NasaCMRData/linkPreprocessing/assumed_working_parent_domains.csv',
+                       help='CSV file containing reliable parent domains (default: ../NasaCMRData/linkPreprocessing/assumed_working_parent_domains.csv)')
+
     args = parser.parse_args()
-    
+
     try:
-        converter = JSONToCSVConverter(generate_embeddings=args.generate_embeddings)
+        converter = JSONToCSVConverter(generate_embeddings=args.generate_embeddings,
+                                      reliable_domains_file=args.reliable_domains)
         summary_path = converter.convert_to_csvs(args.input, args.output_dir)
         
         logger.info("Generated files follow Neptune OpenCypher format:")
