@@ -1326,8 +1326,9 @@ class JSONToCSVConverter:
             clean_var_id = re.sub(r'[^a-zA-Z0-9_]', '_', str(var_id))
             return clean_var_id
         elif node_type == 'CESMVariable':
-            var_id = item.get('variable_id', f'cesm_var_{index}')
-            clean_var_id = re.sub(r'[^a-zA-Z0-9_]', '_', str(var_id))
+            # Use cesm_name from CSV as the primary identifier
+            cesm_name = item.get('cesm_name', f'cesm_var_{index}')
+            clean_var_id = re.sub(r'[^a-zA-Z0-9_]', '_', str(cesm_name))
             return clean_var_id
         elif node_type == 'Component':
             comp_id = item.get('component_id', f'comp_{index}')
