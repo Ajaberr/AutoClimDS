@@ -856,6 +856,8 @@ class JSONToCSVConverter:
             try:
                 with open(json_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
+                # Store data in instance for later use
+                self.json_data = data
                 logger.info(f" Successfully loaded JSON data from {json_file}")
             except json.JSONDecodeError as e:
                 logger.error(f"¥î Invalid JSON format in {json_file}: {e}")
@@ -3514,7 +3516,7 @@ class JSONToCSVConverter:
 
             # Create CESM variable to dataset mappings using pre-computed predictions (includes both observational and simulation data)
             try:
-                self.create_cesm_variable_mappings(data)
+                self.create_cesm_variable_mappings(self.json_data)
                 logger.info("✅ Successfully processed CESM variable mappings for both observational and simulation data")
             except Exception as e:
                 logger.error(f"❌ Error creating CESM variable mappings: {e}")
