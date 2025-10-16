@@ -1316,9 +1316,13 @@ class JSONToCSVConverter:
             clean_var_id = re.sub(r'[^a-zA-Z0-9_]', '_', str(var_id))
             return clean_var_id
         elif node_type == 'CESMVariable':
-            # Use cesm_name from CSV as the primary identifier
+            # Use cesm_name + component + temporal_frequency to make unique IDs
             cesm_name = item.get('cesm_name', f'cesm_var_{index}')
-            clean_var_id = re.sub(r'[^a-zA-Z0-9_]', '_', str(cesm_name))
+            component = item.get('component', '')
+            temporal_freq = item.get('temporal_frequency', '')
+            # Create unique ID by combining cesm_name with distinguishing info
+            unique_id = f"{cesm_name}_{component}_{temporal_freq}"
+            clean_var_id = re.sub(r'[^a-zA-Z0-9_]', '_', str(unique_id))
             return clean_var_id
         elif node_type == 'Component':
             comp_id = item.get('component_id', f'comp_{index}')
@@ -1662,7 +1666,16 @@ class JSONToCSVConverter:
             if node.get('type') == 'CESMVariable':
                 cesm_name = node.get('cesm_name')
                 if cesm_name:
-                    cesm_var_lookup[cesm_name] = node_id
+                    # For variables with multiple variants, prefer monthly data over daily
+                    if cesm_name in cesm_var_lookup:
+                        # Check if current node is monthly and existing is not
+                        current_freq = node.get('temporal_frequency', '')
+                        existing_node = self.nodes.get(cesm_var_lookup[cesm_name], {})
+                        existing_freq = existing_node.get('temporal_frequency', '')
+                        if 'month' in current_freq and 'month' not in existing_freq:
+                            cesm_var_lookup[cesm_name] = node_id
+                    else:
+                        cesm_var_lookup[cesm_name] = node_id
         logger.info(f" Built lookup for {len(cesm_var_lookup)} CESM variables")
 
         successful_mappings_obs = 0
