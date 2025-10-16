@@ -183,8 +183,8 @@ class JSONToCSVConverter:
             
             # Variable relationships
             "hasVariable": ("Dataset", "Variable"),           # Dataset -> NASA CMR Variable
-            # "hasCESMVariable": ("Dataset", "CESMVariable"), # REMOVED: Created separately via ML predictions
-            "mapsToCESMVariable": ("SimDataset", "CESMVariable"), # SimDataset -> CESMVariable (simulation data ML mapping)
+            "hasCESMVariable": ("Dataset", "CESMVariable"),   # Dataset -> CESMVariable (observational data ML mapping)
+            "hasCESMSimVariable": ("SimDataset", "CESMVariable"), # SimDataset -> CESMVariable (simulation data ML mapping)
             "belongsToComponent": ("CESMVariable", "Component"),  # CESM Variable -> Component
             "similarCESMVariable": ("CESMVariable", "CESMVariable"), # CESMVariable -> CESMVariable (string similarity based grouping)
             
@@ -887,9 +887,11 @@ class JSONToCSVConverter:
             if 'CESMVariable' not in data:
                 logger.info("🔬 Loading CESM variables from CSV file...")
                 cesm_variables = self.load_cesm_variables()
+                logger.info(f"DEBUG: load_cesm_variables returned {len(cesm_variables) if cesm_variables else 0} variables")
                 if cesm_variables:
                     data['CESMVariable'] = cesm_variables
                     logger.info(f"✓ Added {len(cesm_variables)} CESM variables to data")
+                    logger.info(f"DEBUG: First CESM variable: {cesm_variables[0] if cesm_variables else 'None'}")
                 else:
                     logger.warning("⚠️  No CESM variables loaded - CESMVariable processing will be skipped")
 
@@ -899,10 +901,11 @@ class JSONToCSVConverter:
                 if node_type in data:
                     # Handle CESMVariable separately (will be processed normally)
                     if node_type == 'CESMVariable':
-                        logger.info("Processing CESMVariable nodes...")
+                        logger.info(f"Processing CESMVariable nodes... (found {len(data[node_type])} variables)")
                         try:
                             self.process_cesm_variables(data[node_type])
                             nodes_processed += len(data[node_type]) if isinstance(data[node_type], list) else 1
+                            logger.info(f"✓ Successfully processed {len(data[node_type])} CESM variables into self.nodes")
                         except Exception as e:
                             logger.error(f"¥î Error processing CESMVariable nodes: {e}")
                         continue
@@ -1632,9 +1635,31 @@ class JSONToCSVConverter:
             logger.error(f"¥î Error loading ML predictions: {e}")
             return
         
-        datasets = data['Dataset']
-        logger.info(f"Creating CESM variable mappings for {len(datasets)} datasets...")
-        
+        # Build comprehensive dataset lookup for both observational and simulation data
+        logger.info("Building comprehensive dataset lookup...")
+        dataset_lookup = {}  # Maps various ID formats to actual node IDs
+
+        # Index observational datasets (Dataset nodes)
+        observational_datasets = data.get('Dataset', [])
+        for i, dataset in enumerate(observational_datasets):
+            dataset_node_id = self.create_node_id('Dataset', dataset, i)
+            # Multiple ID formats for observational data
+            dataset_lookup[f"ID_{i+1}"] = {'node_id': dataset_node_id, 'type': 'observational'}
+            dataset_lookup[dataset_node_id] = {'node_id': dataset_node_id, 'type': 'observational'}
+
+        # Index simulation datasets (SimDataset nodes)
+        simulation_datasets = [(node_id, node) for node_id, node in self.nodes.items()
+                              if node.get('type') == 'SimDataset']
+        for node_id, node in simulation_datasets:
+            dataset_lookup[node_id] = {'node_id': node_id, 'type': 'simulation'}
+            # Also map common simulation ID patterns
+            if node_id.startswith('cmip6_'):
+                dataset_lookup[f"cmip6_{node.get('name', '')}"] = {'node_id': node_id, 'type': 'simulation'}
+            elif node_id.startswith('era5_'):
+                dataset_lookup[f"era5_{node.get('name', '')}"] = {'node_id': node_id, 'type': 'simulation'}
+
+        logger.info(f" Built lookup for {len(observational_datasets)} observational + {len(simulation_datasets)} simulation datasets")
+
         # Build CESM variable lookup dictionary for O(1) access
         logger.info("Building CESM variable lookup dictionary...")
         cesm_var_lookup = {}
@@ -1644,8 +1669,9 @@ class JSONToCSVConverter:
                 if cesm_name:
                     cesm_var_lookup[cesm_name] = node_id
         logger.info(f" Built lookup for {len(cesm_var_lookup)} CESM variables")
-        
-        successful_mappings = 0
+
+        successful_mappings_obs = 0
+        successful_mappings_sim = 0
         failed_mappings = 0
         
         # Process ML predictions and create edges to existing CESM variable nodes
@@ -1662,54 +1688,32 @@ class JSONToCSVConverter:
                 if not meets_threshold or aggregated_confidence < 0.3:
                     continue
                 
-                # Handle different dataset ID formats for observational vs simulation data
-                try:
-                    if ml_dataset_id.startswith('cmip6_') or ml_dataset_id.startswith('era5_'):
-                        # Handle simulation datasets - look for existing SimDataset nodes
-                        simulation_dataset_id = None
+                # Look up dataset using comprehensive lookup
+                dataset_info = dataset_lookup.get(ml_dataset_id)
+                if not dataset_info:
+                    # Try alternative ID formats for flexibility
+                    alt_ids = []
+                    if ml_dataset_id.startswith('ID_'):
+                        # Try direct node ID lookup
+                        id_num = ml_dataset_id.split('_')[1] if '_' in ml_dataset_id else ''
+                        if id_num.isdigit():
+                            alt_ids.extend([f"dataset_{id_num}", f"Dataset_{id_num}"])
+                    elif ml_dataset_id.startswith(('cmip6_', 'era5_')):
+                        # Try variations of simulation IDs
+                        alt_ids.extend([ml_dataset_id.replace('_', '-'), ml_dataset_id.replace('-', '_')])
 
-                        # Find the corresponding SimDataset node by matching the ML dataset ID
-                        for node_id, node in self.nodes.items():
-                            if (node.get('type') == 'SimDataset' and
-                                node_id == ml_dataset_id):
-                                simulation_dataset_id = node_id
-                                break
+                    for alt_id in alt_ids:
+                        if alt_id in dataset_lookup:
+                            dataset_info = dataset_lookup[alt_id]
+                            break
 
-                        if simulation_dataset_id:
-                            dataset_id = simulation_dataset_id
-                            logger.debug(f"Found simulation dataset: {dataset_id}")
-                        else:
-                            logger.debug(f"Could not find SimDataset node for ML ID: {ml_dataset_id}")
-                            failed_mappings += 1
-                            continue
-
-                    else:
-                        # Handle observational dataset IDs (e.g., "ID_4" -> 3 as 0-based index)
-                        if '_' not in ml_dataset_id:
-                            logger.warning(f"Invalid dataset ID format: {ml_dataset_id}")
-                            failed_mappings += 1
-                            continue
-
-                        id_parts = ml_dataset_id.split('_')
-                        if len(id_parts) < 2 or not id_parts[1].isdigit():
-                            logger.warning(f"Invalid dataset ID format: {ml_dataset_id} - expected format ID_NUMBER")
-                            failed_mappings += 1
-                            continue
-
-                        dataset_index = int(id_parts[1]) - 1  # Convert to 0-based index
-                        if dataset_index < 0 or dataset_index >= len(datasets):
-                            logger.warning(f"Dataset index {dataset_index} out of range for {ml_dataset_id}")
-                            failed_mappings += 1
-                            continue
-
-                        # Get the actual dataset and create its ID
-                        dataset = datasets[dataset_index]
-                        dataset_id = self.create_node_id('Dataset', dataset, dataset_index)
-
-                except (ValueError, IndexError) as e:
-                    logger.error(f"Invalid dataset ID format: {ml_dataset_id} - {e}")
+                if not dataset_info:
+                    logger.debug(f"Could not find dataset for ID: {ml_dataset_id}")
                     failed_mappings += 1
                     continue
+
+                dataset_id = dataset_info['node_id']
+                dataset_type = dataset_info['type']
                 
                 # Find existing CESM variable node using O(1) lookup
                 cesm_var_id = cesm_var_lookup.get(predicted_cesm)
@@ -1726,17 +1730,19 @@ class JSONToCSVConverter:
                 if dataset_id in self.nodes and cesm_var_id in self.nodes:
                     self.relationship_id_counter += 1
 
-                    # Determine relationship type and source types based on dataset
-                    if ml_dataset_id.startswith('cmip6_') or ml_dataset_id.startswith('era5_'):
-                        # Simulation dataset to CESM variable
-                        relationship_type = 'mapsToCESMVariable'
+                    # Determine relationship type based on dataset type from lookup
+                    if dataset_type == 'simulation':
+                        # Simulation dataset to CESM variable (CMIP6/ERA5)
+                        relationship_type = 'hasCESMSimVariable'
                         from_type = 'SimDataset'
                         to_type = 'CESMVariable'
+                        successful_mappings_sim += 1
                     else:
-                        # Observational dataset to CESM variable
+                        # Observational dataset to CESM variable (NASA CMR/NOAA)
                         relationship_type = 'hasCESMVariable'
                         from_type = 'Dataset'
                         to_type = 'CESMVariable'
+                        successful_mappings_obs += 1
 
                     self.relationships.append({
                         'id': f"rel_{self.relationship_id_counter}",
@@ -1749,37 +1755,37 @@ class JSONToCSVConverter:
                         'aggregated_confidence': aggregated_confidence,
                         'quality_rating': quality_rating,
                         'prediction_method': 'climatebert_model',
+                        'dataset_type': dataset_type,
                         'best_matching_tokens': str(prediction_row.get('best_matching_tokens', '')),
                         'group_type': str(prediction_row.get('group_type', '')),
                         'meets_threshold': meets_threshold,
                         'data_source': prediction_row.get('data_source', '')
                     })
                 else:
-                    logger.debug(f"Skipped hasCESMVariable relationship: dataset_id={dataset_id} exists={dataset_id in self.nodes}, cesm_var_id={cesm_var_id} exists={cesm_var_id in self.nodes}")
+                    logger.debug(f"Skipped CESM relationship: dataset_id={dataset_id} exists={dataset_id in self.nodes}, cesm_var_id={cesm_var_id} exists={cesm_var_id in self.nodes}")
                     failed_mappings += 1
                     continue
                 
-                successful_mappings += 1
-                
+
             except Exception as e:
                 logger.error(f"¥î Error processing ML prediction: {e}")
                 failed_mappings += 1
                 continue
-        
+
         # Count both observational and simulation CESM relationships
         obs_cesm_count = len([r for r in self.relationships if r['type'] == 'hasCESMVariable'])
-        sim_cesm_count = len([r for r in self.relationships if r['type'] == 'mapsToCESMVariable'])
+        sim_cesm_count = len([r for r in self.relationships if r['type'] == 'hasCESMSimVariable'])
         total_cesm_count = obs_cesm_count + sim_cesm_count
 
         logger.info(f" Created {obs_cesm_count} hasCESMVariable relationships (observational data)")
-        logger.info(f" Created {sim_cesm_count} mapsToCESMVariable relationships (simulation data)")
+        logger.info(f" Created {sim_cesm_count} hasCESMSimVariable relationships (simulation data)")
         logger.info(f" Total CESM relationships: {total_cesm_count}")
-        logger.info(f" Successfully processed {successful_mappings} predictions, {failed_mappings} failed")
+        logger.info(f" Successfully processed {successful_mappings_obs} observational + {successful_mappings_sim} simulation predictions, {failed_mappings} failed")
         
         # Print quality distribution from relationships (both observational and simulation)
         quality_counts = {}
         for rel in self.relationships:
-            if (rel.get('type') in ['hasCESMVariable', 'mapsToCESMVariable'] and
+            if (rel.get('type') in ['hasCESMVariable', 'hasCESMSimVariable'] and
                 rel.get('prediction_method') == 'climatebert_model'):
                 quality = rel.get('quality_rating', 'UNKNOWN')
                 quality_counts[quality] = quality_counts.get(quality, 0) + 1
@@ -3451,7 +3457,7 @@ class JSONToCSVConverter:
                                 }
                                 self.relationships.append(rel)
 
-                    logger.debug(f"  ✓ Processed ERA5: {data.get('title', json_file)} ({len(variables)} variables)")
+                    logger.debug(f"  ✓ Processed ERA5: {data.get('title', json_file)}")
 
                 except Exception as e:
                     logger.error(f"  ❌ Error processing ERA5 file {json_file}: {e}")
