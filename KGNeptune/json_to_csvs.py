@@ -1441,21 +1441,25 @@ class JSONToCSVConverter:
         """Process CESM variables and store for later mapping."""
         for i, var in enumerate(cesm_variables):
             var_id = self.create_node_id('CESMVariable', var, i)
-            cesm_name = var.get('cesm_name', var.get('name', ''))
+            # Map CSV columns correctly: standard_type,component,temporal_frequency,cesm_name,time_averaging,description,units,dimensions
+            cesm_name = var.get('cesm_name', '')
             properties = {
                 'id': var_id,
                 'type': 'CESMVariable',
-                'variable_id': var.get('variable_id', ''),
+                'variable_id': cesm_name,  # Use cesm_name as variable_id
                 'cesm_name': cesm_name,
-                'name': var.get('name', ''),
-                'standard_name': var.get('standard_name', ''),
-                'long_name': var.get('long_name', ''),
+                'name': cesm_name,  # Use cesm_name as name too
+                'standard_name': var.get('cesm_name', ''),
+                'long_name': var.get('description', ''),
                 'units': var.get('units', ''),
                 'description': var.get('description', ''),
-                'domain': var.get('domain', ''),
+                'domain': var.get('standard_type', ''),  # Map standard_type to domain
                 'component': var.get('component', ''),
-                'variable_type': var.get('variable_type', ''),
-                'source_dataset': var.get('source_dataset', '')
+                'temporal_frequency': var.get('temporal_frequency', ''),
+                'time_averaging': var.get('time_averaging', ''),
+                'dimensions': var.get('dimensions', ''),
+                'variable_type': 'cesm_variable',
+                'source_dataset': 'cesm_variables_raw.csv'
             }
             self.nodes[var_id] = properties
 
