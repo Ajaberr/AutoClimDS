@@ -960,19 +960,7 @@ class JSONToCSVConverter:
             except Exception as e:
                 logger.error(f"¥î Error creating workflow relationships: {e}")
             
-            # Create CESM variable to dataset mappings using pre-computed predictions
-            try:
-                self.create_cesm_variable_mappings(data)
-                logger.info(" Successfully processed CESM variable mappings")
-            except Exception as e:
-                logger.error(f"¥î Error creating CESM variable mappings: {e}")
-            
-            # Create CESM variable similarity relationships
-            try:
-                self.create_cesm_similarity_relationships(threshold=0.7)
-                logger.info(" Successfully created CESM variable similarity relationships")
-            except Exception as e:
-                logger.error(f"¥î Error creating CESM similarity relationships: {e}")
+            # Note: CESM variable mappings moved after simulation data processing
             
             # Create climate ML workflow nodes
             try:
@@ -3523,6 +3511,20 @@ class JSONToCSVConverter:
             # Process climate simulation files (CMIP6 and ERA5)
             logger.info("🌍 Processing climate simulation datasets...")
             self.process_climate_simulations()
+
+            # Create CESM variable to dataset mappings using pre-computed predictions (includes both observational and simulation data)
+            try:
+                self.create_cesm_variable_mappings(data)
+                logger.info("✅ Successfully processed CESM variable mappings for both observational and simulation data")
+            except Exception as e:
+                logger.error(f"❌ Error creating CESM variable mappings: {e}")
+
+            # Create CESM variable similarity relationships
+            try:
+                self.create_cesm_similarity_relationships(threshold=0.7)
+                logger.info("✅ Successfully created CESM variable similarity relationships")
+            except Exception as e:
+                logger.error(f"❌ Error creating CESM similarity relationships: {e}")
 
             # Write CSV files (Windows-compatible path)
             output_dir_path = os.path.abspath(output_dir)
