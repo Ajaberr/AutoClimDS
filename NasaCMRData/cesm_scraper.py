@@ -92,9 +92,24 @@ def clean_variable_data(df):
         if col in df.columns:
             df = df.dropna(subset=[col])
     
-    # Clean variable names
+    # Clean text fields to avoid CSV parsing issues
+    def clean_text_field(text):
+        if pd.isna(text) or not isinstance(text, str):
+            return text
+        # Remove/replace problematic characters that break CSV parsing
+        text = text.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ')
+        text = ' '.join(text.split())  # Normalize whitespace
+        return text.strip()
+
+    # Clean variable names and text fields
     if 'cesm_name' in df.columns:
         df['cesm_name'] = df['cesm_name'].str.strip()
+
+    # Clean description fields
+    text_fields = ['description', 'long_name', 'standard_name', 'units', 'time_averaging', 'dimensions']
+    for field in text_fields:
+        if field in df.columns:
+            df[field] = df[field].apply(clean_text_field)
     
     # Filter out variables with "unknown" descriptions
     initial_count = len(df)
@@ -219,8 +234,8 @@ def save_to_csv(df, components, output_filename='cesm_variables/cesm_variables_o
             for detail_key, detail_value in comp_details.items():
                 df_output.loc[mask, detail_key] = detail_value
     
-    # Save to CSV
-    df_output.to_csv(output_filename, index=False)
+    # Save to CSV with proper quoting to handle special characters
+    df_output.to_csv(output_filename, index=False, quoting=1, escapechar='\\', doublequote=True)
     
     print(f"Successfully saved {len(df_output)} variables to {output_filename}")
     print(f"Columns saved: {list(df_output.columns)}")
@@ -260,7 +275,8 @@ def main():
     
     # Also save raw data for inspection
     os.makedirs('cesm_variables', exist_ok=True)
-    df_clean.to_csv('cesm_variables/cesm_variables_raw.csv', index=False)
+    # Save raw data with proper CSV quoting
+    df_clean.to_csv('cesm_variables/cesm_variables_raw.csv', index=False, quoting=1, escapechar='\\', doublequote=True)
     print(f"Raw data also saved to cesm_variables_raw.csv ({len(df_clean)} rows)")
     
     print("\nScraping completed successfully!")
