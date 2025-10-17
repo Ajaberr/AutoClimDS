@@ -13,9 +13,27 @@ from collections import Counter, defaultdict
 import re
 import os
 
-# Check device
+# Clear GPU memory and check device
+if torch.cuda.is_available():
+    try:
+        torch.cuda.empty_cache()
+        torch.cuda.synchronize()
+        # Test basic CUDA operation
+        test_tensor = torch.tensor([1.0]).cuda()
+        print(f"🔧 Cleared GPU cache and verified CUDA works")
+        del test_tensor
+    except Exception as e:
+        print(f"⚠️  CUDA test failed: {e}")
+        print("   Falling back to CPU")
+        device = torch.device("cpu")
+        exit()
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"ÜÇ Using device: {device}")
+
+if device.type == 'cuda':
+    print(f"   GPU Memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB total")
+    print(f"   GPU Memory Available: {torch.cuda.memory_reserved(0) / 1e9:.1f} GB reserved")
 
 # Get script directory for relative paths
 script_dir = os.path.dirname(os.path.abspath(__file__))
