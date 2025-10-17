@@ -1678,6 +1678,18 @@ class JSONToCSVConverter:
                         cesm_var_lookup[cesm_name] = node_id
         logger.info(f" Built lookup for {len(cesm_var_lookup)} CESM variables")
 
+        # Debug: Log some sample CESM variables in lookup
+        sample_vars = list(cesm_var_lookup.keys())[:10]
+        logger.info(f" Sample CESM variables in lookup: {sample_vars}")
+
+        # Debug: Check for the specific problematic variables
+        problem_vars = ['diatChl', 'DpCO2_2', 'dst_a2DDF', 'siitdconc', 'WTHzm']
+        for var in problem_vars:
+            if var in cesm_var_lookup:
+                logger.info(f" ✓ {var} found in lookup -> {cesm_var_lookup[var]}")
+            else:
+                logger.warning(f" ❌ {var} NOT found in lookup")
+
         successful_mappings_obs = 0
         successful_mappings_sim = 0
         failed_mappings = 0
