@@ -875,21 +875,28 @@ def predict_cmr_datasets(confidence_threshold=0.3):
                 if meets_threshold:
                     reliable_predictions += 1
                 
+                # Clean text fields to avoid CSV parsing issues
+                def clean_text(text):
+                    if not isinstance(text, str):
+                        return str(text)
+                    # Remove/replace problematic characters
+                    return text.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ').strip()
+
                 result = {
                     'dataset_id': dataset_id,
-                    'dataset_title': dataset_title,
+                    'dataset_title': clean_text(dataset_title),
                     'predicted_cesm_variable': best_prediction,
                     'individual_confidence': best_individual_confidence,
                     'aggregated_confidence': best_total_confidence,
                     'quality_rating': quality,
                     'meets_threshold': meets_threshold,
                     'data_source': data_source,  # Track whether this is simulation or observational data
-                    'best_matching_tokens': best_tokens[:2],
+                    'best_matching_tokens': str(best_tokens[:2]),  # Convert list to string
                     'group_type': best_group,
-                    'group_members': best_group_members,
+                    'group_members': str(best_group_members),  # Convert list to string
                     'used_individual_confidence': used_individual,
                     'total_tokens_processed': 1 if data_source in ['CMIP6', 'ERA5'] else len(meaningful_tokens) if 'meaningful_tokens' in locals() else 0,
-                    'input_summary': full_summary[:500] + "..." if len(full_summary) > 500 else full_summary,
+                    'input_summary': clean_text(full_summary[:500] + "..." if len(full_summary) > 500 else full_summary),
                     'full_summary_length': len(full_summary)
                 }
                 results.append(result)
@@ -937,7 +944,8 @@ def predict_cmr_datasets(confidence_threshold=0.3):
     # Save results
     output_path = os.path.join(script_dir, 'predictions/cmr_dataset_predictions.csv')
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    deduplicated_df.to_csv(output_path, index=False)
+    # Use proper CSV parameters to handle special characters and quotes
+    deduplicated_df.to_csv(output_path, index=False, quoting=1, escapechar='\\', doublequote=True)
     print(f"\nÆ╛ Saved {len(deduplicated_df)} predictions to {output_path}")
     
     # Update results for analysis
