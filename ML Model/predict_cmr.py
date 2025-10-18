@@ -362,8 +362,13 @@ def deduplicate_datasets(cmr_data):
     
     return deduplicated_data
 
-def convert_cmip6_to_common_format(cmip6_record):
-    """Convert CMIP6 record to common dataset format for prediction"""
+def convert_cmip6_to_common_format(cmip6_record, dataset_key=None):
+    """Convert CMIP6 record to common dataset format for prediction
+
+    Args:
+        cmip6_record: CMIP6 dataset record
+        dataset_key: Dictionary key (e.g., 'CMIP6.AER.LBLRTM-12-8.RFMIP.rad-irf.r1i1p1f1.gn.v20190514')
+    """
     # Load controlled vocabularies for enriched descriptions
     script_parent_dir = os.path.dirname(script_dir)
     cmip6_vocabularies = {}
@@ -404,9 +409,10 @@ def convert_cmip6_to_common_format(cmip6_record):
     experiment_description = experiment_info.get('description', experiment_id)
 
     # Create dataset record in common format
+    # Use dataset_key as the unique ID to match what json_to_csvs.py uses
     dataset = {
         'title': f"CMIP6 {cmip6_record.get('source_id', '')} {experiment_id} {variable_id}",
-        'id': f"cmip6_{cmip6_record.get('instance_id', '')}",
+        'id': f"cmip6_{dataset_key}" if dataset_key else f"cmip6_{cmip6_record.get('instance_id', '')}",
         'description': f"CMIP6 climate model simulation data from {cmip6_record.get('source_id', '')} model. Variable: {variable_description}. Experiment: {experiment_description}. Frequency: {cmip6_record.get('frequency', '')}. Grid: {cmip6_record.get('grid_label', '')}.",
         'summary': f"Climate simulation data for {variable_description} from the {experiment_description} using {cmip6_record.get('source_id', '')} model at {cmip6_record.get('frequency', '')} frequency.",
         'keywords': [
@@ -452,8 +458,13 @@ def convert_cmip6_to_common_format(cmip6_record):
         'data_source': 'CMIP6'
     }
 
-def convert_era5_to_common_format(era5_data):
-    """Convert ERA5 record to common dataset format for prediction"""
+def convert_era5_to_common_format(era5_data, dataset_key=None):
+    """Convert ERA5 record to common dataset format for prediction
+
+    Args:
+        era5_data: ERA5 dataset record
+        dataset_key: Filename/key identifier (e.g., 'era5_precipitation')
+    """
     dataset_id = era5_data.get('id', '')
     title = era5_data.get('title', dataset_id)
 
@@ -517,9 +528,11 @@ def convert_era5_to_common_format(era5_data):
                                         })
 
     # Create dataset record
+    # Use id field if present (matches json_to_csvs.py), otherwise fall back to dataset_key (filename)
+    stable_id = f"era5_{dataset_id}" if dataset_id else f"era5_{dataset_key}" if dataset_key else "era5_unknown"
     dataset = {
         'title': title,
-        'id': f"era5_{dataset_id}",
+        'id': stable_id,
         'description': " | ".join(description_parts),
         'summary': f"ERA5 atmospheric reanalysis data providing comprehensive information about {', '.join([v['name'] for v in variables[:5]])}",
         'keywords': era5_data.get('keywords', []) + ['ERA5', 'reanalysis', 'atmospheric data', 'ECMWF'],
@@ -657,30 +670,16 @@ def load_and_combine_datasets():
         max_cmip6_records = 5000  # Limit for performance
 
         with open(cmip6_data_path, 'rb') as f:
-            parser = ijson.parse(f)
-            current_record = {}
-
-            for prefix, event, value in parser:
-                if prefix.endswith('.item'):
-                    if current_record:
-                        # Convert CMIP6 record to common format
-                        cmip6_record = convert_cmip6_to_common_format(current_record)
-                        all_datasets.append(cmip6_record)
-                        cmip6_count += 1
-
-                        if cmip6_count >= max_cmip6_records:
-                            break
-                    current_record = {}
-                elif '.' in prefix and not prefix.endswith('.item'):
-                    # Build the current record
-                    key = prefix.split('.')[-1]
-                    current_record[key] = value
-
-            # Don't forget the last record
-            if current_record and cmip6_count < max_cmip6_records:
-                cmip6_record = convert_cmip6_to_common_format(current_record)
+            # Use kvitems to get both dictionary keys and values
+            # This preserves the dataset ID from the dictionary key (e.g., 'CMIP6.AER.LBLRTM-12-8.RFMIP.rad-irf.r1i1p1f1.gn.v20190514')
+            for dataset_key, dataset_value in ijson.kvitems(f, ''):
+                # Pass the dictionary key to the converter for stable ID generation
+                cmip6_record = convert_cmip6_to_common_format(dataset_value, dataset_key=dataset_key)
                 all_datasets.append(cmip6_record)
                 cmip6_count += 1
+
+                if cmip6_count >= max_cmip6_records:
+                    break
 
         print(f"✓ Loaded {cmip6_count} CMIP6 simulation datasets")
 
@@ -701,8 +700,11 @@ def load_and_combine_datasets():
             with open(filepath, 'r', encoding='utf-8') as f:
                 era5_data = json.load(f)
 
+            # Use filename (without extension) as dataset key for stable ID
+            dataset_key = os.path.splitext(json_file)[0]
+
             # Convert ERA5 record to common format
-            era5_record = convert_era5_to_common_format(era5_data)
+            era5_record = convert_era5_to_common_format(era5_data, dataset_key=dataset_key)
             all_datasets.append(era5_record)
             era5_count += 1
 
@@ -744,7 +746,8 @@ def predict_cmr_datasets(confidence_threshold=0.3):
     for i, cmr_entry in enumerate(cmr_data):
         # Extract dataset information
         dataset_title = cmr_entry.get('Dataset', {}).get('title', f'Dataset_{i+1}')
-        dataset_id = cmr_entry.get('Dataset', {}).get('id', f'ID_{i+1}')
+        # Use short_name as primary ID (stable across deduplication), fall back to id, then index
+        dataset_id = cmr_entry.get('Dataset', {}).get('short_name') or cmr_entry.get('Dataset', {}).get('id') or f'ID_{i+1}'
         data_source = cmr_entry.get('data_source', '')  # Check if this is simulation data
         
         # Create comprehensive summary

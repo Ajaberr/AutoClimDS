@@ -5,3 +5,5 @@ matplotlib
 pandas
 numpy
 tqdm
+ijson
+hf_transf
