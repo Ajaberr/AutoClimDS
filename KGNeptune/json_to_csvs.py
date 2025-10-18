@@ -1646,6 +1646,13 @@ class JSONToCSVConverter:
             dataset_lookup[f"ID_{i+1}"] = {'node_id': dataset_node_id, 'type': 'observational'}
             dataset_lookup[dataset_node_id] = {'node_id': dataset_node_id, 'type': 'observational'}
 
+            # Also map by the actual dataset ID if it exists (for ML predictions that may have used this)
+            if 'id' in dataset and dataset['id']:
+                dataset_lookup[dataset['id']] = {'node_id': dataset_node_id, 'type': 'observational'}
+            # And by short_name for additional fallback
+            if 'short_name' in dataset and dataset['short_name']:
+                dataset_lookup[dataset['short_name']] = {'node_id': dataset_node_id, 'type': 'observational'}
+
         # Index simulation datasets (SimDataset nodes)
         simulation_datasets = [(node_id, node) for node_id, node in self.nodes.items()
                               if node.get('type') == 'SimDataset']
