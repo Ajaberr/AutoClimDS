@@ -885,8 +885,8 @@ class JSONToCSVConverter:
                         self.related_urls_by_dataset[dataset_id].append(link)
                 logger.info(f"✓ Indexed RelatedUrls for {len(self.related_urls_by_dataset)} datasets")
 
-            # Load and add CESM variables to data if not already present
-            if 'CESMVariable' not in data:
+            # Load and add CESM variables to data if not already present or if empty
+            if 'CESMVariable' not in data or not data.get('CESMVariable'):
                 logger.info("🔬 Loading CESM variables from CSV file...")
                 cesm_variables = self.load_cesm_variables()
                 logger.info(f"DEBUG: load_cesm_variables returned {len(cesm_variables) if cesm_variables else 0} variables")
@@ -2996,50 +2996,54 @@ class JSONToCSVConverter:
         logger.info(f"✓ Loaded {total_entries} total vocabulary entries for enrichment")
 
     def _process_cmip6_datasets_sample(self, metadata_file, sample_size=1000):
-        """Process a sample of CMIP6 datasets using data-driven extraction."""
-        import ijson
+        """Process a sample of CMIP6 datasets using simple JSON loading."""
 
         try:
-            logger.info(f"📊 Sampling {sample_size} CMIP6 datasets from metadata file")
+            logger.info(f"📊 Loading CMIP6 datasets from metadata file (sampling {sample_size})")
+
+            # Load JSON file the same way as NASA CMR data
+            with open(metadata_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+
+            logger.info(f"📊 Loaded {len(data)} total CMIP6 datasets, processing sample of {sample_size}")
+
+            # Sample the datasets
+            dataset_keys = list(data.keys())
+            sample_keys = dataset_keys[:min(sample_size, len(dataset_keys))]
 
             count = 0
-            with open(metadata_file, 'rb') as f:
-                # Use ijson to parse large JSON file incrementally
-                parser = ijson.kvitems(f, '', multiple_values=True)
+            for dataset_key in sample_keys:
+                dataset_data = data[dataset_key]
 
-                for dataset_key, dataset_data in parser:
-                    if count >= sample_size:
-                        break
+                # Create CMIP6 dataset as SimDataset
+                dataset_id = f"cmip6_{dataset_key}"
 
-                    # Create CMIP6 dataset as SimDataset
-                    dataset_id = f"cmip6_{dataset_key}"
+                # Extract basic dataset properties
+                dataset_node = {
+                    'id': dataset_id,
+                    'type': 'SimDataset',
+                    'simulation_type': 'CMIP6',
+                    'name': dataset_key,
+                    'description': dataset_data.get('experiment', '')[:1000],
+                    'license': dataset_data.get('license', '')[:500],
+                    'creation_date': dataset_data.get('creation_date', ''),
+                    'mip_era': dataset_data.get('mip_era', ''),
+                    'product': dataset_data.get('product', ''),
+                    'realm': dataset_data.get('realm', ''),
+                    'calendar': dataset_data.get('calendar', ''),
+                    'variant_label': dataset_data.get('variant_label', ''),
+                    'tracking_id': dataset_data.get('tracking_id', '')
+                }
 
-                    # Extract basic dataset properties
-                    dataset_node = {
-                        'id': dataset_id,
-                        'type': 'SimDataset',
-                        'simulation_type': 'CMIP6',
-                        'name': dataset_key,
-                        'description': dataset_data.get('experiment', '')[:1000],
-                        'license': dataset_data.get('license', '')[:500],
-                        'creation_date': dataset_data.get('creation_date', ''),
-                        'mip_era': dataset_data.get('mip_era', ''),
-                        'product': dataset_data.get('product', ''),
-                        'realm': dataset_data.get('realm', ''),
-                        'calendar': dataset_data.get('calendar', ''),
-                        'variant_label': dataset_data.get('variant_label', ''),
-                        'tracking_id': dataset_data.get('tracking_id', '')
-                    }
+                self.nodes[dataset_id] = dataset_node
 
-                    self.nodes[dataset_id] = dataset_node
+                # Extract ALL properties and create unified nodes - data-driven approach
+                self._extract_cmip6_properties_unified(dataset_id, dataset_data)
 
-                    # Extract ALL properties and create unified nodes - data-driven approach
-                    self._extract_cmip6_properties_unified(dataset_id, dataset_data)
+                count += 1
 
-                    count += 1
-
-                    if count % 100 == 0:
-                        logger.debug(f"  Processed {count} CMIP6 datasets...")
+                if count % 100 == 0:
+                    logger.debug(f"  Processed {count} CMIP6 datasets...")
 
             logger.info(f"✓ Processed {count} CMIP6 datasets with unified property extraction")
 
