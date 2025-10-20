@@ -2688,7 +2688,7 @@ class JSONToCSVConverter:
                 'type': 'SimVariable',
                 'variable_id': var_id,
                 'variable_name': variable_name,
-                'description': description[:500] if description else '',
+                'description': str(description)[:500] if description else '',
                 'units': units,
                 'domain': self._infer_variable_domain(variable_name),
                 'source_type': source_type  # 'ERA5', 'CMIP6', etc.
@@ -3024,8 +3024,8 @@ class JSONToCSVConverter:
                     'type': 'SimDataset',
                     'simulation_type': 'CMIP6',
                     'name': dataset_key,
-                    'description': dataset_data.get('experiment', '')[:1000],
-                    'license': dataset_data.get('license', '')[:500],
+                    'description': str(dataset_data.get('experiment', ''))[:1000],
+                    'license': str(dataset_data.get('license', ''))[:500],
                     'creation_date': dataset_data.get('creation_date', ''),
                     'mip_era': dataset_data.get('mip_era', ''),
                     'product': dataset_data.get('product', ''),
@@ -3268,7 +3268,7 @@ class JSONToCSVConverter:
                                             'id': var_id,
                                             'type': 'ERA5Variable',
                                             'variable_name': var.get('name', ''),
-                                            'description': var.get('description', '')[:500],
+                                            'description': str(var.get('description', ''))[:500],
                                             'units': var.get('units', ''),
                                             'dataset_id': dataset_id
                                         }
@@ -3299,7 +3299,7 @@ class JSONToCSVConverter:
                                     'horizontal_coverage': desc_data.get('horizontal_coverage', ''),
                                     'horizontal_resolution': desc_data.get('horizontal_resolution', ''),
                                     'vertical_coverage': desc_data.get('vertical_coverage', ''),
-                                    'vertical_resolution': desc_data.get('vertical_resolution', '')[:500],
+                                    'vertical_resolution': str(desc_data.get('vertical_resolution', ''))[:500],
                                     'temporal_coverage': desc_data.get('temporal_coverage', ''),
                                     'temporal_resolution': desc_data.get('temporal_resolution', ''),
                                     'file_format': desc_data.get('file_format', ''),
