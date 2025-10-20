@@ -40,3 +40,4 @@ geopandas
 seaborn
 h5py
 intake-esm
+ijson
