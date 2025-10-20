@@ -113,7 +113,6 @@ class JSONToCSVConverter:
             "Location",
             "Station",
             "Organization",
-            "Platform",
             "Consortium",
             "TemporalExtent",
             "Variable",          # NASA CMR variables
@@ -743,7 +742,52 @@ class JSONToCSVConverter:
                     text_parts.append("Annual temporal resolution")
             
             return " | ".join(text_parts) if text_parts else f"{node_type}"
-        
+
+        elif node_type == "SimTemporalResolution":
+            resolution_id = item.get('resolution_id', '')
+            description = item.get('description', '')
+            original_value = item.get('original_value', '')
+
+            text_parts = []
+            if resolution_id:
+                text_parts.append(f"Temporal Resolution: {resolution_id}")
+            if description:
+                text_parts.append(f"Description: {description}")
+            if original_value:
+                text_parts.append(f"Original: {original_value}")
+
+            return " | ".join(text_parts) if text_parts else "Simulation Temporal Resolution"
+
+        elif node_type == "SimSpatialCoverage":
+            coverage_id = item.get('coverage_id', '')
+            description = item.get('description', '')
+            original_value = item.get('original_value', '')
+
+            text_parts = []
+            if coverage_id:
+                text_parts.append(f"Spatial Coverage: {coverage_id}")
+            if description:
+                text_parts.append(f"Description: {description}")
+            if original_value:
+                text_parts.append(f"Original: {original_value}")
+
+            return " | ".join(text_parts) if text_parts else "Simulation Spatial Coverage"
+
+        elif node_type == "SimProvider":
+            provider_name = item.get('provider_name', '')
+            provider_type = item.get('provider_type', '')
+            description = item.get('description', '')
+
+            text_parts = []
+            if provider_name:
+                text_parts.append(f"Provider: {provider_name}")
+            if provider_type:
+                text_parts.append(f"Type: {provider_type}")
+            if description:
+                text_parts.append(f"Description: {description}")
+
+            return " | ".join(text_parts) if text_parts else "Simulation Data Provider"
+
         else:
             return str(item)
 
@@ -1245,6 +1289,7 @@ class JSONToCSVConverter:
         # Queue embedding for specific vertex types
         if self.generate_embeddings and node_type in ["DataCategory", "Variable", "CESMVariable", "SimVariable", "ScienceKeyword",
                                                       "Location", "SpatialResolution", "TemporalResolution",
+                                                      "SimTemporalResolution", "SimSpatialCoverage", "SimProvider",
                                                       "SurrogateModelingWorkflow", "HybridMLPhysicsWorkflow", "EquationDiscoveryWorkflow",
                                                       "ParameterizationBenchmarkWorkflow", "UncertaintyQuantificationWorkflow",
                                                       "ParameterInferenceWorkflow", "SubseasonalForecastingWorkflow", "TransferLearningWorkflow"]:
@@ -1865,6 +1910,77 @@ class JSONToCSVConverter:
             
         return value_str
 
+    def _safe_csv_value(self, value, prop_name=""):
+        """Safely convert any value to CSV-compatible string format."""
+        if value is None:
+            return ""
+
+        # Handle different data types
+        if isinstance(value, str):
+            # Clean and truncate strings
+            if prop_name == 'links' and value.startswith('['):
+                try:
+                    # Safely parse JSON links array
+                    import json
+                    links = json.loads(value.replace("'", '"'))
+                    if isinstance(links, list):
+                        href_urls = []
+                        for link in links:
+                            if isinstance(link, dict) and 'href' in link:
+                                href_urls.append(str(link['href']))
+                        return '|'.join(href_urls)
+                except:
+                    pass
+
+            # Clean text for CSV
+            if prop_name not in ['links', 'url', 'link_rel', 'id']:
+                value = clean_csv_text(value)
+
+            # Truncate long text
+            if len(value) > 1000:
+                value = value[:1000]
+            return value
+
+        elif isinstance(value, (int, float)):
+            # Convert numbers to strings
+            return str(value)
+
+        elif isinstance(value, bool):
+            # Convert booleans to strings
+            return str(value).lower()
+
+        elif isinstance(value, list):
+            if prop_name == 'embedding':
+                # Handle embeddings specially for Neptune Analytics
+                try:
+                    float_values = []
+                    for x in value:
+                        f_val = float(x)
+                        if abs(f_val) < 1e-30:
+                            f_val = 0.0
+                        float_values.append(f_val)
+                    return ';'.join(f'{x:.8f}' for x in float_values)
+                except (ValueError, TypeError):
+                    return ""
+            else:
+                # Convert lists to pipe-separated strings
+                try:
+                    str_items = [str(item) for item in value if item is not None]
+                    return '|'.join(str_items[:10])  # Limit to 10 items
+                except:
+                    return ""
+
+        elif isinstance(value, dict):
+            # Convert dicts to key:value pairs
+            try:
+                pairs = [f"{k}:{v}" for k, v in value.items() if v is not None]
+                return '|'.join(pairs[:10])  # Limit to 10 pairs
+            except:
+                return ""
+        else:
+            # Fallback: convert to string
+            return str(value)
+
     def write_nodes_csv(self, output_dir):
         """Write nodes to CSV file in Neptune CSV format."""
         if not self.nodes:
@@ -1882,10 +1998,15 @@ class JSONToCSVConverter:
                 nodes_by_label[label] = []
             nodes_by_label[label].append(node)
         
+        # Define unwanted node types to exclude from CSV output
+        excluded_node_types = {'Platform', 'DATA_PROVIDER', 'Data Service Platform'}
+
         # Write separate CSV files for each node label
         for label, nodes in nodes_by_label.items():
-            # Skip empty node lists
-            if not nodes:
+            # Skip empty node lists or excluded node types
+            if not nodes or label in excluded_node_types:
+                if label in excluded_node_types:
+                    logger.info(f"Skipping {len(nodes)} {label} nodes (excluded node type)")
                 continue
                 
             output_file = os.path.join(output_dir, f"{label.lower()}_nodes.csv")
@@ -1914,50 +2035,12 @@ class JSONToCSVConverter:
                 writer.writerow(header)
                 
                 for node in nodes:
-                    row = [(node['id']), (node['type'])]  # ~id and ~label
+                    row = [str(node['id']), str(node['type'])]  # ~id and ~label
                     for prop in sorted(properties_for_label):
                         value = node.get(prop, "")
-                        # Clean the value for Neptune CSV
-                        if isinstance(value, str):
-                            # Simplify complex values
-                            if prop == 'links' and value.startswith('['):
-                                try:
-                                    links = eval(value)
-                                    if isinstance(links, list):
-                                        # Extract href URLs from links array
-                                        href_urls = []
-                                        for link in links:
-                                            if isinstance(link, dict) and 'href' in link:
-                                                href_urls.append(link['href'])
-                                        # Join URLs with pipe separator for easy splitting later
-                                        value = '|'.join(href_urls) if href_urls else ""
-                                    else:
-                                        value = ""
-                                except:
-                                    value = ""
-                            # Clean text by removing all punctuation (but skip links and URLs to preserve URLs)
-                            if prop not in ['links', 'url', 'link_rel']:
-                                value = clean_csv_text(value)
-                            # Truncate long text
-                            if len(value) > 500:
-                                value = value[:500]
-                        elif isinstance(value, list) and prop == 'embedding':
-                            # Handle embeddings specially - ensure they are stored as float arrays
-                            # Convert to semicolon-separated float values for Neptune Analytics vector format
-                            try:
-                                float_values = []
-                                for x in value:
-                                    f_val = float(x)
-                                    # Handle very small scientific notation values that Neptune doesn't support
-                                    if abs(f_val) < 1e-30:
-                                        f_val = 0.0
-                                    float_values.append(f_val)
-                                # Use semicolons as separators, avoid scientific notation
-                                value = ';'.join(f'{x:.8f}' for x in float_values)
-                            except (ValueError, TypeError):
-                                logger.warning(f"Invalid embedding values for node {node['id']}, skipping embedding")
-                                value = ""
-                        row.append((value))
+                        # Use safe CSV value conversion
+                        safe_value = self._safe_csv_value(value, prop)
+                        row.append(safe_value)
                     writer.writerow(row)
             
             logger.info(f"Successfully wrote {label} nodes to {output_file}")
@@ -1971,6 +2054,9 @@ class JSONToCSVConverter:
         # Ensure output directory exists
         os.makedirs(output_dir, exist_ok=True)
         
+        # Define excluded relationship types (platform-related)
+        excluded_relationship_types = {'hasPlatform', 'deployedOnPlatform', 'operatesAtLocation'}
+
         # Group relationships by type
         rels_by_type = {}
         for rel in self.relationships:
@@ -1978,11 +2064,13 @@ class JSONToCSVConverter:
             if rel_type not in rels_by_type:
                 rels_by_type[rel_type] = []
             rels_by_type[rel_type].append(rel)
-        
+
         # Write separate CSV files for each relationship type
         for rel_type, rels in rels_by_type.items():
-            # Skip empty relationship lists
-            if not rels:
+            # Skip empty relationship lists or excluded relationship types
+            if not rels or rel_type in excluded_relationship_types:
+                if rel_type in excluded_relationship_types:
+                    logger.info(f"Skipping {len(rels)} {rel_type} relationships (excluded relationship type)")
                 continue
                 
             output_file = os.path.join(output_dir, f"{rel_type.lower()}_edges.csv")
@@ -2631,13 +2719,19 @@ class JSONToCSVConverter:
         node_id = f"simtempres_{standard_res}"
 
         if node_id not in self.nodes:
-            self.nodes[node_id] = {
+            node_data = {
                 'id': node_id,
                 'type': 'SimTemporalResolution',
                 'resolution_id': standard_res,
                 'description': resolution_value,
                 'frequency_type': 'time_series'
             }
+            self.nodes[node_id] = node_data
+
+            # Generate embedding for SimTemporalResolution nodes
+            if self.generate_embeddings:
+                text_for_embedding = self._create_text_for_embedding('SimTemporalResolution', node_data)
+                self._queue_embedding(node_id, text_for_embedding)
 
         return node_id
 
@@ -2648,13 +2742,19 @@ class JSONToCSVConverter:
         node_id = f"simspacov_{standard_cov}"
 
         if node_id not in self.nodes:
-            self.nodes[node_id] = {
+            node_data = {
                 'id': node_id,
                 'type': 'SimSpatialCoverage',
                 'coverage_id': standard_cov,
                 'description': coverage_value,
                 'coverage_type': 'geographic'
             }
+            self.nodes[node_id] = node_data
+
+            # Generate embedding for SimSpatialCoverage nodes
+            if self.generate_embeddings:
+                text_for_embedding = self._create_text_for_embedding('SimSpatialCoverage', node_data)
+                self._queue_embedding(node_id, text_for_embedding)
 
         return node_id
 
@@ -2683,7 +2783,7 @@ class JSONToCSVConverter:
         node_id = f"simvar_{var_id}"
 
         if node_id not in self.nodes:
-            self.nodes[node_id] = {
+            node_data = {
                 'id': node_id,
                 'type': 'SimVariable',
                 'variable_id': var_id,
@@ -2693,6 +2793,12 @@ class JSONToCSVConverter:
                 'domain': self._infer_variable_domain(variable_name),
                 'source_type': source_type  # 'ERA5', 'CMIP6', etc.
             }
+            self.nodes[node_id] = node_data
+
+            # Generate embedding for SimVariable nodes
+            if self.generate_embeddings:
+                text_for_embedding = self._create_text_for_embedding('SimVariable', node_data)
+                self._queue_embedding(node_id, text_for_embedding)
 
         return node_id
 
@@ -2721,13 +2827,19 @@ class JSONToCSVConverter:
         node_id = f"simprov_{prov_id}"
 
         if node_id not in self.nodes:
-            self.nodes[node_id] = {
+            node_data = {
                 'id': node_id,
                 'type': 'SimProvider',
                 'provider_id': prov_id,
-                'name': provider_name,
-                'organization_type': organization_type or self._infer_org_type(provider_name)
+                'provider_name': provider_name,
+                'provider_type': organization_type or self._infer_org_type(provider_name)
             }
+            self.nodes[node_id] = node_data
+
+            # Generate embedding for SimProvider nodes
+            if self.generate_embeddings:
+                text_for_embedding = self._create_text_for_embedding('SimProvider', node_data)
+                self._queue_embedding(node_id, text_for_embedding)
 
         return node_id
 
@@ -2854,10 +2966,98 @@ class JSONToCSVConverter:
 
         return node_id
 
-    def _extract_era5_properties_unified(self, dataset_id, webpages_data, keyword_props):
+    def _extract_era5_properties_unified(self, dataset_id, era5_full_data, webpages_data, keyword_props):
         """Extract ALL ERA5 properties and create unified nodes with relationships."""
         try:
+            # Extract from top-level ERA5 properties first
+            era5_top_level_props = ['type', 'stac_version', 'license', 'published', 'updated', 'sci:doi']
+            for prop in era5_top_level_props:
+                value = era5_full_data.get(prop)
+                if value:
+                    self._create_property_node_and_relationship(dataset_id, prop, value)
+
+            # Extract from extent (spatial and temporal)
+            extent = era5_full_data.get('extent', {})
+            if isinstance(extent, dict):
+                spatial = extent.get('spatial', {})
+                temporal = extent.get('temporal', {})
+
+                # Handle spatial extent
+                if isinstance(spatial, dict) and 'bbox' in spatial:
+                    bbox = spatial['bbox']
+                    if isinstance(bbox, list) and bbox:
+                        bbox_str = ','.join(str(coord) for coord in bbox[0]) if bbox[0] else ''
+                        if bbox_str:
+                            spatial_id = self._create_or_get_sim_spatial_coverage(f"bbox_{bbox_str}")
+                            self._create_relationship(dataset_id, spatial_id, 'hasSpatialExtent', 'SimDataset', 'SimSpatialCoverage')
+
+                # Handle temporal extent
+                if isinstance(temporal, dict) and 'interval' in temporal:
+                    interval = temporal['interval']
+                    if isinstance(interval, list) and interval:
+                        interval_str = f"{interval[0][0]} to {interval[0][1]}" if len(interval[0]) >= 2 else str(interval[0])
+                        temporal_id = self._create_or_get_sim_temporal_resolution(f"temporal_extent_{interval_str}")
+                        self._create_relationship(dataset_id, temporal_id, 'hasTemporalExtent', 'SimDataset', 'SimTemporalResolution')
+
+            # Extract from assets
+            assets = era5_full_data.get('assets', {})
+            if isinstance(assets, dict):
+                for asset_key, asset_data in assets.items():
+                    if isinstance(asset_data, dict):
+                        asset_id = f"{dataset_id}_asset_{asset_key}"
+                        asset_node = {
+                            'id': asset_id,
+                            'type': 'DataAsset',
+                            'asset_key': asset_key,
+                            'href': asset_data.get('href', ''),
+                            'title': asset_data.get('title', ''),
+                            'description': asset_data.get('description', ''),
+                            'media_type': asset_data.get('type', ''),
+                            'roles': '|'.join(asset_data.get('roles', []))
+                        }
+                        self.nodes[asset_id] = asset_node
+                        self._create_relationship(dataset_id, asset_id, 'hasAsset', 'SimDataset', 'DataAsset')
+
+            # Extract from links
+            links = era5_full_data.get('links', [])
+            if isinstance(links, list):
+                for i, link in enumerate(links[:10]):  # Limit to 10 links
+                    if isinstance(link, dict):
+                        link_id = f"{dataset_id}_link_{i}"
+                        link_node = {
+                            'id': link_id,
+                            'type': 'Link',
+                            'href': link.get('href', ''),
+                            'rel': link.get('rel', ''),
+                            'title': link.get('title', ''),
+                            'media_type': link.get('type', '')
+                        }
+                        self.nodes[link_id] = link_node
+                        self._create_relationship(dataset_id, link_id, 'hasLink', 'SimDataset', 'Link')
+
+            # Extract from CADS-specific properties
+            cads_sanity = era5_full_data.get('cads:sanity_check', {})
+            if isinstance(cads_sanity, dict):
+                sanity_id = f"{dataset_id}_sanity_check"
+                sanity_node = {
+                    'id': sanity_id,
+                    'type': 'QualityAssurance',
+                    'check_type': 'cads_sanity_check'
+                }
+                for key, value in cads_sanity.items():
+                    sanity_node[f'sanity_{key}'] = str(value)[:200]  # Limit length
+                self.nodes[sanity_id] = sanity_node
+                self._create_relationship(dataset_id, sanity_id, 'hasQualityCheck', 'SimDataset', 'QualityAssurance')
+
+            # Extract from webpages data structure
             sections = webpages_data.get('body', {}).get('main', {}).get('sections', [])
+
+            # Also extract from top-level webpages properties
+            if isinstance(webpages_data, dict):
+                for key, value in webpages_data.items():
+                    if key not in ['body'] and value:
+                        self._create_property_node_and_relationship(dataset_id, f"webpage_{key}", value)
+
             for section in sections:
                 if section.get('id') == 'overview':
                     blocks = section.get('blocks', [])
@@ -3018,21 +3218,55 @@ class JSONToCSVConverter:
                 # Create CMIP6 dataset as SimDataset
                 dataset_id = f"cmip6_{dataset_key}"
 
-                # Extract basic dataset properties
+                # Extract basic dataset properties - unified schema for all simulation types
                 dataset_node = {
                     'id': dataset_id,
                     'type': 'SimDataset',
                     'simulation_type': 'CMIP6',
                     'name': dataset_key,
-                    'description': str(dataset_data.get('experiment', ''))[:1000],
-                    'license': str(dataset_data.get('license', ''))[:500],
+                    'description': self._safe_csv_value(dataset_data.get('experiment', ''))[:1000],
+                    'license': self._safe_csv_value(dataset_data.get('license', ''))[:500],
+                    # CMIP6 specific properties
                     'creation_date': dataset_data.get('creation_date', ''),
                     'mip_era': dataset_data.get('mip_era', ''),
                     'product': dataset_data.get('product', ''),
                     'realm': dataset_data.get('realm', ''),
                     'calendar': dataset_data.get('calendar', ''),
                     'variant_label': dataset_data.get('variant_label', ''),
-                    'tracking_id': dataset_data.get('tracking_id', '')
+                    'tracking_id': dataset_data.get('tracking_id', ''),
+                    'experiment_id': dataset_data.get('experiment_id', ''),
+                    'institution_id': dataset_data.get('institution_id', ''),
+                    'source_id': dataset_data.get('source_id', ''),
+                    'member_id': dataset_data.get('member_id', ''),
+                    'table_id': dataset_data.get('table_id', ''),
+                    'variable_id': dataset_data.get('variable_id', ''),
+                    'grid_label': dataset_data.get('grid_label', ''),
+                    'frequency': dataset_data.get('frequency', ''),
+                    'time_range': dataset_data.get('time_range', ''),
+                    'version': self._safe_csv_value(dataset_data.get('version', '')),
+                    'latest': self._safe_csv_value(dataset_data.get('latest', '')),
+                    'replica': self._safe_csv_value(dataset_data.get('replica', '')),
+                    'retracted': self._safe_csv_value(dataset_data.get('retracted', '')),
+                    'activity_id': dataset_data.get('activity_id', ''),
+                    'sub_experiment_id': dataset_data.get('sub_experiment_id', ''),
+                    'nominal_resolution': self._safe_csv_value(dataset_data.get('nominal_resolution', '')),
+                    # ERA5 specific properties (empty for CMIP6)
+                    'doi': '',
+                    'published': '',
+                    'updated': '',
+                    'source_file': '',
+                    'stac_version': '',
+                    'bbox_west': '',
+                    'bbox_south': '',
+                    'bbox_east': '',
+                    'bbox_north': '',
+                    'temporal_start': '',
+                    'temporal_end': '',
+                    'keywords': '',
+                    'providers': '',
+                    'cube_dimensions': '',
+                    'cube_variables': '',
+                    'datacube_dimensions': ''
                 }
 
                 self.nodes[dataset_id] = dataset_node
@@ -3079,29 +3313,76 @@ class JSONToCSVConverter:
     def _extract_cmip6_properties_unified(self, dataset_id, dataset_data):
         """Extract ALL CMIP6 dataset properties and create unified nodes with relationships."""
         try:
-            # Extract ALL scalar properties
+            # Extract ALL properties (strings, numbers, lists, dicts)
             for prop_key, prop_value in dataset_data.items():
-                if isinstance(prop_value, str) and prop_value.strip() and prop_key not in ['license', 'description']:
+                # Skip empty or None values and specific excluded keys
+                if prop_value is None or prop_key in ['license', 'description']:
+                    continue
+
+                # Handle different data types properly
+                if isinstance(prop_value, str) and prop_value.strip():
                     self._create_cmip6_property_node_and_relationship(dataset_id, prop_key, prop_value)
+                elif isinstance(prop_value, (int, float)) and prop_value != 0:
+                    # Convert numbers to strings for property relationships
+                    self._create_cmip6_property_node_and_relationship(dataset_id, prop_key, str(prop_value))
+                elif isinstance(prop_value, list) and prop_value:
+                    # Handle arrays - create relationships for each item
+                    for item in prop_value:
+                        if item and isinstance(item, (str, int, float)):
+                            self._create_cmip6_property_node_and_relationship(dataset_id, prop_key, str(item))
 
             # Handle nominal_resolution specially (it's a dict)
             nominal_res = dataset_data.get('nominal_resolution', {})
             if isinstance(nominal_res, dict):
                 for domain, resolution in nominal_res.items():
-                    if resolution and resolution.strip():
+                    if resolution and str(resolution).strip():
                         # Create horizontal resolution nodes for each domain
                         res_id = self._create_or_get_sim_horizontal_resolution(f"{domain}: {resolution}")
                         self._create_relationship(dataset_id, res_id, 'hasHorizontalResolution', 'SimDataset', 'SimHorizontalResolution')
 
-            # Handle grid_info specially if present
+            # Handle grid_info specially - extract coordinate information
             grid_info = dataset_data.get('grid_info', {})
             if isinstance(grid_info, dict):
                 for grid_key, grid_value in grid_info.items():
-                    if isinstance(grid_value, str) and grid_value.strip():
-                        # Extract grid information as properties
-                        if 'len:' in grid_value or 'first:' in grid_value:
-                            # This looks like coordinate info, could be useful for spatial coverage
-                            pass  # Skip for now as format is complex
+                    if grid_value and str(grid_value).strip():
+                        # Create spatial coverage nodes for grid dimensions
+                        grid_id = self._create_or_get_sim_spatial_coverage(f"grid_{grid_key}_{grid_value}")
+                        self._create_relationship(dataset_id, grid_id, 'hasGridInfo', 'SimDataset', 'SimSpatialCoverage')
+
+            # Handle ||_unvalidated list - create verification status relationships
+            unvalidated = dataset_data.get('||_unvalidated', [])
+            if isinstance(unvalidated, list) and unvalidated:
+                # Create a single verification status node for this dataset
+                verification_id = f"verification_{len(unvalidated)}_unvalidated"
+                if verification_id not in self.nodes:
+                    self.nodes[verification_id] = {
+                        'id': verification_id,
+                        'type': 'VerificationStatus',
+                        'status': 'partially_validated',
+                        'unvalidated_count': len(unvalidated),
+                        'unvalidated_fields': '|'.join(unvalidated[:10])  # First 10 fields
+                    }
+                self._create_relationship(dataset_id, verification_id, 'hasVerificationStatus', 'SimDataset', 'VerificationStatus')
+
+            # Handle mixed-type index properties (can be int or dict)
+            index_properties = ['forcing_index', 'physics_index', 'initialization_index', 'realization_index']
+            for index_prop in index_properties:
+                index_value = dataset_data.get(index_prop)
+                if index_value is not None:
+                    if isinstance(index_value, dict):
+                        # Create ensemble configuration node for dict indices
+                        ensemble_id = f"ensemble_{index_prop}_{hash(str(sorted(index_value.items()))) % 10000}"
+                        if ensemble_id not in self.nodes:
+                            self.nodes[ensemble_id] = {
+                                'id': ensemble_id,
+                                'type': 'EnsembleConfiguration',
+                                'configuration_type': index_prop,
+                                'parameters': '|'.join(f"{k}:{v}" for k, v in index_value.items())
+                            }
+                        self._create_relationship(dataset_id, ensemble_id, 'hasEnsembleConfig', 'SimDataset', 'EnsembleConfiguration')
+                    else:
+                        # Handle as regular property for int values
+                        self._create_cmip6_property_node_and_relationship(dataset_id, index_prop, str(index_value))
 
         except Exception as e:
             logger.debug(f"  Warning: Could not extract CMIP6 properties for {dataset_id}: {e}")
@@ -3176,7 +3457,7 @@ class JSONToCSVConverter:
         node_id = f"simtempres_{standard_res}"
 
         if node_id not in self.nodes:
-            self.nodes[node_id] = {
+            node_data = {
                 'id': node_id,
                 'type': 'SimTemporalResolution',
                 'resolution_id': standard_res,
@@ -3184,6 +3465,12 @@ class JSONToCSVConverter:
                 'original_value': resolution_value,
                 'frequency_type': 'time_series'
             }
+            self.nodes[node_id] = node_data
+
+            # Generate embedding for SimTemporalResolution nodes
+            if self.generate_embeddings:
+                text_for_embedding = self._create_text_for_embedding('SimTemporalResolution', node_data)
+                self._queue_embedding(node_id, text_for_embedding)
         elif description and not self.nodes[node_id].get('description'):
             # Add description if we have one and node doesn't
             self.nodes[node_id]['description'] = description
@@ -3196,7 +3483,7 @@ class JSONToCSVConverter:
         node_id = f"simspacov_{standard_cov}"
 
         if node_id not in self.nodes:
-            self.nodes[node_id] = {
+            node_data = {
                 'id': node_id,
                 'type': 'SimSpatialCoverage',
                 'coverage_id': standard_cov,
@@ -3204,6 +3491,12 @@ class JSONToCSVConverter:
                 'original_value': coverage_value,
                 'coverage_type': 'geographic'
             }
+            self.nodes[node_id] = node_data
+
+            # Generate embedding for SimSpatialCoverage nodes
+            if self.generate_embeddings:
+                text_for_embedding = self._create_text_for_embedding('SimSpatialCoverage', node_data)
+                self._queue_embedding(node_id, text_for_embedding)
         elif description and not self.nodes[node_id].get('description'):
             # Add description if we have one and node doesn't
             self.nodes[node_id]['description'] = description
@@ -3390,17 +3683,26 @@ class JSONToCSVConverter:
             era5_files = [f for f in os.listdir(era5_dir) if f.endswith('.json')]
             logger.info(f"🌡️  Found {len(era5_files)} ERA5 files")
 
+            era5_processed = 0
+            era5_errors = 0
             for json_file in era5_files:
                 filepath = os.path.join(era5_dir, json_file)
                 try:
                     with open(filepath, 'r', encoding='utf-8') as f:
                         data = json.load(f)
 
-                    # ERA5 files follow STAC format
-                    simulation_id = f"era5_{data.get('id', json_file.replace('.json', ''))}"
+                    if not isinstance(data, dict):
+                        logger.debug(f"  Skipping {json_file}: data is not a dictionary")
+                        era5_errors += 1
+                        continue
 
-                    # Extract structured keywords
+                    # ERA5 files follow STAC format
+                    simulation_id = f"era5_{self._safe_csv_value(data.get('id', json_file.replace('.json', '')))}"
+
+                    # Extract structured keywords with validation
                     keywords_list = data.get('keywords', [])
+                    if not isinstance(keywords_list, list):
+                        keywords_list = []
                     keyword_props = self._extract_era5_keywords(keywords_list)
 
                     # Extract extent details
@@ -3410,7 +3712,7 @@ class JSONToCSVConverter:
                     bbox = spatial.get('bbox', [[]])[0] if spatial.get('bbox') else []
                     temporal_interval = temporal.get('interval', [[]])[0] if temporal.get('interval') else []
 
-                    # Create ERA5 dataset node using unified SimDataset type
+                    # Create ERA5 dataset node using unified SimDataset type - unified schema for all simulation types
                     node = {
                         'id': simulation_id,
                         'type': 'SimDataset',
@@ -3418,6 +3720,7 @@ class JSONToCSVConverter:
                         'name': data.get('title', json_file.replace('.json', '')),
                         'description': data.get('description', '')[:1000],
                         'license': data.get('license', ''),
+                        # ERA5 specific properties
                         'doi': data.get('sci:doi', ''),
                         'published': data.get('published', ''),
                         'updated': data.get('updated', ''),
@@ -3429,14 +3732,43 @@ class JSONToCSVConverter:
                         'bbox_east': str(bbox[2]) if len(bbox) > 2 else '',
                         'bbox_north': str(bbox[3]) if len(bbox) > 3 else '',
                         'temporal_start': temporal_interval[0] if len(temporal_interval) > 0 else '',
-                        'temporal_end': temporal_interval[1] if len(temporal_interval) > 1 else ''
+                        'temporal_end': temporal_interval[1] if len(temporal_interval) > 1 else '',
+                        'keywords': self._safe_csv_value(data.get('keywords', [])),
+                        'providers': self._safe_csv_value(data.get('providers', [])),
+                        'cube_dimensions': self._safe_csv_value(data.get('cube:dimensions', {})),
+                        'cube_variables': self._safe_csv_value(data.get('cube:variables', {})),
+                        'datacube_dimensions': self._safe_csv_value(data.get('datacube:dimensions', {})),
+                        # CMIP6 specific properties (empty for ERA5)
+                        'creation_date': '',
+                        'mip_era': '',
+                        'product': '',
+                        'realm': '',
+                        'calendar': '',
+                        'variant_label': '',
+                        'tracking_id': '',
+                        'experiment_id': '',
+                        'institution_id': '',
+                        'source_id': '',
+                        'member_id': '',
+                        'table_id': '',
+                        'variable_id': '',
+                        'grid_label': '',
+                        'frequency': '',
+                        'time_range': '',
+                        'version': '',
+                        'latest': '',
+                        'replica': '',
+                        'retracted': '',
+                        'activity_id': '',
+                        'sub_experiment_id': '',
+                        'nominal_resolution': ''
                     }
 
                     self.nodes[simulation_id] = node
 
                     # Extract properties from webpages data and create unified nodes
                     webpages_data = data.get('webpages', {})
-                    self._extract_era5_properties_unified(simulation_id, webpages_data, keyword_props)
+                    self._extract_era5_properties_unified(simulation_id, data, webpages_data, keyword_props)
 
 
                     # Extract links and create related dataset relationships
@@ -3489,9 +3821,13 @@ class JSONToCSVConverter:
                                 self.relationships.append(rel)
 
                     logger.debug(f"  ✓ Processed ERA5: {data.get('title', json_file)}")
+                    era5_processed += 1
 
                 except Exception as e:
                     logger.error(f"  ❌ Error processing ERA5 file {json_file}: {e}")
+                    era5_errors += 1
+
+            logger.info(f"✓ Processed {era5_processed} ERA5 datasets, {era5_errors} errors")
 
         else:
             logger.warning(f"ERA5 directory not found: {era5_dir}")
