@@ -1,0 +1,11 @@
+📁 Current directory: /workspace/AutoClimDS/ML Model
+🧠 Running ML predictions...
+Traceback (most recent call last):
+  File "/workspace/AutoClimDS/ML Model/predict_cmr.py", line 9, in <module>
+    import pandas as pd
+ModuleNotFoundError: No module named 'pandas'
+✅ ML predictions completed successfully
+
+========================================
+🗺️  Step 2: Generate Knowledge Graph
+========================================
