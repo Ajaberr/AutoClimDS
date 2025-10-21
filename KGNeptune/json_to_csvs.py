@@ -1291,7 +1291,8 @@ class JSONToCSVConverter:
         if self.generate_embeddings and node_type in ["DataCategory", "Variable", "CESMVariable", "SimVariable", "ScienceKeyword",
                                                       "Location", "SpatialResolution", "TemporalResolution",
                                                       "SimTemporalResolution", "SimSpatialCoverage", "SimProvider",
-                                                      "SimExperiment", "SimActivity",
+                                                      "SimExperiment", "SimActivity", "SimDataType", "SimFileFormat",
+                                                      "SimProjection", "SimUpdateFrequency",
                                                       "SurrogateModelingWorkflow", "HybridMLPhysicsWorkflow", "EquationDiscoveryWorkflow",
                                                       "ParameterizationBenchmarkWorkflow", "UncertaintyQuantificationWorkflow",
                                                       "ParameterInferenceWorkflow", "SubseasonalForecastingWorkflow", "TransferLearningWorkflow"]:
@@ -1504,6 +1505,11 @@ class JSONToCSVConverter:
                 'source_dataset': 'cesm_variables_raw.csv'
             }
             self.nodes[var_id] = properties
+
+            # Generate embedding for CESM variables
+            if self.generate_embeddings:
+                text_for_embedding = self._create_text_for_embedding('CESMVariable', properties)
+                self._queue_embedding(var_id, text_for_embedding)
 
     def create_climate_workflows(self):
         """Create climate ML workflow nodes based on LEAP research."""
@@ -2737,13 +2743,19 @@ class JSONToCSVConverter:
         node_id = f"simformat_{format_lower}"
 
         if node_id not in self.nodes:
-            self.nodes[node_id] = {
+            node_data = {
                 'id': node_id,
                 'type': 'SimFileFormat',
                 'format_id': format_lower,
                 'description': format_clean,
                 'mime_type': self._get_mime_type(format_lower)
             }
+            self.nodes[node_id] = node_data
+
+            # Generate embedding for SimFileFormat nodes
+            if self.generate_embeddings:
+                text_for_embedding = self._create_text_for_embedding('SimFileFormat', node_data)
+                self._queue_embedding(node_id, text_for_embedding)
 
         return node_id
 
@@ -2764,12 +2776,18 @@ class JSONToCSVConverter:
         node_id = f"simdatatype_{data_type_lower}"
 
         if node_id not in self.nodes:
-            self.nodes[node_id] = {
+            node_data = {
                 'id': node_id,
                 'type': 'SimDataType',
                 'data_type_id': data_type_lower,
                 'description': data_type_clean
             }
+            self.nodes[node_id] = node_data
+
+            # Generate embedding for SimDataType nodes
+            if self.generate_embeddings:
+                text_for_embedding = self._create_text_for_embedding('SimDataType', node_data)
+                self._queue_embedding(node_id, text_for_embedding)
 
         return node_id
 
@@ -2781,12 +2799,18 @@ class JSONToCSVConverter:
         node_id = f"simprojection_{proj_id}"
 
         if node_id not in self.nodes:
-            self.nodes[node_id] = {
+            node_data = {
                 'id': node_id,
                 'type': 'SimProjection',
                 'projection_id': proj_id,
                 'description': projection_clean
             }
+            self.nodes[node_id] = node_data
+
+            # Generate embedding for SimProjection nodes
+            if self.generate_embeddings:
+                text_for_embedding = self._create_text_for_embedding('SimProjection', node_data)
+                self._queue_embedding(node_id, text_for_embedding)
 
         return node_id
 
@@ -2837,12 +2861,18 @@ class JSONToCSVConverter:
         node_id = f"simupdatefreq_{freq_id}"
 
         if node_id not in self.nodes:
-            self.nodes[node_id] = {
+            node_data = {
                 'id': node_id,
                 'type': 'SimUpdateFrequency',
                 'frequency_id': freq_id,
                 'description': freq_clean
             }
+            self.nodes[node_id] = node_data
+
+            # Generate embedding for SimUpdateFrequency nodes
+            if self.generate_embeddings:
+                text_for_embedding = self._create_text_for_embedding('SimUpdateFrequency', node_data)
+                self._queue_embedding(node_id, text_for_embedding)
 
         return node_id
 
