@@ -1290,6 +1290,7 @@ class JSONToCSVConverter:
         if self.generate_embeddings and node_type in ["DataCategory", "Variable", "CESMVariable", "SimVariable", "ScienceKeyword",
                                                       "Location", "SpatialResolution", "TemporalResolution",
                                                       "SimTemporalResolution", "SimSpatialCoverage", "SimProvider",
+                                                      "SimExperiment", "SimActivity",
                                                       "SurrogateModelingWorkflow", "HybridMLPhysicsWorkflow", "EquationDiscoveryWorkflow",
                                                       "ParameterizationBenchmarkWorkflow", "UncertaintyQuantificationWorkflow",
                                                       "ParameterInferenceWorkflow", "SubseasonalForecastingWorkflow", "TransferLearningWorkflow"]:
@@ -2477,43 +2478,25 @@ class JSONToCSVConverter:
         logger.info(f" Created {successful_similarity_relationships} CESM variable similarity relationships (threshold: {threshold})")
 
     def _process_cmip6_experiments(self, experiments_dict):
-        """Process CMIP6 experiment_id controlled vocabulary."""
+        """Process CMIP6 experiment_id controlled vocabulary using unified SimExperiment."""
         count = 0
         for exp_id, exp_data in experiments_dict.items():
             if isinstance(exp_data, dict):
-                node_id = f"cmip6_experiment_{exp_id}"
-                node = {
-                    'id': node_id,
-                    'type': 'CMIP6Experiment',
-                    'experiment_id': exp_id,
-                    'experiment_name': exp_data.get('experiment', ''),
-                    'description': exp_data.get('description', ''),
-                    'tier': str(exp_data.get('tier', '')),
-                    'min_number_yrs_per_sim': str(exp_data.get('min_number_yrs_per_sim', '')),
-                    'activity_ids': str(exp_data.get('activity_id', [])),
-                    'parent_experiment_ids': str(exp_data.get('parent_experiment_id', [])),
-                    'required_model_components': str(exp_data.get('required_model_components', [])),
-                    'start_year': str(exp_data.get('start_year', '')),
-                    'end_year': str(exp_data.get('end_year', ''))
-                }
-                self.nodes[node_id] = node
+                # Create unified SimExperiment nodes
+                experiment_name = exp_data.get('experiment', exp_id)
+                description = exp_data.get('description', '')
+                node_id = self._create_or_get_sim_experiment(exp_id, experiment_name, description)
                 count += 1
-        logger.info(f"  ✓ Created {count} CMIP6Experiment nodes")
+        logger.info(f"  ✓ Created {count} unified SimExperiment nodes from CMIP6 experiments")
 
     def _process_cmip6_activities(self, activities_dict):
-        """Process CMIP6 activity_id controlled vocabulary."""
+        """Process CMIP6 activity_id controlled vocabulary using unified SimActivity."""
         count = 0
         for activity_id, description in activities_dict.items():
-            node_id = f"cmip6_activity_{activity_id}"
-            node = {
-                'id': node_id,
-                'type': 'CMIP6Activity',
-                'activity_id': activity_id,
-                'description': description
-            }
-            self.nodes[node_id] = node
+            # Create unified SimActivity nodes
+            node_id = self._create_or_get_sim_activity(activity_id, description)
             count += 1
-        logger.info(f"  ✓ Created {count} CMIP6Activity nodes")
+        logger.info(f"  ✓ Created {count} unified SimActivity nodes from CMIP6 activities")
 
     def _process_cmip6_frequencies(self, frequencies_dict):
         """Process CMIP6 frequency controlled vocabulary using unified SimTemporalResolution."""
@@ -2543,40 +2526,25 @@ class JSONToCSVConverter:
         logger.info(f"  ✓ Created {count} unified SimVariable nodes from CMIP6 variables")
 
     def _process_cmip6_sources(self, sources_dict):
-        """Process CMIP6 source_id controlled vocabulary."""
+        """Process CMIP6 source_id controlled vocabulary using unified SimProvider."""
         count = 0
         for source_id, source_data in sources_dict.items():
             if isinstance(source_data, dict):
-                node_id = f"cmip6_source_{source_id}"
-                node = {
-                    'id': node_id,
-                    'type': 'CMIP6Source',
-                    'source_id': source_id,
-                    'label': source_data.get('label', ''),
-                    'label_extended': source_data.get('label_extended', ''),
-                    'release_year': str(source_data.get('release_year', '')),
-                    'activity_participation': str(source_data.get('activity_participation', [])),
-                    'institution_ids': str(source_data.get('institution_id', [])),
-                    'cohort': str(source_data.get('cohort', []))
-                }
-                self.nodes[node_id] = node
+                # Create unified SimProvider for climate model sources
+                provider_name = source_data.get('label', source_id)
+                description = source_data.get('label_extended', '')
+                node_id = self._create_or_get_sim_provider(f"{provider_name} ({description})" if description else provider_name, 'climate_model')
                 count += 1
-        logger.info(f"  ✓ Created {count} CMIP6Source nodes")
+        logger.info(f"  ✓ Created {count} unified SimProvider nodes from CMIP6 sources")
 
     def _process_cmip6_realms(self, realms_dict):
-        """Process CMIP6 realm controlled vocabulary."""
+        """Process CMIP6 realm controlled vocabulary using unified SimSpatialCoverage."""
         count = 0
         for realm_id, description in realms_dict.items():
-            node_id = f"cmip6_realm_{realm_id}"
-            node = {
-                'id': node_id,
-                'type': 'CMIP6Realm',
-                'realm_id': realm_id,
-                'description': description
-            }
-            self.nodes[node_id] = node
+            # Create unified SimSpatialCoverage for Earth system realms (atmosphere, ocean, land, etc.)
+            node_id = self._create_or_get_sim_spatial_coverage_enriched(f"realm_{realm_id}", description)
             count += 1
-        logger.info(f"  ✓ Created {count} CMIP6Realm nodes")
+        logger.info(f"  ✓ Created {count} unified SimSpatialCoverage nodes from CMIP6 realms")
 
     def _process_cmip6_grid_labels(self, grid_labels_dict):
         """Process CMIP6 grid_label controlled vocabulary using unified SimSpatialCoverage."""
@@ -2966,6 +2934,35 @@ class JSONToCSVConverter:
 
         return node_id
 
+    def _create_or_get_sim_experiment(self, experiment_id, experiment_name, description=''):
+        """Create or get standardized SimExperiment node."""
+        node_id = f"simexp_{experiment_id}"
+
+        if node_id not in self.nodes:
+            self.nodes[node_id] = {
+                'id': node_id,
+                'type': 'SimExperiment',
+                'experiment_id': experiment_id,
+                'name': experiment_name,
+                'description': description
+            }
+
+        return node_id
+
+    def _create_or_get_sim_activity(self, activity_id, description=''):
+        """Create or get standardized SimActivity node."""
+        node_id = f"simact_{activity_id}"
+
+        if node_id not in self.nodes:
+            self.nodes[node_id] = {
+                'id': node_id,
+                'type': 'SimActivity',
+                'activity_id': activity_id,
+                'description': description
+            }
+
+        return node_id
+
     def _extract_era5_properties_unified(self, dataset_id, era5_full_data, webpages_data, keyword_props):
         """Extract ALL ERA5 properties and create unified nodes with relationships."""
         try:
@@ -3195,21 +3192,27 @@ class JSONToCSVConverter:
         total_entries = sum(len(vocab) for vocab in self.cmip6_vocabulary_lookups.values())
         logger.info(f"✓ Loaded {total_entries} total vocabulary entries for enrichment")
 
-    def _process_cmip6_datasets_sample(self, metadata_file, sample_size=1000):
-        """Process a sample of CMIP6 datasets using simple JSON loading."""
+    def _process_cmip6_datasets_sample(self, metadata_file, sample_size=None):
+        """Process CMIP6 datasets using simple JSON loading."""
 
         try:
-            logger.info(f"📊 Loading CMIP6 datasets from metadata file (sampling {sample_size})")
+            if sample_size:
+                logger.info(f"📊 Loading CMIP6 datasets from metadata file (sampling {sample_size})")
+            else:
+                logger.info(f"📊 Loading CMIP6 datasets from metadata file (processing all)")
 
             # Load JSON file the same way as NASA CMR data
             with open(metadata_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
 
-            logger.info(f"📊 Loaded {len(data)} total CMIP6 datasets, processing sample of {sample_size}")
-
-            # Sample the datasets
-            dataset_keys = list(data.keys())
-            sample_keys = dataset_keys[:min(sample_size, len(dataset_keys))]
+            if sample_size:
+                logger.info(f"📊 Loaded {len(data)} total CMIP6 datasets, processing sample of {sample_size}")
+                # Sample the datasets
+                dataset_keys = list(data.keys())
+                sample_keys = dataset_keys[:min(sample_size, len(dataset_keys))]
+            else:
+                logger.info(f"📊 Loaded {len(data)} total CMIP6 datasets, processing all")
+                sample_keys = list(data.keys())
 
             count = 0
             for dataset_key in sample_keys:
@@ -3669,7 +3672,7 @@ class JSONToCSVConverter:
             # Process CMIP6 dataset metadata (sample from the large file)
             cmip6_metadata_file = os.path.join(cmip6_dir, '220514_CMIP6_metaData_restartedInd-24949000.json')
             if os.path.exists(cmip6_metadata_file):
-                logger.info(f"📊 Processing CMIP6 dataset metadata (sampling due to size)")
+                logger.info(f"📊 Processing CMIP6 dataset metadata (all datasets)")
                 self._process_cmip6_datasets_sample(cmip6_metadata_file)
             else:
                 logger.warning(f"CMIP6 metadata file not found: {cmip6_metadata_file}")
