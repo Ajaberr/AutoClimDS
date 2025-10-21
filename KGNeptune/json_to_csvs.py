@@ -38,10 +38,13 @@ def clean_csv_text(text):
         return ""
     
     text = str(text)
-    
+
+    # Replace newlines, tabs, and carriage returns with spaces to prevent CSV row breaks
+    text = re.sub(r'[\n\r\t]', ' ', text)
+
     # Remove ALL punctuation, keep only alphanumeric and spaces
     text = re.sub(r'[^\w\s]', '', text)
-    
+
     # Remove multiple spaces
     text = re.sub(r'\s+', ' ', text)
     
@@ -141,11 +144,9 @@ class JSONToCSVConverter:
             "SimProjection",     # Map projections
             "SimUpdateFrequency", # Update frequency
 
-            # CMIP6 specific nodes (experiment design)
-            "CMIP6Experiment",   # CMIP6 experiments
-            "CMIP6Activity",     # CMIP6 activity MIPs
-            "CMIP6Source",       # CMIP6 model sources
-            "CMIP6Realm",        # CMIP6 earth system realms
+            # Unified sim nodes now used instead of CMIP6-specific nodes
+            "SimExperiment",     # Climate experiments (unified)
+            "SimActivity",       # Climate activities (unified)
 
             # Climate ML workflow nodes
             "SurrogateModelingWorkflow",        # Physics-first: neural operators as surrogates
@@ -2000,7 +2001,7 @@ class JSONToCSVConverter:
             nodes_by_label[label].append(node)
         
         # Define unwanted node types to exclude from CSV output
-        excluded_node_types = {'Platform', 'DATA_PROVIDER', 'Data Service Platform'}
+        excluded_node_types = {'Platform', 'DATA_PROVIDER', 'Data Service Platform', 'DataAsset', 'DataFormat'}
 
         # Write separate CSV files for each node label
         for label, nodes in nodes_by_label.items():
@@ -2555,99 +2556,6 @@ class JSONToCSVConverter:
             count += 1
         logger.info(f"  ✓ Created {count} unified SimSpatialCoverage nodes from CMIP6 grid labels")
 
-    def _create_cmip6_relationships(self):
-        """Create relationships between CMIP6 nodes."""
-        rel_count = 0
-
-        # Create relationships from experiments to activities
-        for node_id, node in self.nodes.items():
-            if node.get('type') == 'CMIP6Experiment':
-                # Link to activities
-                activity_ids = node.get('activity_ids', '[]')
-                if activity_ids and activity_ids != '[]':
-                    try:
-                        activity_list = eval(activity_ids) if isinstance(activity_ids, str) else activity_ids
-                        for activity_id in activity_list:
-                            target_id = f"cmip6_activity_{activity_id}"
-                            if target_id in self.nodes:
-                                rel = {
-                                    'id': f"rel_{node_id}_partOfActivity_{target_id}",
-                                    'type': 'partOfActivity',
-                                    'from': node_id,
-                                    'to': target_id,
-                                    'from_type': 'CMIP6Experiment',
-                                    'to_type': 'CMIP6Activity'
-                                }
-                                self.relationships.append(rel)
-                                rel_count += 1
-                    except:
-                        pass
-
-                # Link to parent experiments
-                parent_exp_ids = node.get('parent_experiment_ids', '[]')
-                if parent_exp_ids and parent_exp_ids != '[]':
-                    try:
-                        parent_list = eval(parent_exp_ids) if isinstance(parent_exp_ids, str) else parent_exp_ids
-                        for parent_id in parent_list:
-                            target_id = f"cmip6_experiment_{parent_id}"
-                            if target_id in self.nodes:
-                                rel = {
-                                    'id': f"rel_{node_id}_derivedFrom_{target_id}",
-                                    'type': 'derivedFrom',
-                                    'from': node_id,
-                                    'to': target_id,
-                                    'from_type': 'CMIP6Experiment',
-                                    'to_type': 'CMIP6Experiment'
-                                }
-                                self.relationships.append(rel)
-                                rel_count += 1
-                    except:
-                        pass
-
-            # Create relationships from sources to institutions
-            elif node.get('type') == 'CMIP6Source':
-                institution_ids = node.get('institution_ids', '[]')
-                if institution_ids and institution_ids != '[]':
-                    try:
-                        inst_list = eval(institution_ids) if isinstance(institution_ids, str) else institution_ids
-                        for inst_id in inst_list:
-                            target_id = f"cmip6_institution_{inst_id}"
-                            if target_id in self.nodes:
-                                rel = {
-                                    'id': f"rel_{node_id}_developedBy_{target_id}",
-                                    'type': 'developedBy',
-                                    'from': node_id,
-                                    'to': target_id,
-                                    'from_type': 'CMIP6Source',
-                                    'to_type': 'CMIP6Institution'
-                                }
-                                self.relationships.append(rel)
-                                rel_count += 1
-                    except:
-                        pass
-
-                # Link sources to activities they participate in
-                activity_participation = node.get('activity_participation', '[]')
-                if activity_participation and activity_participation != '[]':
-                    try:
-                        activity_list = eval(activity_participation) if isinstance(activity_participation, str) else activity_participation
-                        for activity_id in activity_list:
-                            target_id = f"cmip6_activity_{activity_id}"
-                            if target_id in self.nodes:
-                                rel = {
-                                    'id': f"rel_{node_id}_participatesIn_{target_id}",
-                                    'type': 'participatesIn',
-                                    'from': node_id,
-                                    'to': target_id,
-                                    'from_type': 'CMIP6Source',
-                                    'to_type': 'CMIP6Activity'
-                                }
-                                self.relationships.append(rel)
-                                rel_count += 1
-                    except:
-                        pass
-
-        logger.info(f"  ✓ Created {rel_count} CMIP6 relationships")
 
     # Standardization mappings for unified simulation data extraction
     TEMPORAL_RESOLUTION_STANDARDS = {
@@ -2824,7 +2732,8 @@ class JSONToCSVConverter:
 
     def _create_or_get_sim_file_format(self, format_value):
         """Create or get standardized SimFileFormat node."""
-        format_lower = format_value.lower()
+        format_clean = self._safe_csv_value(format_value)
+        format_lower = format_clean.lower().replace(' ', '_')
         node_id = f"simformat_{format_lower}"
 
         if node_id not in self.nodes:
@@ -2832,7 +2741,7 @@ class JSONToCSVConverter:
                 'id': node_id,
                 'type': 'SimFileFormat',
                 'format_id': format_lower,
-                'description': format_value,
+                'description': format_clean,
                 'mime_type': self._get_mime_type(format_lower)
             }
 
@@ -2850,7 +2759,8 @@ class JSONToCSVConverter:
 
     def _create_or_get_sim_data_type(self, data_type_value):
         """Create or get standardized SimDataType node."""
-        data_type_lower = data_type_value.lower()
+        data_type_clean = self._safe_csv_value(data_type_value)
+        data_type_lower = data_type_clean.lower().replace(' ', '_')
         node_id = f"simdatatype_{data_type_lower}"
 
         if node_id not in self.nodes:
@@ -2858,15 +2768,16 @@ class JSONToCSVConverter:
                 'id': node_id,
                 'type': 'SimDataType',
                 'data_type_id': data_type_lower,
-                'description': data_type_value
+                'description': data_type_clean
             }
 
         return node_id
 
     def _create_or_get_sim_projection(self, projection_value):
         """Create or get standardized SimProjection node."""
-        # Standardize projection name
-        proj_id = projection_value.replace(' ', '_').replace('-', '_').replace('.', '').lower()
+        # Clean and standardize projection name
+        projection_clean = self._safe_csv_value(projection_value)
+        proj_id = projection_clean.replace(' ', '_').replace('-', '_').replace('.', '').lower()
         node_id = f"simprojection_{proj_id}"
 
         if node_id not in self.nodes:
@@ -2874,7 +2785,7 @@ class JSONToCSVConverter:
                 'id': node_id,
                 'type': 'SimProjection',
                 'projection_id': proj_id,
-                'description': projection_value
+                'description': projection_clean
             }
 
         return node_id
@@ -2919,8 +2830,9 @@ class JSONToCSVConverter:
 
     def _create_or_get_sim_update_frequency(self, update_freq_value):
         """Create or get standardized SimUpdateFrequency node."""
-        # Standardize update frequency
-        freq_lower = update_freq_value.lower().replace('(', '').replace(')', '')
+        # Clean and standardize update frequency
+        freq_clean = self._safe_csv_value(update_freq_value)
+        freq_lower = freq_clean.lower().replace('(', '').replace(')', '')
         freq_id = freq_lower.replace(' ', '_').replace('-', '_')
         node_id = f"simupdatefreq_{freq_id}"
 
@@ -2929,7 +2841,7 @@ class JSONToCSVConverter:
                 'id': node_id,
                 'type': 'SimUpdateFrequency',
                 'frequency_id': freq_id,
-                'description': update_freq_value
+                'description': freq_clean
             }
 
         return node_id
@@ -3508,8 +3420,13 @@ class JSONToCSVConverter:
 
     def _create_relationship(self, from_id, to_id, rel_type, from_type, to_type):
         """Helper method to create relationships."""
+        # Clean IDs for CSV safety
+        clean_from_id = self._safe_csv_value(from_id)
+        clean_to_id = self._safe_csv_value(to_id)
+        clean_rel_type = self._safe_csv_value(rel_type)
+
         rel = {
-            'id': f"rel_{from_id}_{rel_type}_{to_id}",
+            'id': f"rel_{clean_from_id}_{clean_rel_type}_{clean_to_id}",
             'type': rel_type,
             'from': from_id,
             'to': to_id,
@@ -3835,9 +3752,7 @@ class JSONToCSVConverter:
         else:
             logger.warning(f"ERA5 directory not found: {era5_dir}")
 
-        # Create relationships between CMIP6 nodes
-        logger.info("🔗 Creating CMIP6 relationships...")
-        self._create_cmip6_relationships()
+        # CMIP6 relationships now handled by unified sim node relationships
 
         # Log unified summary
         cmip6_vocab_count = sum(1 for n in self.nodes.values() if n.get('type', '').startswith('CMIP6'))
