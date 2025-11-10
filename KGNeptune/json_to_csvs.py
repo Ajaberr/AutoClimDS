@@ -2018,7 +2018,9 @@ class JSONToCSVConverter:
                 continue
                 
             output_file = os.path.join(output_dir, f"{label.lower()}_nodes.csv")
-            logger.info(f"Writing {len(nodes)} {label} nodes to {output_file}")
+            file_exists = os.path.exists(output_file)
+            action = "Appending" if file_exists else "Writing"
+            logger.info(f"{action} {len(nodes)} {label} nodes to {output_file}")
             
             # Collect properties used by this node type (excluding 'id' and 'type')
             properties_for_label = set()
@@ -2037,11 +2039,17 @@ class JSONToCSVConverter:
                     header.append("embedding:vector")
                 else:
                     header.append(prop)  # Simple property names, no type annotations
-            
-            with open(output_file, 'w', newline='', encoding='utf-8') as f:
+
+            # Use append mode if file already exists
+            mode = 'a' if file_exists else 'w'
+
+            with open(output_file, mode, newline='', encoding='utf-8') as f:
                 writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
-                writer.writerow(header)
-                
+
+                # Only write header if file is being created new
+                if not file_exists:
+                    writer.writerow(header)
+
                 for node in nodes:
                     row = [str(node['id']), str(node['type'])]  # ~id and ~label
                     for prop in sorted(properties_for_label):
@@ -2082,7 +2090,9 @@ class JSONToCSVConverter:
                 continue
                 
             output_file = os.path.join(output_dir, f"{rel_type.lower()}_edges.csv")
-            logger.info(f"Writing {len(rels)} {rel_type} relationships to {output_file}")
+            file_exists_rel = os.path.exists(output_file)
+            action_rel = "Appending" if file_exists_rel else "Writing"
+            logger.info(f"{action_rel} {len(rels)} {rel_type} relationships to {output_file}")
             
             # Create CSV header using Neptune format
             header = ["~id", "~from", "~to", "~label"]
@@ -2104,11 +2114,17 @@ class JSONToCSVConverter:
                 header.append("quality_rating:String")
             if has_similarity_score:
                 header.append("similarity_score:Double")
-            
-            with open(output_file, 'w', newline='', encoding='utf-8') as f:
+
+            # Use append mode if file already exists
+            mode = 'a' if file_exists_rel else 'w'
+
+            with open(output_file, mode, newline='', encoding='utf-8') as f:
                 writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
-                writer.writerow(header)
-                
+
+                # Only write header if file is being created new
+                if not file_exists_rel:
+                    writer.writerow(header)
+
                 for rel in rels:
                     row = [
                         (rel['id']),
@@ -2116,7 +2132,7 @@ class JSONToCSVConverter:
                         (rel['to']),
                         (rel['type'])
                     ]
-                    
+
                     # Add confidence and quality attributes if available
                     if has_confidence:
                         confidence = rel.get('confidence', 0.0)
