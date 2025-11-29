@@ -83,10 +83,11 @@ NODES = [
             "Instrument",        # Instrument information
             "ScienceKeyword",    # Science keywords
             "ProcessingLevel",   # Processing levels
-            
+            "Link",              # Data access links (S3, HTTP, DOI, etc.)
+
             # Climate ML workflow nodes
             "SurrogateModelingWorkflow",        # Physics-first: neural operators as surrogates
-            "HybridMLPhysicsWorkflow",          # Physics-first: hybrid ML-physics simulations  
+            "HybridMLPhysicsWorkflow",          # Physics-first: hybrid ML-physics simulations
             "EquationDiscoveryWorkflow",        # Physics-first: discovering governing equations
             "ParameterizationBenchmarkWorkflow", # Physics-first: benchmarking ML parameterizations
             "UncertaintyQuantificationWorkflow", # Data-first: simulation-based uncertainty quantification
@@ -116,6 +117,7 @@ RELATIONSHIPS = {
 "hasInstrument": ("Dataset", "Instrument"),
 "hasScienceKeyword": ("Dataset", "ScienceKeyword"),
 "hasProcessingLevel": ("Dataset", "ProcessingLevel"),
+"hasLink": ("Dataset", "Link"),  # Dataset -> Link (data access URLs)
 
 # Variable relationships
 "hasVariable": ("Dataset", "Variable"),           # Dataset -> NASA CMR Variable
@@ -287,6 +289,15 @@ property_types = {
 "processing_level_id": "String",
 "id": "String",
 "level_description": "String",
+# Link properties
+"link_id": "String",
+"url": "String",
+"link_type": "String",
+"link_rel": "String",
+"hreflang": "String",
+"length": "String",
+"mime_type": "String",
+"has_reliable_link": "Boolean",
 # Other properties
 "platforms": "String",
 "start_time": "String",
@@ -404,11 +415,38 @@ class ClimateGraphConnector:
             )
             
             return response.json()
-            
+
         except Exception as e:
             print(f" Neptune Analytics query failed: {e}")
             raise e
-    
+
+    def execute_cypher(self, query: str, parameters: Dict = None) -> List[Dict]:
+        """Execute parameterized Cypher query and return results as list of dicts"""
+        if not self.neptune:
+            print(f"--- MOCK NEPTUNE CYPHER QUERY ---\n{query}\nParams: {parameters}\n-------------------------")
+            return []
+
+        try:
+            # Substitute parameters in query if provided
+            if parameters:
+                for key, value in parameters.items():
+                    placeholder = f"${key}"
+                    if isinstance(value, str):
+                        query = query.replace(placeholder, f"'{value}'")
+                    else:
+                        query = query.replace(placeholder, str(value))
+
+            result = self.execute_query(query)
+
+            # Extract results from Neptune response
+            if "results" in result:
+                return result["results"]
+            return []
+
+        except Exception as e:
+            print(f" Cypher query execution failed: {e}")
+            return []
+
     def vector_search_by_type(self, query_text: str, node_type: str, top_k: int = 10) -> List[Dict]:
         """Smart search - vector for nodes with embeddings, text for nodes without"""
         
@@ -507,6 +545,7 @@ class ClimateGraphConnector:
         MATCH (n)-[r]-(m)
         WHERE n.`~id` = '{node_id}'
         RETURN type(r) as relationship_type, labels(m) as neighbor_labels, m.`~id` as neighbor_id, m.title as neighbor_title, m.name as neighbor_name
+        LIMIT 20
         """
         rels_result = self.execute_query(rels_query)
 
@@ -752,19 +791,21 @@ class InspectGraphNodeTool(BaseTool):
             node_props = node_data.get("node", {})
             node_labels = node_data.get("labels", [])
             
-            # Get relationships with ALL connected node properties
+            # Get relationships with connected node properties (LIMITED to prevent context overflow)
             rels_query = f"""
             MATCH (n)-[r]-(m)
             WHERE n.`~id` = '{node_id}'
-            RETURN 
+            RETURN
                 type(r) as relationship_type,
                 m as connected_node,
                 labels(m) as connected_labels,
                 m.`~id` as connected_id
             ORDER BY relationship_type
+            LIMIT 20
             """
             rels_result = kg_connector.execute_query(rels_query)
             relationships = rels_result.get("results", [])
+            total_rels = len(relationships)
             
             # Build comprehensive output
             output = f" NODE INSPECTION: {node_id}\n"
@@ -784,9 +825,9 @@ class InspectGraphNodeTool(BaseTool):
                 output += "  (No properties)\n"
             output += "\n"
             
-            # ALL relationships with connected node properties
-            output += f" RELATIONSHIPS ({len(relationships)} total):\n"
-            
+            # Relationships with connected node properties (limited to 20)
+            output += f" RELATIONSHIPS (showing up to 20):\n"
+
             if relationships:
                 for i, rel in enumerate(relationships):
                     rel_type = rel.get('relationship_type', 'unknown')
@@ -1436,23 +1477,25 @@ class StoreDatasetRelationshipsTool(BaseTool):
                 
                 conn.commit()
             
-            # Get dataset's links via hasLink relationship
+            # Get dataset's links via hasLink relationship (limited)
             links_query = f"""
             MATCH (d:Dataset)-[:hasLink]-(link)
             WHERE d.`~id` = '{dataset_id}' OR d.id = '{dataset_id}'
             RETURN properties(link) as link_properties
+            LIMIT 20
             """
             
-            # Get complete dataset relationships with all properties
+            # Get dataset relationships with properties (LIMITED to prevent context overflow)
             relationships_query = f"""
             MATCH (d:Dataset)-[r]-(connected)
             WHERE d.`~id` = '{dataset_id}' OR d.id = '{dataset_id}'
-            RETURN 
+            RETURN
                 type(r) as relationship_type,
                 labels(connected) as connected_labels,
                 COALESCE(connected.`~id`, connected.id) as connected_id,
                 properties(connected) as connected_properties
             ORDER BY relationship_type
+            LIMIT 50
             """
             
             # Also get dataset's own properties
@@ -1589,7 +1632,7 @@ class StoreDatasetRelationshipsTool(BaseTool):
             output += "\n"
             
             # Relationship summary
-            output += f" STORED RELATIONSHIPS ({len(relationships)} total):\n"
+            output += f" STORED RELATIONSHIPS (showing up to 50):\n"
             
             for rel_type, connections in stored_relationships.items():
                 output += f"  • {rel_type}: {len(connections)} items\n"
@@ -1745,8 +1788,40 @@ class QueryDatasetByIdTool(BaseTool):
 class SearchDatasetLinksTool(BaseTool):
     """Search for data access links associated with datasets"""
     name: str = "search_dataset_links"
-    description: str = "Search for data access links (S3, Earthdata, DOI, etc.) associated with datasets. Can search by dataset ID or find all datasets with specific link types."
-    
+    description: str = "Search for data access links (S3, Earthdata, DOI, etc.) associated with datasets. Can search by dataset ID or find all datasets with specific link types. Links are ranked by downloadability."
+
+    @staticmethod
+    def _calculate_link_weight(link_rel: str, has_reliable_link: bool = False) -> int:
+        """
+        Calculate link weight for prioritization based on downloadability.
+        Higher weight = more likely to be a direct download link.
+
+        Weightage formula:
+        - download: 5 (highest - direct download links)
+        - GET DATA: 4 (data access portals)
+        - offlineAccess: 3 (downloadable but may require steps)
+        - mapDigital: 2 (visualization, less useful for data download)
+        - information: 1 (informational only)
+        - unknown/other: 0
+
+        Bonus: +1 if dataset has reliable link flag
+        """
+        link_rel_lower = (link_rel or "").lower()
+
+        weight_map = {
+            "download": 5,
+            "get data": 4,
+            "getdata": 4,
+            "offlineaccess": 3,
+            "mapdigital": 2,
+            "information": 1
+        }
+
+        base_weight = weight_map.get(link_rel_lower, 0)
+        reliability_bonus = 1 if has_reliable_link else 0
+
+        return base_weight + reliability_bonus
+
     def _run(self, query: str, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
         try:
             connector = ClimateGraphConnector()
@@ -1758,40 +1833,58 @@ class SearchDatasetLinksTool(BaseTool):
                 # Search for links of a specific dataset
                 cypher_query = """
                 MATCH (d:Dataset {id: $dataset_id})-[:hasLink]->(l:Link)
-                RETURN d.id, d.title, d.short_name, l.url, l.link_type, l.link_rel
+                RETURN d.id, d.title, d.short_name, d.has_reliable_link, l.url, l.link_type, l.link_rel
                 ORDER BY l.link_type, l.url
                 """
                 results = connector.execute_cypher(cypher_query, {"dataset_id": query})
-                
+
                 if not results:
                     return f" No links found for dataset: {query}"
-                
+
                 output = f" LINKS FOR DATASET: {query}\n"
                 output += "=" * 50 + "\n\n"
-                
+
                 dataset_info = results[0]
                 output += f" Dataset: {dataset_info.get('d.title', 'Unknown')}\n"
-                output += f"🔖 Short Name: {dataset_info.get('d.short_name', 'Unknown')}\n\n"
-                
-                # Group links by type
-                links_by_type = {}
+                output += f"🔖 Short Name: {dataset_info.get('d.short_name', 'Unknown')}\n"
+                has_reliable_link = dataset_info.get('d.has_reliable_link', False)
+                if has_reliable_link:
+                    output += f" Reliable Links: Yes\n"
+                output += "\n"
+
+                # Collect all links with weights
+                all_links = []
                 for result in results:
-                    link_type = result.get('l.link_type', 'Other')
+                    link_rel = result.get('l.link_rel', '')
+                    weight = self._calculate_link_weight(link_rel, has_reliable_link)
+                    all_links.append({
+                        'url': result.get('l.url', ''),
+                        'type': result.get('l.link_type', 'Other'),
+                        'rel': link_rel,
+                        'weight': weight
+                    })
+
+                # Sort by weight (descending) - downloadable links first
+                all_links.sort(key=lambda x: x['weight'], reverse=True)
+
+                # Group sorted links by type while preserving weight order
+                links_by_type = {}
+                for link in all_links:
+                    link_type = link['type']
                     if link_type not in links_by_type:
                         links_by_type[link_type] = []
-                    links_by_type[link_type].append({
-                        'url': result.get('l.url', ''),
-                        'rel': result.get('l.link_rel', '')
-                    })
-                
-                # Display links grouped by type
+                    links_by_type[link_type].append(link)
+
+                # Display links grouped by type (already sorted by weight within each type)
+                output += " PRIORITIZED LINKS (sorted by downloadability):\n\n"
                 for link_type, links in links_by_type.items():
                     icon = {'S3': '', 'Earthdata': '', 'DOI': '', 'HTTP': ''}.get(link_type, '🔸')
                     output += f"{icon} {link_type.upper()} LINKS ({len(links)}):\n"
                     for link in links:
+                        weight_indicator = "" * link['weight'] if link['weight'] > 0 else ""
                         output += f"    {link['url']}\n"
                         if link['rel']:
-                            output += f"       Relation: {link['rel']}\n"
+                            output += f"       Relation: {link['rel']} {weight_indicator} (priority: {link['weight']})\n"
                     output += "\n"
                 
             else:
@@ -1997,6 +2090,252 @@ class GeocodingTool(BaseTool):
             return f" Error during geocoding: {str(e)}"
 
 
+class SearchDatasetsByKeywordTool(BaseTool):
+    """🔍 SECONDARY TOOL - Search datasets directly by keywords in title, description, or metadata"""
+    name: str = "search_datasets_by_keyword"
+    description: str = """🔍 DIRECT DATASET SEARCH - Searches Dataset nodes directly by keywords in title, short_name, or description. Use when you want to search datasets directly without going through DataCategory. Input: search keywords (e.g., 'precipitation', 'temperature NYC', 'ocean', 'MODIS', 'rainfall flooding'). Returns top 15 matching datasets with IDs."""
+
+    def _run(self, keywords: str, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
+        try:
+            # Create search query that looks in multiple fields
+            search_term = keywords.strip().lower()
+
+            cypher_query = f"""
+            MATCH (d:Dataset)
+            WHERE toLower(d.title) CONTAINS '{search_term}'
+               OR toLower(d.short_name) CONTAINS '{search_term}'
+               OR toLower(d.description) CONTAINS '{search_term}'
+               OR toLower(d.summary) CONTAINS '{search_term}'
+            RETURN d.`~id` as dataset_id,
+                   d.title as title,
+                   d.short_name as short_name,
+                   d.description as description
+            ORDER BY
+                CASE
+                    WHEN toLower(d.title) CONTAINS '{search_term}' THEN 1
+                    WHEN toLower(d.short_name) CONTAINS '{search_term}' THEN 2
+                    ELSE 3
+                END
+            LIMIT 15
+            """
+
+            result = kg_connector.execute_query(cypher_query)
+
+            if not result.get("results"):
+                return f"❌ No datasets found matching '{keywords}'. Try:\n" + \
+                       f"  • Broader terms (e.g., 'precipitation' instead of 'hourly rainfall')\n" + \
+                       f"  • Different keywords (e.g., 'MODIS', 'CESM', 'GPM')\n" + \
+                       f"  • Use 'list_sample_datasets' to see what's available"
+
+            datasets = result["results"]
+            output = f"🎯 FOUND {len(datasets)} DATASETS matching '{keywords}':\n\n"
+
+            for i, ds in enumerate(datasets, 1):
+                dataset_id = ds.get('dataset_id', 'unknown')
+                title = ds.get('title', 'No title')
+                short_name = ds.get('short_name', '')
+                description = ds.get('description', '')
+
+                output += f"{i}. {title}\n"
+                output += f"   📋 ID: {dataset_id}\n"
+                if short_name:
+                    output += f"   🔖 Short Name: {short_name}\n"
+                if description and len(description) > 0:
+                    desc_preview = description[:100] + "..." if len(description) > 100 else description
+                    output += f"   📝 Description: {desc_preview}\n"
+                output += f"   💡 To see full details: inspect_graph_node {dataset_id}\n"
+                output += f"   💾 To store this dataset: store_dataset_relationships {dataset_id}\n"
+                output += "\n"
+
+            output += f"✅ Next Steps:\n"
+            output += f"  • Use 'inspect_graph_node [dataset_id]' to see variables, metadata, and relationships\n"
+            output += f"  • Use 'store_dataset_relationships [dataset_id]' to save dataset to database\n"
+
+            return output
+
+        except Exception as e:
+            return f"❌ Error searching datasets: {str(e)}"
+
+
+class ListSampleDatasetsTool(BaseTool):
+    """List sample datasets to understand what's available in the knowledge graph"""
+    name: str = "list_sample_datasets"
+    description: str = "Shows 20 sample datasets from the knowledge graph to help understand what data is available. Use this when you're not sure what datasets exist or what to search for."
+
+    def _run(self, category: str = "all", run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
+        try:
+            cypher_query = """
+            MATCH (d:Dataset)
+            RETURN d.`~id` as dataset_id,
+                   d.title as title,
+                   d.short_name as short_name,
+                   d.data_center as data_center
+            ORDER BY d.title
+            LIMIT 20
+            """
+
+            result = kg_connector.execute_query(cypher_query)
+
+            if not result.get("results"):
+                return "❌ No datasets found in knowledge graph"
+
+            datasets = result["results"]
+            output = f"📚 SAMPLE DATASETS ({len(datasets)} shown):\n\n"
+
+            for i, ds in enumerate(datasets, 1):
+                dataset_id = ds.get('dataset_id', 'unknown')
+                title = ds.get('title', 'No title')
+                short_name = ds.get('short_name', '')
+                data_center = ds.get('data_center', '')
+
+                output += f"{i}. {title}\n"
+                output += f"   📋 ID: {dataset_id}\n"
+                if short_name:
+                    output += f"   🔖 Short Name: {short_name}\n"
+                if data_center:
+                    output += f"   🏢 Data Center: {data_center}\n"
+                output += "\n"
+
+            output += f"\n💡 Search Tips:\n"
+            output += f"  • Use keywords from these titles in 'search_datasets_by_keyword'\n"
+            output += f"  • Look for instrument names (MODIS, AIRS, GPM, etc.)\n"
+            output += f"  • Search by topic (precipitation, temperature, ocean, atmosphere)\n"
+
+            return output
+
+        except Exception as e:
+            return f"❌ Error listing datasets: {str(e)}"
+
+
+class FindDatasetsByVariableNameTool(BaseTool):
+    """Find datasets that contain specific variables"""
+    name: str = "find_datasets_by_variable"
+    description: str = "Find datasets that contain a specific variable or measurement. Input: variable name (e.g., 'precipitation', 'temperature', 'SST', 'humidity'). Returns datasets containing that variable."
+
+    def _run(self, variable_name: str, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
+        try:
+            search_term = variable_name.strip().lower()
+
+            # Search for variable first, then find connected datasets
+            cypher_query = f"""
+            MATCH (v)-[:belongsTo|:hasVariable]-(d:Dataset)
+            WHERE (v:Variable OR v:CESMVariable)
+              AND (toLower(v.name) CONTAINS '{search_term}'
+                   OR toLower(v.long_name) CONTAINS '{search_term}'
+                   OR toLower(v.description) CONTAINS '{search_term}')
+            RETURN DISTINCT d.`~id` as dataset_id,
+                   d.title as title,
+                   d.short_name as short_name,
+                   count(v) as variable_count
+            ORDER BY variable_count DESC
+            LIMIT 15
+            """
+
+            result = kg_connector.execute_query(cypher_query)
+
+            if not result.get("results"):
+                return f"❌ No datasets found with variable '{variable_name}'. Try:\n" + \
+                       f"  • Search for the variable first using 'search_by_variable {variable_name}'\n" + \
+                       f"  • Use different variable names (e.g., 'precip', 'temp', 'SST')\n" + \
+                       f"  • Try 'search_datasets_by_keyword' instead"
+
+            datasets = result["results"]
+            output = f"🔬 FOUND {len(datasets)} DATASETS with variable '{variable_name}':\n\n"
+
+            for i, ds in enumerate(datasets, 1):
+                dataset_id = ds.get('dataset_id', 'unknown')
+                title = ds.get('title', 'No title')
+                short_name = ds.get('short_name', '')
+                var_count = ds.get('variable_count', 0)
+
+                output += f"{i}. {title}\n"
+                output += f"   📋 ID: {dataset_id}\n"
+                if short_name:
+                    output += f"   🔖 Short Name: {short_name}\n"
+                output += f"   📊 Variables matching '{variable_name}': {var_count}\n"
+                output += f"   💡 Inspect: inspect_graph_node {dataset_id}\n"
+                output += "\n"
+
+            output += f"✅ Next Steps:\n"
+            output += f"  • Use 'inspect_graph_node [dataset_id]' to see all variables in the dataset\n"
+            output += f"  • Use 'store_dataset_relationships [dataset_id]' to save the dataset\n"
+
+            return output
+
+        except Exception as e:
+            return f"❌ Error finding datasets by variable: {str(e)}"
+
+
+class SearchDatasetsByRegionTool(BaseTool):
+    """Search datasets by geographic region or location"""
+    name: str = "search_datasets_by_region"
+    description: str = "Search for datasets covering a specific geographic region. Input: region name (e.g., 'Arctic', 'North America', 'NYC', 'global', 'Pacific Ocean'). Returns datasets with spatial coverage matching that region."
+
+    def _run(self, region: str, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
+        try:
+            search_term = region.strip().lower()
+
+            # Search in spatial coverage and location metadata
+            cypher_query = f"""
+            MATCH (d:Dataset)
+            WHERE toLower(d.spatial_coverage) CONTAINS '{search_term}'
+               OR toLower(d.title) CONTAINS '{search_term}'
+               OR toLower(d.description) CONTAINS '{search_term}'
+            RETURN d.`~id` as dataset_id,
+                   d.title as title,
+                   d.short_name as short_name,
+                   d.spatial_coverage as spatial_coverage
+            ORDER BY d.title
+            LIMIT 15
+            """
+
+            result = kg_connector.execute_query(cypher_query)
+
+            if not result.get("results"):
+                # Try finding through Location nodes
+                cypher_query_alt = f"""
+                MATCH (d:Dataset)-[:hasLocation]-(l:Location)
+                WHERE toLower(l.name) CONTAINS '{search_term}'
+                   OR toLower(l.description) CONTAINS '{search_term}'
+                RETURN DISTINCT d.`~id` as dataset_id,
+                       d.title as title,
+                       d.short_name as short_name,
+                       l.name as location_name
+                ORDER BY d.title
+                LIMIT 15
+                """
+                result = kg_connector.execute_query(cypher_query_alt)
+
+            if not result.get("results"):
+                return f"❌ No datasets found for region '{region}'. Try:\n" + \
+                       f"  • Broader regions (e.g., 'North America' instead of 'NYC')\n" + \
+                       f"  • Different terms (e.g., 'Arctic', 'global', 'ocean')\n" + \
+                       f"  • Use 'search_datasets_by_keyword {region}' for general search"
+
+            datasets = result["results"]
+            output = f"🌍 FOUND {len(datasets)} DATASETS for region '{region}':\n\n"
+
+            for i, ds in enumerate(datasets, 1):
+                dataset_id = ds.get('dataset_id', 'unknown')
+                title = ds.get('title', 'No title')
+                short_name = ds.get('short_name', '')
+                spatial = ds.get('spatial_coverage', ds.get('location_name', ''))
+
+                output += f"{i}. {title}\n"
+                output += f"   📋 ID: {dataset_id}\n"
+                if short_name:
+                    output += f"   🔖 Short Name: {short_name}\n"
+                if spatial:
+                    output += f"   🗺️ Coverage: {spatial}\n"
+                output += f"   💡 Details: inspect_graph_node {dataset_id}\n"
+                output += "\n"
+
+            return output
+
+        except Exception as e:
+            return f"❌ Error searching by region: {str(e)}"
+
+
 # --- Create LangChain Agent (EXACTLY like original) ---
 
 class AskFollowUpQuestionTool(BaseTool):
@@ -2124,25 +2463,40 @@ class AskFollowUpQuestionTool(BaseTool):
 def create_knowledge_graph_agent():
     """Create the LangChain agent with all tools - EXACTLY like original"""
     
-    # Define all available tools
+    # Define all available tools (PRIMARY TOOLS FIRST)
     tools = [
-        SearchByVariableTool(),
-        SearchByKeywordTool(), 
-        SearchByDataCategoryTool(),
-        SearchByTemporalResolutionTool(),
-        SearchBySpatialResolutionTool(),
-        SearchByLocationTool(),
-        SearchByTemporalExtentTool(),
-        MultiCriteriaDatasetSearchTool(),
-        SearchAnyNodeTypeTool(),
-        ConditionalRelationshipSearchTool(),
-        InspectGraphNodeTool(),
-        ExploreGraphStructureTool(),
-        StoreDatasetRelationshipsTool(),
-        QueryDatasetByIdTool(),
-        SearchDatasetLinksTool(),
-        GeocodingTool(),
-        AskFollowUpQuestionTool()
+        # 🥇 PRIMARY TOOL - Use this FIRST!
+        SearchByDataCategoryTool(),           # PRIMARY: Search by data category (BEST for finding datasets!)
+
+        # 🔍 SECONDARY DIRECT SEARCH TOOLS
+        SearchDatasetsByKeywordTool(),        # Direct dataset search by keywords
+        FindDatasetsByVariableNameTool(),     # Find datasets by variable name
+        SearchDatasetsByRegionTool(),         # Find datasets by geographic region
+        ListSampleDatasetsTool(),             # Shows what datasets are available
+        MultiCriteriaDatasetSearchTool(),     # Multi-criteria search
+
+        # 📊 SPECIALIZED SEARCH TOOLS
+        SearchByVariableTool(),               # Search for specific variables
+        SearchByKeywordTool(),                # Search science keywords
+        SearchByLocationTool(),               # Search by coordinates
+        SearchByTemporalExtentTool(),         # Search by time period
+        SearchByTemporalResolutionTool(),     # Search by temporal resolution
+        SearchBySpatialResolutionTool(),      # Search by spatial resolution
+
+        # 🔧 UTILITY TOOLS
+        InspectGraphNodeTool(),               # Inspect node details
+        StoreDatasetRelationshipsTool(),      # Store dataset to database
+        QueryDatasetByIdTool(),               # Query stored dataset
+        SearchDatasetLinksTool(),             # Find data access links
+
+        # 📈 ADVANCED TOOLS
+        ExploreGraphStructureTool(),          # Explore graph structure
+        SearchAnyNodeTypeTool(),              # Search any node type
+        ConditionalRelationshipSearchTool(),  # Conditional relationship search
+        GeocodingTool(),                      # Geocoding tool
+
+        # 💬 INTERACTION TOOLS
+        AskFollowUpQuestionTool()             # Ask user for clarification
     ]
     
     # Create the structured climate research prompt
@@ -2173,21 +2527,31 @@ STRUCTURED WORKFLOW - Follow these steps in order:
 
 0. CLARIFICATION CHECK: Use 'ask_follow_up_question' tool WHENEVER you need more details - at the start, during search, or after finding results. Don't hesitate to ask for clarification multiple times throughout the workflow!
 
-1. DATACATEGORY SEARCH (PRIMARY FOR DATASETS): 🥇 DataCategory is the BEST way to find datasets! Start by using 'search_by_data_category' to find relevant data categories, then inspect the DATASET NODES directly (not the DataCategory). Dataset nodes contain all the main relationships (variables, locations, organizations, formats, etc.) that you need for comprehensive analysis.
+1. 🎯 DATACATEGORY SEARCH (PRIMARY): Use 'search_by_data_category' FIRST! This is the BEST way to find datasets.
+   - DataCategory organizes datasets into clear topic hierarchies
+   - Returns relevant DataCategory nodes, then inspect the DATASET NODES directly (not the DataCategory)
+   - Dataset nodes contain all relationships (variables, locations, organizations, formats)
+   - Example: search_by_data_category: "precipitation" or "ocean" or "atmosphere"
 
-2. MULTI-CRITERIA SEARCH (SECONDARY): For searches with multiple requirements (time + location, location + variable, etc.), use 'multi_criteria_dataset_search' with DataCategory as one of the criteria when possible.
+2. 🔍 DIRECT DATASET SEARCH (SECONDARY): If data category doesn't work, use direct search tools:
+   - 'search_datasets_by_keyword' - Search directly in dataset titles and descriptions
+   - 'find_datasets_by_variable' - Find datasets containing specific variables
+   - 'search_datasets_by_region' - Find datasets by geographic region
+   - 'list_sample_datasets' - See what datasets are available when unsure
 
-3. SINGLE-CRITERIA SEARCH (TERTIARY): Only use individual search tools when you have just ONE specific search criterion.
+3. 📊 MULTI-CRITERIA SEARCH (TERTIARY): For complex searches with multiple requirements:
+   - 'multi_criteria_dataset_search' - Search with DataCategory + location + time + variable
+   - Individual search tools - For exploring specific aspects of the graph structure
 
-4. RELATIONSHIP ANALYSIS: Inspect dataset relationships (variables, formats, locations, etc.)
-5. MANDATORY STORAGE: 🚨 ALWAYS use 'store_dataset_relationships' for EVERY relevant dataset found - this is REQUIRED!
-6. COMPREHENSIVE SUMMARY: Provide detailed summary with confirmation of stored datasets
+4. 🔍 INSPECT & ANALYZE: Use 'inspect_graph_node [dataset_id]' to see full dataset details
+5. 💾 MANDATORY STORAGE: 🚨 ALWAYS use 'store_dataset_relationships' for EVERY relevant dataset found!
+6. 📝 COMPREHENSIVE SUMMARY: Provide detailed summary with confirmation of stored datasets
 
-TOOL SELECTION PRIORITY:
-🥇 PRIMARY: 'search_by_data_category' - BEST for finding datasets! DataCategory provides comprehensive summaries and is the most effective starting point
-🥈 SECONDARY: 'multi_criteria_dataset_search' - Use for searches with 2+ criteria, include DataCategory when possible
-🥉 TERTIARY: Individual search tools - Only for single-criterion searches or when exploring specific node types
-🏅 QUATERNARY: 'search_any_node_type' - For schema exploration or unknown node types
+TOOL SELECTION PRIORITY (ALWAYS USE IN THIS ORDER):
+🎯 PRIMARY: 'search_by_data_category' - BEST way to find datasets! Use this FIRST!
+🔍 SECONDARY: 'search_datasets_by_keyword', 'find_datasets_by_variable', 'search_datasets_by_region' - When you need direct dataset searches
+📚 TERTIARY: 'list_sample_datasets' - When you're not sure what's available
+📊 ADVANCED: 'multi_criteria_dataset_search' - For complex multi-criteria searches
 
 You have access to these tools:
 {tools}
@@ -2223,26 +2587,32 @@ EXAMPLE WORKFLOWS:
 VAGUE REQUEST: "I need climate data"
 → ask_follow_up_question: "The request is too general - need clarification on temporal extent, location, and specific variables"
 
-DATASET DISCOVERY REQUEST: "I need sea ice data for research"
-1. ✅ Use search_by_data_category: "sea ice" (PRIMARY - best for finding datasets!)
-2. inspect_graph_node: [data category ID to see connected datasets]
-3. inspect_graph_node: [DATASET IDs directly - these contain main relationships: variables, locations, organizations, formats]
-4. 🚨 store_dataset_relationships: for EVERY dataset found (dataset_id_1, dataset_id_2, dataset_id_3, etc.)
-5. Final Answer with confirmation of ALL stored datasets
+SIMPLE REQUEST: "I need precipitation data"
+1. 🎯 search_datasets_by_keyword: "precipitation" (PRIMARY - fastest approach!)
+2. 🔍 inspect_graph_node: [dataset IDs returned - pick top 3-5 most relevant]
+3. 💾 store_dataset_relationships: [dataset_id_1, dataset_id_2, dataset_id_3, etc.]
+4. 📝 Final Answer with confirmation of ALL stored datasets
 
-MULTI-CRITERIA REQUEST: "Arctic temperature data from 2000-2020"
-1. ✅ Use multi_criteria_dataset_search: "DataCategory: temperature, Location: Arctic, TemporalExtent: between:2000-01-01:2020-12-31"
-2. inspect_graph_node: [DATASET IDs from results - these contain main relationships: variables, locations, organizations, formats]
-3. 🚨 store_dataset_relationships: for EVERY dataset found (dataset_id_1, dataset_id_2, etc.)
-4. Final Answer with confirmation of ALL stored datasets
+VARIABLE-SPECIFIC REQUEST: "Find datasets with sea surface temperature"
+1. 🔍 find_datasets_by_variable: "sea surface temperature"
+2. 🔍 inspect_graph_node: [top 3-5 dataset IDs returned]
+3. 💾 store_dataset_relationships: [dataset_id_1, dataset_id_2, dataset_id_3, etc.]
+4. 📝 Final Answer with confirmation of ALL stored datasets
 
-SPECIFIC REQUEST: "Analyze Arctic sea ice temperature trends from 2000-2020"
-1. Enrichment: "sea ice temperature measurements Arctic regions cryospheric data 2000-2020"
-2. search_by_data_category: "sea ice temperature" 
-3. inspect_graph_node: [found data category ID to see connected datasets]
-4. inspect_graph_node: [DATASET IDs directly - these contain main relationships: variables, locations, organizations, formats] [LIMIT TO TOP 10 MOST RELEVANT - DO NOT inspect all datasets]
-5. 🚨 store_dataset_relationships: for EVERY dataset found (dataset_id_1, dataset_id_2, etc.)
-6. Final Answer with confirmation of ALL stored datasets
+LOCATION REQUEST: "NYC rainfall and flooding data"
+1. 🎯 search_datasets_by_keyword: "rainfall flooding NYC" (try combined search first)
+2. If no results: 🔍 search_datasets_by_region: "New York"
+3. If still no results: 🎯 search_datasets_by_keyword: "precipitation" (broaden search)
+4. 🔍 inspect_graph_node: [relevant dataset IDs]
+5. 💾 store_dataset_relationships: [all found datasets]
+6. 📝 Final Answer with confirmation
+
+EXPLORATION REQUEST: "What climate datasets are available?"
+1. 📚 list_sample_datasets (see what's available)
+2. Based on results, use search_datasets_by_keyword for specific topics
+3. 🔍 inspect_graph_node: [interesting dataset IDs]
+4. 💾 store_dataset_relationships: [selected datasets]
+5. 📝 Final Answer with confirmation
 
 COMPLETION CRITERIA: You MUST provide a Final Answer only after:
 - Having sufficient details from the user (FREELY use 'ask_follow_up_question' whenever you need clarification!)

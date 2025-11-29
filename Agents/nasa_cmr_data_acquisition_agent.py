@@ -53,6 +53,14 @@ except ImportError:
     HDF5_AVAILABLE = False
     print(" h5py not available. HDF5 support limited.")
 
+# Web scraping for documentation fetching
+try:
+    from bs4 import BeautifulSoup
+    BS4_AVAILABLE = True
+except ImportError:
+    BS4_AVAILABLE = False
+    print(" BeautifulSoup4 not available. Web fetch capabilities limited.")
+
 # AWS and S3 access
 import boto3
 import s3fs
@@ -173,66 +181,8 @@ EARTHDATA_PATTERNS = [
     r'.*\.alaska\.edu$'
 ]
 
-# AWS Open Data Registry - NASA datasets (Primary Source)
-AWS_OPEN_DATA_NASA_BUCKETS = {
-    "nasa-nex": {
-        "description": "NASA Earth Exchange (NEX) downscaled climate projections",
-        "data_types": ["climate", "temperature", "precipitation", "CMIP5"],
-        "formats": ["NetCDF", "Zarr"]
-    },
-    "nasa-power": {
-        "description": "NASA POWER solar radiation and meteorological datasets",
-        "data_types": ["solar", "radiation", "meteorology", "power"],
-        "formats": ["CSV", "JSON", "NetCDF"]
-    },
-    "nasa-osdr": {
-        "description": "NASA Space Biology Open Science Data Repository",
-        "data_types": ["biology", "spaceflight", "experiments"],
-        "formats": ["CSV", "JSON", "HDF5"]
-    },
-    "nasa-lambda": {
-        "description": "NASA Legacy Archive for Microwave Background Data",
-        "data_types": ["cosmic", "microwave", "background", "astrophysics"],
-        "formats": ["FITS", "HDF5"]
-    },
-    "nasa-sdo-ml": {
-        "description": "Solar Dynamics Observatory Machine Learning Dataset",
-        "data_types": ["solar", "dynamics", "machine learning", "heliophysics"],
-        "formats": ["HDF5", "NetCDF"]
-    },
-    "nasa-terra-fusion": {
-        "description": "Terra Fusion datasets",
-        "data_types": ["terra", "satellite", "fusion"],
-        "formats": ["HDF5", "NetCDF"]
-    },
-    "modis-pds": {
-        "description": "MODIS satellite data",
-        "data_types": ["modis", "satellite", "earth observation"],
-        "formats": ["HDF4", "NetCDF"]
-    },
-    "landsat-pds": {
-        "description": "Landsat satellite imagery",
-        "data_types": ["landsat", "satellite", "imagery"],
-        "formats": ["GeoTIFF", "MTL"]
-    },
-    "sentinel-pds": {
-        "description": "Sentinel satellite data",
-        "data_types": ["sentinel", "satellite", "earth observation"],
-        "formats": ["NetCDF", "GeoTIFF"]
-    },
-    "noaa-goes16": {
-        "description": "GOES-16 weather satellite data",
-        "data_types": ["goes", "weather", "satellite"],
-        "formats": ["NetCDF"]
-    },
-    "noaa-goes17": {
-        "description": "GOES-17 weather satellite data",
-        "data_types": ["goes", "weather", "satellite"],
-        "formats": ["NetCDF"]
-    }
-}
 
-# NASA CMR S3 Bucket patterns (Fallback Source)
+# NASA CMR S3 Bucket patterns
 NASA_CMR_S3_PATTERNS = [
     "s3://nasa-",
     "s3://gesdisc-",
@@ -254,6 +204,639 @@ SUPPORTED_FORMATS = {
     '.json': 'JSON',
     '.zarr': 'Zarr'
 }
+
+# --- Dynamic Data Access Pipeline System ---
+
+class CredentialManager:
+    """Manages credentials with user prompts when needed - COMPLETELY GENERIC"""
+
+    def __init__(self):
+        self._credentials = {}
+        self._prompted = set()  # Track what we've already prompted for
+        self._auth_configs = {}  # Store authentication configurations per domain
+
+    def get_credential(self, service: str, credential_type: str, prompt_message: str = None) -> Optional[str]:
+        """
+        Get a credential, prompting the user if not available.
+
+        Args:
+            service: Service name or domain (e.g., 'earthdata', 'api.example.com')
+            credential_type: Type of credential (e.g., 'username', 'password', 'token', 'api_key')
+            prompt_message: Custom message to show the user
+
+        Returns:
+            Credential value or None if user cancels
+        """
+        key = f"{service}:{credential_type}"
+
+        # Check if already in cache
+        if key in self._credentials:
+            return self._credentials[key]
+
+        # Try environment variable first (flexible naming)
+        env_var_name = f"{service}_{credential_type}".upper().replace('.', '_').replace('-', '_')
+        value = os.getenv(env_var_name)
+        if value:
+            self._credentials[key] = value
+            return value
+
+        # Only prompt once per credential
+        if key in self._prompted:
+            return None
+
+        self._prompted.add(key)
+
+        # Prompt user
+        if not prompt_message:
+            prompt_message = f"Please enter your {service} {credential_type}"
+
+        print(f"\n🔐 CREDENTIAL REQUIRED")
+        print(f"=" * 60)
+        print(f"Service/Domain: {service}")
+        print(f"Credential Type: {credential_type}")
+        print(f"\n{prompt_message}")
+        print(f"\n💡 You can set this via environment variable: {env_var_name}")
+        print(f"   Or press Enter to skip (access may fail)")
+        print(f"=" * 60)
+
+        try:
+            if credential_type.lower() in ['password', 'token', 'secret', 'key', 'api_key']:
+                import getpass
+                value = getpass.getpass(f"\n{credential_type.replace('_', ' ').capitalize()}: ")
+            else:
+                value = input(f"\n{credential_type.replace('_', ' ').capitalize()}: ").strip()
+
+            if value:
+                self._credentials[key] = value
+                print(f"✅ Credential cached for this session")
+                return value
+            else:
+                print(f"⚠️  Skipped. Will attempt access without credentials.")
+                return None
+
+        except (KeyboardInterrupt, EOFError):
+            print(f"\n❌ Credential entry cancelled.")
+            return None
+
+    def set_auth_config(self, domain: str, auth_type: str, **kwargs):
+        """
+        Manually configure authentication for a specific domain.
+
+        Args:
+            domain: Domain name (e.g., 'api.example.com')
+            auth_type: Type of authentication ('basic', 'bearer', 'api_key', 'custom_header')
+            **kwargs: Additional configuration (e.g., header_name='X-API-Key')
+        """
+        self._auth_configs[domain] = {
+            'auth_type': auth_type,
+            **kwargs
+        }
+        logger.info(f"✅ Authentication configured for {domain}: {auth_type}")
+
+    def get_auth_config(self, domain: str) -> Optional[Dict]:
+        """Get authentication configuration for a domain"""
+        return self._auth_configs.get(domain)
+
+    def has_credential(self, service: str, credential_type: str) -> bool:
+        """Check if credential exists without prompting"""
+        key = f"{service}:{credential_type}"
+        env_var_name = f"{service}_{credential_type}".upper().replace('.', '_').replace('-', '_')
+        return key in self._credentials or bool(os.getenv(env_var_name))
+
+
+class DataAccessPipeline:
+    """Base class for data access pipelines"""
+
+    def __init__(self, credential_manager: CredentialManager):
+        self.credential_manager = credential_manager
+        self.name = "Generic Pipeline"
+
+    def can_handle(self, url: str) -> bool:
+        """Check if this pipeline can handle the given URL"""
+        raise NotImplementedError
+
+    def setup_authentication(self, url: str = None) -> bool:
+        """Setup authentication, returning True if successful"""
+        return True
+
+    def access_data(self, url: str, **kwargs) -> Any:
+        """Access data from the URL"""
+        raise NotImplementedError
+
+    def get_access_info(self) -> Dict[str, Any]:
+        """Get information about this access method"""
+        return {
+            "name": self.name,
+            "requires_auth": False,
+            "auth_setup": False
+        }
+
+
+class GenericHTTPPipeline(DataAccessPipeline):
+    """Universal pipeline that can handle ANY HTTP/HTTPS URL with dynamic authentication"""
+
+    def __init__(self, credential_manager: CredentialManager):
+        super().__init__(credential_manager)
+        self.name = "Generic HTTP/HTTPS"
+        self.session = requests.Session()
+        self._auth_cache = {}  # domain -> auth method
+
+    def can_handle(self, url: str) -> bool:
+        """Handles any HTTP/HTTPS URL"""
+        return url.startswith('http://') or url.startswith('https://')
+
+    def _get_domain(self, url: str) -> str:
+        """Extract domain from URL"""
+        parsed = urlparse(url)
+        return parsed.hostname or parsed.netloc
+
+    def _try_anonymous_access(self, url: str, **kwargs) -> Optional[requests.Response]:
+        """Try accessing URL without authentication"""
+        try:
+            response = self.session.get(url, timeout=10, stream=kwargs.get('stream', False))
+            if response.status_code == 200:
+                return response
+            return None
+        except:
+            return None
+
+    def _detect_auth_requirement(self, response: requests.Response) -> Optional[str]:
+        """Detect what type of authentication is needed from response headers"""
+        if response.status_code == 401:
+            auth_header = response.headers.get('WWW-Authenticate', '')
+            if 'Basic' in auth_header:
+                return 'basic'
+            elif 'Bearer' in auth_header:
+                return 'bearer'
+            else:
+                return 'unknown'
+        return None
+
+    def setup_authentication(self, url: str = None) -> bool:
+        """Dynamically setup authentication based on URL requirements"""
+        if not url:
+            return True
+
+        domain = self._get_domain(url)
+
+        # Check if we have a cached auth config for this domain
+        auth_config = self.credential_manager.get_auth_config(domain)
+
+        if auth_config:
+            auth_type = auth_config['auth_type']
+
+            if auth_type == 'basic':
+                username = self.credential_manager.get_credential(
+                    domain, 'username',
+                    f"Username for {domain}"
+                )
+                password = self.credential_manager.get_credential(
+                    domain, 'password',
+                    f"Password for {domain}"
+                )
+                if username and password:
+                    self.session.auth = (username, password)
+                    self._auth_cache[domain] = 'basic'
+                    return True
+
+            elif auth_type == 'bearer':
+                token = self.credential_manager.get_credential(
+                    domain, 'token',
+                    f"Bearer token for {domain}"
+                )
+                if token:
+                    self.session.headers['Authorization'] = f'Bearer {token}'
+                    self._auth_cache[domain] = 'bearer'
+                    return True
+
+            elif auth_type == 'api_key':
+                header_name = auth_config.get('header_name', 'X-API-Key')
+                api_key = self.credential_manager.get_credential(
+                    domain, 'api_key',
+                    f"API key for {domain}"
+                )
+                if api_key:
+                    self.session.headers[header_name] = api_key
+                    self._auth_cache[domain] = 'api_key'
+                    return True
+
+            elif auth_type == 'custom_header':
+                header_name = auth_config.get('header_name', 'Authorization')
+                header_value = self.credential_manager.get_credential(
+                    domain, 'header_value',
+                    f"Custom header value for {domain}"
+                )
+                if header_value:
+                    self.session.headers[header_name] = header_value
+                    self._auth_cache[domain] = 'custom_header'
+                    return True
+
+        return True  # Proceed without auth if not configured
+
+    def access_data(self, url: str, stream=False, **kwargs) -> Any:
+        """Access data from any HTTP/HTTPS URL with dynamic authentication"""
+
+        domain = self._get_domain(url)
+
+        # Try anonymous access first
+        response = self._try_anonymous_access(url, stream=stream, **kwargs)
+        if response and response.status_code == 200:
+            logger.info(f"✅ Anonymous access successful for {domain}")
+            return response
+
+        # If anonymous failed, try with authentication
+        if not response or response.status_code in [401, 403]:
+            logger.info(f"🔐 Authentication required for {domain}")
+
+            # Detect auth type if not configured
+            if response and not self.credential_manager.get_auth_config(domain):
+                auth_type = self._detect_auth_requirement(response)
+                if auth_type == 'basic':
+                    print(f"\n💡 Detected Basic Authentication requirement for {domain}")
+                    self.credential_manager.set_auth_config(domain, 'basic')
+                elif auth_type == 'bearer':
+                    print(f"\n💡 Detected Bearer Token requirement for {domain}")
+                    self.credential_manager.set_auth_config(domain, 'bearer')
+                else:
+                    print(f"\n💡 Authentication required for {domain} but type is unclear")
+                    print(f"   You can manually configure it using 'configure_data_access_auth' tool")
+
+            # Setup auth and retry
+            self.setup_authentication(url)
+            response = self.session.get(url, stream=stream, **kwargs)
+
+        # Handle response
+        if response.status_code == 200:
+            return response
+        elif response.status_code == 401:
+            raise PermissionError(f"Authentication failed for {domain}. Check credentials.")
+        elif response.status_code == 403:
+            raise PermissionError(f"Access forbidden for {domain}. May need permissions.")
+        elif response.status_code == 404:
+            raise FileNotFoundError(f"Resource not found: {url}")
+        else:
+            response.raise_for_status()
+            return response
+
+    def get_access_info(self) -> Dict[str, Any]:
+        return {
+            "name": self.name,
+            "requires_auth": "Dynamic (detects automatically)",
+            "auth_setup": f"{len(self._auth_cache)} domains configured",
+            "configured_domains": list(self._auth_cache.keys())
+        }
+
+
+class EarthdataPipeline(DataAccessPipeline):
+    """Pipeline for NASA Earthdata authenticated access"""
+
+    def __init__(self, credential_manager: CredentialManager):
+        super().__init__(credential_manager)
+        self.name = "NASA Earthdata Login"
+        self.session = None
+        self.authenticated = False
+
+        # Dynamic domain detection patterns
+        self.domain_patterns = [
+            r'.*\.earthdata\.nasa\.gov$',
+            r'.*\.eosdis\.nasa\.gov$',
+            r'.*\.gsfc\.nasa\.gov$',
+            r'.*\.jpl\.nasa\.gov$',
+            r'.*\.nsidc\.org$',
+            r'.*\.usgs\.gov$',
+            r'.*daac.*\.nasa\.gov$',
+            r'.*\.asf\.alaska\.edu$'
+        ]
+
+    def can_handle(self, url: str) -> bool:
+        """Check if URL requires Earthdata authentication"""
+        try:
+            parsed = urlparse(url)
+            hostname = parsed.hostname
+            if not hostname:
+                return False
+
+            # Check against patterns
+            for pattern in self.domain_patterns:
+                if re.match(pattern, hostname):
+                    return True
+
+            # Also check hardcoded list for backward compatibility
+            return hostname in EARTHDATA_DOMAINS
+        except:
+            return False
+
+    def setup_authentication(self) -> bool:
+        """Setup Earthdata authentication with user prompts"""
+        if self.authenticated:
+            return True
+
+        # Get credentials
+        username = self.credential_manager.get_credential(
+            'earthdata',
+            'username',
+            'NASA Earthdata Login username. Register at https://urs.earthdata.nasa.gov'
+        )
+
+        password = self.credential_manager.get_credential(
+            'earthdata',
+            'password',
+            'NASA Earthdata Login password'
+        )
+
+        if not username or not password:
+            logger.warning("Earthdata credentials not provided. Access may fail.")
+            return False
+
+        # Setup session
+        from requests import Session
+
+        class SessionWithHeaderRedirection(Session):
+            AUTH_HOST = 'urs.earthdata.nasa.gov'
+
+            def __init__(self, username, password):
+                super().__init__()
+                self.auth = (username, password)
+
+            def rebuild_auth(self, prepared_request, response):
+                headers = prepared_request.headers
+                url = prepared_request.url
+
+                if 'Authorization' in headers:
+                    original_parsed = urlparse(response.request.url)
+                    redirect_parsed = urlparse(url)
+
+                    if (original_parsed.hostname != redirect_parsed.hostname) and \
+                            redirect_parsed.hostname != self.AUTH_HOST and \
+                            original_parsed.hostname != self.AUTH_HOST:
+                        del headers['Authorization']
+                return
+
+        self.session = SessionWithHeaderRedirection(username, password)
+        self.authenticated = True
+        logger.info("✅ Earthdata authentication configured")
+        return True
+
+    def access_data(self, url: str, stream=False, **kwargs) -> Any:
+        """Access data from Earthdata URL"""
+        if not self.setup_authentication():
+            raise ValueError("Earthdata authentication failed")
+
+        try:
+            response = self.session.get(url, stream=stream)
+
+            if response.status_code == 401:
+                raise PermissionError("Authentication failed. Check your Earthdata credentials.")
+            elif response.status_code == 403:
+                raise PermissionError("Access forbidden. You may need permission for this dataset.")
+            elif response.status_code == 404:
+                raise FileNotFoundError(f"Resource not found: {url}")
+
+            response.raise_for_status()
+            return response
+
+        except Exception as e:
+            logger.error(f"Earthdata access failed for {url}: {e}")
+            raise
+
+    def get_access_info(self) -> Dict[str, Any]:
+        return {
+            "name": self.name,
+            "requires_auth": True,
+            "auth_setup": self.authenticated,
+            "register_url": "https://urs.earthdata.nasa.gov"
+        }
+
+
+class NOAAPipeline(DataAccessPipeline):
+    """Pipeline for NOAA CDO API access"""
+
+    def __init__(self, credential_manager: CredentialManager):
+        super().__init__(credential_manager)
+        self.name = "NOAA Climate Data Online"
+        self.token = None
+        self.base_url = "https://www.ncei.noaa.gov/cdo-web/api/v2"
+
+        self.domain_patterns = [
+            r'.*\.noaa\.gov$',
+            r'.*\.ncdc\.noaa\.gov$',
+            r'.*\.ncei\.noaa\.gov$',
+            r'.*\.nodc\.noaa\.gov$'
+        ]
+
+    def can_handle(self, url: str) -> bool:
+        """Check if URL is a NOAA domain"""
+        try:
+            parsed = urlparse(url)
+            hostname = parsed.hostname
+            if not hostname:
+                return False
+
+            for pattern in self.domain_patterns:
+                if re.match(pattern, hostname):
+                    return True
+            return hostname in NOAA_CDO_DOMAINS
+        except:
+            return False
+
+    def setup_authentication(self) -> bool:
+        """Setup NOAA API token with user prompt"""
+        if self.token:
+            return True
+
+        token = self.credential_manager.get_credential(
+            'noaa',
+            'token',
+            'NOAA CDO API Token. Request at https://www.ncdc.noaa.gov/cdo-web/token'
+        )
+
+        if token:
+            self.token = token
+            logger.info("✅ NOAA API token configured")
+            return True
+        else:
+            logger.warning("NOAA API token not provided. Access may be limited.")
+            return False
+
+    def access_data(self, url: str = None, **params) -> Any:
+        """Access NOAA data via API"""
+        self.setup_authentication()
+
+        headers = {}
+        if self.token:
+            headers['token'] = self.token
+
+        # If URL provided, use it directly
+        if url:
+            response = requests.get(url, headers=headers)
+        else:
+            # Use API endpoint with params
+            endpoint = params.get('endpoint', 'data')
+            full_url = f"{self.base_url}/{endpoint}"
+            response = requests.get(full_url, headers=headers, params=params)
+
+        if response.status_code == 401:
+            raise PermissionError("NOAA API authentication failed. Check your token.")
+        elif response.status_code == 403:
+            raise PermissionError("NOAA API access forbidden.")
+
+        response.raise_for_status()
+        return response
+
+    def get_access_info(self) -> Dict[str, Any]:
+        return {
+            "name": self.name,
+            "requires_auth": True,
+            "auth_setup": bool(self.token),
+            "register_url": "https://www.ncdc.noaa.gov/cdo-web/token"
+        }
+
+
+class S3Pipeline(DataAccessPipeline):
+    """Pipeline for S3 access (public and authenticated)"""
+
+    def __init__(self, credential_manager: CredentialManager):
+        super().__init__(credential_manager)
+        self.name = "AWS S3 Storage"
+        self.s3_client = None
+        self.s3fs = None
+
+    def can_handle(self, url: str) -> bool:
+        """Check if URL is an S3 path"""
+        return url.startswith('s3://') or 's3.amazonaws.com' in url
+
+    def setup_authentication(self) -> bool:
+        """Setup S3 access (tries anonymous first, then credentials if needed)"""
+        if self.s3_client:
+            return True
+
+        try:
+            # Try anonymous access first
+            self.s3_client = boto3.client('s3', config=boto3.session.Config(signature_version='UNSIGNED'))
+            self.s3fs = s3fs.S3FileSystem(anon=True)
+            logger.info("✅ S3 anonymous access configured")
+            return True
+        except:
+            # Need credentials
+            access_key = self.credential_manager.get_credential(
+                'aws',
+                'access_key',
+                'AWS Access Key ID'
+            )
+
+            secret_key = self.credential_manager.get_credential(
+                'aws',
+                'secret_key',
+                'AWS Secret Access Key'
+            )
+
+            if access_key and secret_key:
+                self.s3_client = boto3.client(
+                    's3',
+                    aws_access_key_id=access_key,
+                    aws_secret_access_key=secret_key
+                )
+                self.s3fs = s3fs.S3FileSystem(
+                    key=access_key,
+                    secret=secret_key
+                )
+                logger.info("✅ S3 authenticated access configured")
+                return True
+            else:
+                logger.warning("S3 credentials not provided. Only public buckets accessible.")
+                return False
+
+    def access_data(self, url: str, **kwargs) -> Any:
+        """Access data from S3"""
+        self.setup_authentication()
+
+        # Parse S3 URL
+        if url.startswith('s3://'):
+            path = url[5:]  # Remove 's3://'
+        else:
+            # Parse s3.amazonaws.com URL
+            parsed = urlparse(url)
+            path = parsed.path.lstrip('/')
+
+        bucket_name = path.split('/')[0]
+        key = '/'.join(path.split('/')[1:])
+
+        try:
+            response = self.s3_client.get_object(Bucket=bucket_name, Key=key)
+            return response
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'NoSuchKey':
+                raise FileNotFoundError(f"S3 object not found: {url}")
+            elif e.response['Error']['Code'] == 'AccessDenied':
+                raise PermissionError(f"Access denied to S3 object: {url}")
+            else:
+                raise
+
+    def get_access_info(self) -> Dict[str, Any]:
+        return {
+            "name": self.name,
+            "requires_auth": False,
+            "auth_setup": bool(self.s3_client),
+            "supports_anonymous": True
+        }
+
+
+class PipelineFactory:
+    """Factory for creating appropriate data access pipelines - COMPLETELY GENERIC"""
+
+    def __init__(self):
+        self.credential_manager = CredentialManager()
+
+        # Initialize all available pipelines
+        # Order: S3 first (specific protocol), then specialized helpers, then generic HTTP
+        self.pipelines = [
+            S3Pipeline(self.credential_manager),  # Handles s3:// URLs specifically
+            EarthdataPipeline(self.credential_manager),  # Helper for known NASA domains
+            NOAAPipeline(self.credential_manager),  # Helper for known NOAA domains
+            GenericHTTPPipeline(self.credential_manager)  # Universal fallback for ANY HTTP/HTTPS
+        ]
+
+        self.generic_pipeline = self.pipelines[-1]  # Keep reference to generic pipeline
+
+    def get_pipeline_for_url(self, url: str) -> DataAccessPipeline:
+        """
+        Get the appropriate pipeline for a given URL.
+        Returns the generic pipeline if no specific match found.
+        """
+        # Try specialized pipelines first (in order)
+        for pipeline in self.pipelines[:-1]:  # Exclude generic pipeline
+            if pipeline.can_handle(url):
+                logger.info(f"✅ Selected specialized pipeline: {pipeline.name} for {url}")
+                return pipeline
+
+        # Always fall back to generic pipeline (handles any HTTP/HTTPS)
+        logger.info(f"🌐 Using generic HTTP pipeline for {url}")
+        return self.generic_pipeline
+
+    def configure_auth(self, domain: str, auth_type: str, **kwargs):
+        """
+        Manually configure authentication for a specific domain.
+
+        Args:
+            domain: Domain name (e.g., 'api.example.com')
+            auth_type: Authentication type ('basic', 'bearer', 'api_key', 'custom_header')
+            **kwargs: Additional configuration (e.g., header_name='X-API-Key')
+
+        Examples:
+            configure_auth('api.example.com', 'basic')
+            configure_auth('api.example.com', 'bearer')
+            configure_auth('api.example.com', 'api_key', header_name='X-API-Key')
+            configure_auth('api.example.com', 'custom_header', header_name='Authorization')
+        """
+        self.credential_manager.set_auth_config(domain, auth_type, **kwargs)
+
+    def get_all_pipelines_info(self) -> List[Dict[str, Any]]:
+        """Get information about all available pipelines"""
+        return [p.get_access_info() for p in self.pipelines]
+
+    def get_configured_domains(self) -> List[str]:
+        """Get list of domains with configured authentication"""
+        return list(self.generic_pipeline._auth_cache.keys())
 
 # --- AWS Bedrock LLM (same as other agents) ---
 class BedrockClaudeLLM(LLM):
@@ -445,6 +1028,7 @@ class CMRKnowledgeGraphConnector:
                 WHERE d.`~id` = '{dataset_id}' OR d.id = '{dataset_id}'
                 RETURN properties(link) as link_properties
                 ORDER BY link.type, link.url
+                LIMIT 20
                 """
 
                 links_result = self.execute_query(links_query)
@@ -482,6 +1066,7 @@ class CMRKnowledgeGraphConnector:
                    connected.`~id` as connected_id,
                    properties(connected) as connected_properties
             ORDER BY relationship_type
+            LIMIT 50
             """
 
             result = self.execute_query(query)
@@ -504,151 +1089,6 @@ class CMRKnowledgeGraphConnector:
             print(f" Dataset relationships retrieval failed: {e}")
             return {}
 
-# --- AWS Open Data Registry Connector ---
-class AWSOpenDataConnector:
-    """Connector for NASA datasets in AWS Open Data Registry (Primary Source)"""
-
-    def __init__(self):
-        self.s3_fs = None
-        self._init_s3_client()
-
-    def _init_s3_client(self):
-        """Initialize S3 client for anonymous access to public data"""
-        try:
-            # AWS Open Data is publicly accessible - no credentials needed
-            self.s3_fs = s3fs.S3FileSystem(anon=True)
-            print(" AWS Open Data S3 client initialized (anonymous access)")
-        except Exception as e:
-            print(f" AWS Open Data S3 client initialization failed: {e}")
-            self.s3_fs = None
-
-    def search_open_data_buckets(self, keywords: str) -> List[Dict]:
-        """Search AWS Open Data NASA buckets by keywords"""
-        keywords_lower = keywords.lower()
-        matching_buckets = []
-
-        for bucket_name, bucket_info in AWS_OPEN_DATA_NASA_BUCKETS.items():
-            # Check if keywords match data types or description
-            data_types = bucket_info.get("data_types", [])
-            description = bucket_info.get("description", "").lower()
-
-            match_score = 0
-            matched_terms = []
-
-            # Check description
-            for keyword in keywords_lower.split():
-                if keyword in description:
-                    match_score += 2
-                    matched_terms.append(f"description:{keyword}")
-
-            # Check data types
-            for data_type in data_types:
-                for keyword in keywords_lower.split():
-                    if keyword in data_type.lower():
-                        match_score += 3
-                        matched_terms.append(f"type:{data_type}")
-
-            if match_score > 0:
-                matching_buckets.append({
-                    "bucket_name": bucket_name,
-                    "s3_path": f"s3://{bucket_name}",
-                    "description": bucket_info.get("description", ""),
-                    "data_types": data_types,
-                    "formats": bucket_info.get("formats", []),
-                    "match_score": match_score,
-                    "matched_terms": matched_terms,
-                    "source": "AWS_Open_Data"
-                })
-
-        # Sort by match score
-        matching_buckets.sort(key=lambda x: x["match_score"], reverse=True)
-        return matching_buckets
-
-    def check_bucket_accessibility(self, bucket_name: str) -> Dict:
-        """Check if an AWS Open Data bucket is accessible"""
-        if not self.s3_fs:
-            return {"accessible": False, "error": "S3 client not available"}
-
-        try:
-            bucket_path = f"s3://{bucket_name}"
-            exists = self.s3_fs.exists(bucket_path)
-
-            if exists:
-                # Try to list some contents
-                try:
-                    contents = self.s3_fs.ls(bucket_path, max_items=5)
-                    return {
-                        "accessible": True,
-                        "exists": True,
-                        "sample_contents": contents[:3],
-                        "total_items_sampled": len(contents)
-                    }
-                except Exception as list_error:
-                    return {
-                        "accessible": True,
-                        "exists": True,
-                        "list_error": str(list_error)
-                    }
-            else:
-                return {"accessible": False, "exists": False}
-
-        except Exception as e:
-            return {"accessible": False, "error": str(e)}
-
-    def explore_bucket_structure(self, bucket_name: str, max_depth: int = 2) -> Dict:
-        """Explore the structure of an AWS Open Data bucket"""
-        if not self.s3_fs:
-            return {"error": "S3 client not available"}
-
-        try:
-            bucket_path = f"s3://{bucket_name}"
-
-            structure = {
-                "bucket": bucket_name,
-                "bucket_path": bucket_path,
-                "structure": {}
-            }
-
-            # Get top-level contents
-            try:
-                top_level = self.s3_fs.ls(bucket_path)
-                structure["top_level_count"] = len(top_level)
-
-                # Categorize contents
-                directories = []
-                files = []
-
-                for item in top_level[:20]:  # Limit to first 20 items
-                    if item.endswith('/') or '.' not in Path(item).name:
-                        directories.append(item)
-                    else:
-                        files.append(item)
-
-                structure["structure"]["directories"] = directories[:10]
-                structure["structure"]["sample_files"] = files[:10]
-                structure["structure"]["total_directories"] = len(directories)
-                structure["structure"]["total_files"] = len(files)
-
-                # Explore a few directories
-                if directories and max_depth > 1:
-                    structure["structure"]["directory_samples"] = {}
-                    for directory in directories[:3]:  # Explore first 3 directories
-                        try:
-                            dir_contents = self.s3_fs.ls(directory)
-                            structure["structure"]["directory_samples"][directory] = {
-                                "item_count": len(dir_contents),
-                                "sample_items": [Path(item).name for item in dir_contents[:5]]
-                            }
-                        except Exception:
-                            structure["structure"]["directory_samples"][directory] = {"error": "access_denied"}
-
-                return structure
-
-            except Exception as e:
-                return {"error": f"Failed to explore bucket structure: {str(e)}"}
-
-        except Exception as e:
-            return {"error": f"Bucket exploration failed: {str(e)}"}
 
 # --- S3 Data Connector ---
 class EarthdataAuth:
@@ -968,9 +1408,15 @@ class NOAACDOApiConnector:
     def search_locations(self, location_name: str, location_type: str = "CITY") -> List[Dict]:
         """Search for location codes by name"""
         if not self.token:
+            logger.warning("⚠️  NOAA CDO API token required. Get one at: https://www.ncdc.noaa.gov/cdo-web/token")
             return []
 
         try:
+            # Validate token first
+            if not self.validate_token():
+                logger.error("❌ NOAA API token validation failed")
+                return []
+
             url = f"{self.base_url}/locations"
             params = {
                 'locationcategoryid': location_type,
@@ -978,8 +1424,13 @@ class NOAACDOApiConnector:
                 'sortfield': 'name'
             }
 
-            response = self.session.get(url, params=params)
-            if response.status_code != 200:
+            response = self.session.get(url, params=params, timeout=15)
+
+            if response.status_code == 401:
+                logger.error("❌ NOAA API authentication failed. Check your token.")
+                return []
+            elif response.status_code != 200:
+                logger.warning(f"⚠️  NOAA API returned status {response.status_code}")
                 return []
 
             data = response.json()
@@ -1009,29 +1460,42 @@ class NOAACDOApiConnector:
     def auto_resolve_location_code(self, location_input: str) -> str:
         """Dynamically resolve location names to NOAA location codes using live API lookup"""
         if not location_input:
+            logger.warning("⚠️  No location input provided")
             return None
 
         # If already a location code (contains colon), return as-is
         if ':' in location_input and any(prefix in location_input.upper() for prefix in ['CITY:', 'ST:', 'FIPS:', 'ZIP:']):
+            logger.info(f"✅ Location code already formatted: {location_input}")
             return location_input
+
+        # Check if token is available
+        if not self.token:
+            logger.error("❌ NOAA API token required for location search. Get one at: https://www.ncdc.noaa.gov/cdo-web/token")
+            logger.info(f"💡 Try using a location code directly (e.g., CITY:US360019 for NYC)")
+            return None
 
         # Otherwise, search for the location dynamically via NOAA API
         try:
+            logger.info(f"🔍 Searching for location: '{location_input}'")
+
             # Try different location types in priority order
             location_types = ['CITY', 'ST', 'ZIP', 'FIPS']
 
             for loc_type in location_types:
+                logger.info(f"   Trying {loc_type} search...")
                 locations = self.search_locations(location_input, loc_type)
+
                 if locations:
                     best_match = locations[0]  # Return best match
-                    logger.info(f"Auto-resolved '{location_input}' to {best_match['id']} ({best_match['name']})")
+                    logger.info(f"✅ Auto-resolved '{location_input}' to {best_match['id']} ({best_match['name']})")
                     return best_match['id']
 
-            logger.warning(f"No location code found for '{location_input}'")
+            logger.warning(f"❌ No location code found for '{location_input}'")
+            logger.info(f"💡 Try searching manually with 'search_noaa_locations'")
             return None
 
         except Exception as e:
-            logger.error(f"Auto-resolution failed for '{location_input}': {e}")
+            logger.error(f"❌ Auto-resolution failed for '{location_input}': {e}")
             return None
 
 
@@ -1495,11 +1959,376 @@ class S3DataConnector:
 
 # Initialize services
 kg_connector = CMRKnowledgeGraphConnector()
-open_data_connector = AWSOpenDataConnector()
 s3_connector = S3DataConnector()
 llm = BedrockClaudeLLM()
 
+# Initialize dynamic pipeline factory
+pipeline_factory = PipelineFactory()
+logger.info("🚀 Dynamic data access pipeline system initialized")
+
 # --- LangChain Tools ---
+
+class ShowDataAccessPipelinesTool(BaseTool):
+    """Show available data access pipelines and their authentication status"""
+    name: str = "show_data_access_pipelines"
+    description: str = "Display information about ALL available data access pipelines and their authentication status. Shows both specialized and generic pipelines."
+
+    def _run(self, query: str = "", run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
+        output = "📡 DATA ACCESS PIPELINES - UNIVERSAL SYSTEM\n"
+        output += "=" * 70 + "\n\n"
+
+        pipelines_info = pipeline_factory.get_all_pipelines_info()
+
+        for i, info in enumerate(pipelines_info, 1):
+            output += f"{i}. {info['name']}\n"
+
+            if 'requires_auth' in info:
+                output += f"   Authentication: {info['requires_auth']}\n"
+
+            if 'auth_setup' in info:
+                if isinstance(info['auth_setup'], bool):
+                    status = '✅ Configured' if info['auth_setup'] else '❌ Not Configured'
+                else:
+                    status = str(info['auth_setup'])
+                output += f"   Status: {status}\n"
+
+            if 'configured_domains' in info and info['configured_domains']:
+                output += f"   Configured Domains: {', '.join(info['configured_domains'])}\n"
+
+            if 'register_url' in info:
+                output += f"   Registration: {info['register_url']}\n"
+
+            if 'supports_anonymous' in info and info['supports_anonymous']:
+                output += f"   Anonymous Access: Supported\n"
+
+            output += "\n"
+
+        configured_domains = pipeline_factory.get_configured_domains()
+        if configured_domains:
+            output += "🔐 CONFIGURED DOMAINS:\n"
+            for domain in configured_domains:
+                output += f"   - {domain}\n"
+            output += "\n"
+
+        output += "💡 HOW IT WORKS:\n"
+        output += "   1. System tries anonymous access first for any URL\n"
+        output += "   2. If authentication needed, it auto-detects the type\n"
+        output += "   3. Prompts you for credentials interactively\n"
+        output += "   4. Credentials are cached for the entire session\n"
+        output += "   5. Works with ANY data source, not just predefined ones!\n\n"
+
+        output += "🌐 SUPPORTED AUTH TYPES:\n"
+        output += "   - Basic Authentication (username + password)\n"
+        output += "   - Bearer Tokens\n"
+        output += "   - API Keys (any header name)\n"
+        output += "   - Custom Headers\n"
+        output += "   - S3 (public and authenticated)\n\n"
+
+        output += "🔧 MANUAL CONFIGURATION:\n"
+        output += "   Use 'configure_data_access_auth' to manually set up\n"
+        output += "   authentication for any domain before accessing data\n"
+
+        return output
+
+
+class ConfigureDataAccessAuthTool(BaseTool):
+    """Manually configure authentication for any data source/domain"""
+    name: str = "configure_data_access_auth"
+    description: str = "Manually configure authentication for a specific domain or data source. Use BEFORE attempting to access data if you know auth is required. Format: 'domain:api.example.com auth_type:basic' OR 'domain:api.example.com auth_type:api_key header_name:X-API-Key'"
+
+    def _run(self, config: str, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
+        try:
+            output = "🔧 CONFIGURE DATA ACCESS AUTHENTICATION\n"
+            output += "=" * 60 + "\n\n"
+
+            # Parse configuration
+            params = {}
+            for param in config.split():
+                if ':' in param:
+                    key, value = param.split(':', 1)
+                    params[key] = value
+
+            domain = params.get('domain')
+            auth_type = params.get('auth_type')
+
+            if not domain:
+                return "❌ Error: 'domain' is required. Example: domain:api.example.com"
+
+            if not auth_type:
+                return "❌ Error: 'auth_type' is required. Options: basic, bearer, api_key, custom_header"
+
+            valid_auth_types = ['basic', 'bearer', 'api_key', 'custom_header']
+            if auth_type not in valid_auth_types:
+                return f"❌ Error: auth_type must be one of: {', '.join(valid_auth_types)}"
+
+            # Get additional parameters
+            header_name = params.get('header_name')
+
+            # Configure authentication
+            kwargs = {}
+            if header_name:
+                kwargs['header_name'] = header_name
+
+            pipeline_factory.configure_auth(domain, auth_type, **kwargs)
+
+            output += f"✅ Authentication configured for: {domain}\n"
+            output += f"   Type: {auth_type}\n"
+
+            if header_name:
+                output += f"   Header Name: {header_name}\n"
+
+            output += f"\n💡 NEXT STEPS:\n"
+
+            if auth_type == 'basic':
+                output += f"   When you access a URL from {domain}, you'll be prompted for:\n"
+                output += f"   - Username\n"
+                output += f"   - Password\n"
+
+            elif auth_type == 'bearer':
+                output += f"   When you access a URL from {domain}, you'll be prompted for:\n"
+                output += f"   - Bearer Token\n"
+
+            elif auth_type == 'api_key':
+                header = header_name or 'X-API-Key'
+                output += f"   When you access a URL from {domain}, you'll be prompted for:\n"
+                output += f"   - API Key (will be sent as '{header}' header)\n"
+
+            elif auth_type == 'custom_header':
+                header = header_name or 'Authorization'
+                output += f"   When you access a URL from {domain}, you'll be prompted for:\n"
+                output += f"   - Header Value (will be sent as '{header}' header)\n"
+
+            output += f"\n🔐 You can also set credentials via environment variables:\n"
+            env_var_prefix = domain.upper().replace('.', '_').replace('-', '_')
+            output += f"   - {env_var_prefix}_USERNAME\n"
+            output += f"   - {env_var_prefix}_PASSWORD\n"
+            output += f"   - {env_var_prefix}_TOKEN\n"
+            output += f"   - {env_var_prefix}_API_KEY\n"
+
+            return output
+
+        except Exception as e:
+            return f"❌ Error configuring authentication: {str(e)}"
+
+
+class WebSearchTool(BaseTool):
+    """Search the web for information about data sources, APIs, and documentation"""
+    name: str = "web_search"
+    description: str = "Search the web to discover data sources, find API documentation, learn about authentication requirements, or get information about climate data portals. Use this when you encounter an unfamiliar data source or need to learn how to access data from a new website/API."
+
+    def _run(self, query: str, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
+        try:
+            import urllib.parse
+            from bs4 import BeautifulSoup
+
+            output = "🔍 WEB SEARCH RESULTS\n"
+            output += "=" * 70 + "\n\n"
+            output += f"Query: {query}\n\n"
+
+            # Use DuckDuckGo HTML search (no API key required)
+            search_url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(query)}"
+
+            try:
+                response = requests.get(search_url, headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                }, timeout=10)
+
+                if response.status_code == 200:
+                    soup = BeautifulSoup(response.text, 'html.parser')
+                    results = soup.find_all('div', class_='result')
+
+                    if not results:
+                        # Try alternative parsing
+                        results = soup.find_all('a', class_='result__a')
+
+                    if results:
+                        output += f"Found {len(results[:10])} results:\n\n"
+
+                        for i, result in enumerate(results[:10], 1):
+                            try:
+                                # Try to extract title and URL
+                                if result.name == 'div':
+                                    title_elem = result.find('a', class_='result__a')
+                                    snippet_elem = result.find('a', class_='result__snippet')
+
+                                    if title_elem:
+                                        title = title_elem.get_text(strip=True)
+                                        url = title_elem.get('href', '')
+                                        snippet = snippet_elem.get_text(strip=True) if snippet_elem else ''
+                                    else:
+                                        continue
+                                else:
+                                    title = result.get_text(strip=True)
+                                    url = result.get('href', '')
+                                    snippet = ''
+
+                                output += f"{i}. {title}\n"
+                                if url:
+                                    output += f"   URL: {url}\n"
+                                if snippet:
+                                    output += f"   {snippet[:200]}...\n"
+                                output += "\n"
+
+                            except Exception as parse_error:
+                                logger.debug(f"Error parsing result {i}: {parse_error}")
+                                continue
+
+                        output += "💡 TIP: Use 'fetch_website' to read detailed documentation from any of these URLs\n"
+                    else:
+                        output += "⚠️  No results found. Try rephrasing your query.\n"
+                else:
+                    output += f"⚠️  Search failed with status code: {response.status_code}\n"
+                    output += "💡 Try using 'fetch_website' directly if you know the URL\n"
+
+            except Exception as search_error:
+                output += f"⚠️  Search error: {str(search_error)}\n"
+                output += "💡 You can still use 'fetch_website' if you know the documentation URL\n"
+
+            return output
+
+        except Exception as e:
+            return f"❌ Error performing web search: {str(e)}"
+
+
+class FetchWebsiteTool(BaseTool):
+    """Fetch and read content from any website to learn about data sources and APIs"""
+    name: str = "fetch_website"
+    description: str = "Fetch and read content from any website URL to learn about data sources, API documentation, authentication requirements, data formats, and access methods. Use this to read documentation pages, API references, or any informational website. Provide the full URL."
+
+    def _run(self, url: str, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
+        try:
+            from bs4 import BeautifulSoup
+            import re
+
+            output = "📄 WEBSITE CONTENT\n"
+            output += "=" * 70 + "\n\n"
+            output += f"URL: {url}\n\n"
+
+            # Fetch the website
+            try:
+                response = requests.get(url, headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                }, timeout=15)
+
+                if response.status_code != 200:
+                    return f"❌ Failed to fetch website: HTTP {response.status_code}"
+
+                # Parse HTML
+                soup = BeautifulSoup(response.text, 'html.parser')
+
+                # Remove script and style elements
+                for script in soup(["script", "style", "nav", "footer", "header"]):
+                    script.decompose()
+
+                # Get title
+                title = soup.find('title')
+                if title:
+                    output += f"📌 Title: {title.get_text(strip=True)}\n\n"
+
+                # Extract main content
+                # Try to find main content areas
+                main_content = (
+                    soup.find('main') or
+                    soup.find('article') or
+                    soup.find('div', class_=re.compile(r'content|main|article|documentation|docs', re.I)) or
+                    soup.find('body')
+                )
+
+                if main_content:
+                    # Get text content
+                    text = main_content.get_text(separator='\n', strip=True)
+
+                    # Clean up excessive whitespace
+                    lines = [line.strip() for line in text.split('\n') if line.strip()]
+                    text = '\n'.join(lines)
+
+                    # Limit length
+                    max_chars = 8000
+                    if len(text) > max_chars:
+                        text = text[:max_chars] + f"\n\n... (truncated, {len(text)-max_chars} more characters)\n"
+
+                    output += "📝 CONTENT:\n"
+                    output += "-" * 70 + "\n"
+                    output += text + "\n"
+                    output += "-" * 70 + "\n\n"
+
+                    # Extract links that might be useful
+                    links = main_content.find_all('a', href=True)
+                    api_links = []
+                    doc_links = []
+
+                    for link in links[:50]:  # Limit to first 50 links
+                        href = link.get('href', '')
+                        text = link.get_text(strip=True)
+
+                        # Look for API/documentation related links
+                        if any(keyword in href.lower() or keyword in text.lower()
+                               for keyword in ['api', 'documentation', 'docs', 'guide', 'auth', 'token', 'access', 'download']):
+
+                            # Make absolute URL
+                            if href.startswith('/'):
+                                base_url = '/'.join(url.split('/')[:3])
+                                href = base_url + href
+                            elif not href.startswith('http'):
+                                href = url.rsplit('/', 1)[0] + '/' + href
+
+                            link_info = f"{text}: {href}"
+
+                            if 'api' in href.lower() or 'api' in text.lower():
+                                api_links.append(link_info)
+                            else:
+                                doc_links.append(link_info)
+
+                    if api_links:
+                        output += "🔗 API-RELATED LINKS:\n"
+                        for link in api_links[:10]:
+                            output += f"   • {link}\n"
+                        output += "\n"
+
+                    if doc_links:
+                        output += "📚 DOCUMENTATION LINKS:\n"
+                        for link in doc_links[:10]:
+                            output += f"   • {link}\n"
+                        output += "\n"
+
+                    # Look for authentication keywords
+                    auth_keywords = ['authentication', 'api key', 'token', 'oauth', 'bearer', 'basic auth', 'credentials']
+                    found_auth_info = []
+
+                    text_lower = text.lower()
+                    for keyword in auth_keywords:
+                        if keyword in text_lower:
+                            # Find context around the keyword
+                            idx = text_lower.find(keyword)
+                            context_start = max(0, idx - 100)
+                            context_end = min(len(text), idx + 200)
+                            context = text[context_start:context_end].strip()
+                            found_auth_info.append(f"{keyword.upper()}: ...{context}...")
+
+                    if found_auth_info:
+                        output += "🔐 AUTHENTICATION INFO DETECTED:\n"
+                        for info in found_auth_info[:5]:
+                            output += f"   {info}\n\n"
+
+                    output += "💡 TIP: Use this information to:\n"
+                    output += "   1. Configure authentication with 'configure_data_access_auth'\n"
+                    output += "   2. Access data URLs you discovered\n"
+                    output += "   3. Follow API documentation links for more details\n"
+
+                else:
+                    output += "⚠️  Could not extract main content from the page.\n"
+
+            except requests.exceptions.Timeout:
+                return f"⏱️  Timeout: Website took too long to respond"
+            except requests.exceptions.ConnectionError:
+                return f"🔌 Connection Error: Could not connect to {url}"
+            except Exception as fetch_error:
+                return f"❌ Error fetching website: {str(fetch_error)}"
+
+            return output
+
+        except Exception as e:
+            return f"❌ Error reading website: {str(e)}"
 
 class QueryNOAADatasetTool(BaseTool):
     """Query NOAA Climate Data Online (CDO) API for dataset information"""
@@ -1717,138 +2546,6 @@ class DownloadNOAADataTool(BaseTool):
             return f" Error downloading NOAA data: {str(e)}"
 
 
-class SearchAWSOpenDataTool(BaseTool):
-    """Search AWS Open Data Registry for NASA datasets (Primary Source)"""
-    name: str = "search_aws_open_data"
-    description: str = "Search AWS Open Data Registry for NASA datasets using keywords. This is the preferred method for finding cloud-optimized NASA data."
-
-    def _run(self, search_keywords: str, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
-        try:
-            # Search AWS Open Data buckets
-            matching_buckets = open_data_connector.search_open_data_buckets(search_keywords)
-
-            if not matching_buckets:
-                return f" No matching NASA datasets found in AWS Open Data Registry for '{search_keywords}'.\n Consider using 'search_cmr_datasets' to search the full NASA CMR catalog."
-
-            output = f" Found {len(matching_buckets)} NASA datasets in AWS Open Data Registry for '{search_keywords}':\n\n"
-
-            for i, bucket in enumerate(matching_buckets):
-                bucket_name = bucket["bucket_name"]
-                description = bucket["description"]
-                data_types = bucket["data_types"]
-                formats = bucket["formats"]
-                match_score = bucket["match_score"]
-                matched_terms = bucket["matched_terms"]
-
-                output += f"{i+1}. 📦 {bucket_name}\n"
-                output += f"    Description: {description}\n"
-                output += f"    Data Types: {', '.join(data_types)}\n"
-                output += f"    Formats: {', '.join(formats)}\n"
-                output += f"    Match Score: {match_score} (matched: {', '.join(matched_terms[:3])})\n"
-                output += f"   📂 S3 Path: s3://{bucket_name}\n\n"
-
-            output += f" ADVANTAGE: AWS Open Data provides:\n"
-            output += f"   • Direct S3 access (no authentication needed)\n"
-            output += f"   • Cloud-optimized formats for better performance\n"
-            output += f"   • No data egress costs\n"
-            output += f"   • Analytics-ready data (minimal preprocessing)\n\n"
-
-            output += f" Use 'explore_aws_open_data_bucket' to examine bucket contents\n"
-            output += f" Use 'load_s3_data' to access specific data files"
-
-            return output
-
-        except Exception as e:
-            return f" Error searching AWS Open Data Registry: {str(e)}"
-
-class ExploreAWSOpenDataBucketTool(BaseTool):
-    """Explore the structure and contents of an AWS Open Data bucket"""
-    name: str = "explore_aws_open_data_bucket"
-    description: str = "Explore the structure, accessibility, and contents of a specific AWS Open Data NASA bucket."
-
-    def _run(self, bucket_name: str, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
-        try:
-            # Check accessibility first
-            access_info = open_data_connector.check_bucket_accessibility(bucket_name)
-
-            output = f" AWS OPEN DATA BUCKET EXPLORATION: {bucket_name}\n"
-            output += "=" * 60 + "\n\n"
-
-            if not access_info.get("accessible", False):
-                error_msg = access_info.get("error", "Unknown error")
-                output += f" Bucket not accessible: {error_msg}\n"
-                output += f" Available buckets: {', '.join(AWS_OPEN_DATA_NASA_BUCKETS.keys())}"
-                return output
-
-            output += f" Bucket is accessible\n"
-            if "sample_contents" in access_info:
-                sample_contents = access_info["sample_contents"]
-                output += f" Sample contents ({len(sample_contents)} items shown):\n"
-                for item in sample_contents:
-                    output += f"   • {Path(item).name}\n"
-                output += "\n"
-
-            # Get detailed structure
-            structure_info = open_data_connector.explore_bucket_structure(bucket_name)
-
-            if "error" in structure_info:
-                output += f" Structure exploration error: {structure_info['error']}\n"
-                return output
-
-            structure = structure_info.get("structure", {})
-            top_level_count = structure_info.get("top_level_count", 0)
-
-            output += f"📁 BUCKET STRUCTURE:\n"
-            output += f"    Total top-level items: {top_level_count}\n"
-            output += f"   📂 Directories: {structure.get('total_directories', 0)}\n"
-            output += f"    Files: {structure.get('total_files', 0)}\n\n"
-
-            # Show sample directories
-            directories = structure.get("directories", [])
-            if directories:
-                output += f"📂 Sample Directories:\n"
-                for directory in directories[:5]:
-                    dir_name = Path(directory).name
-                    output += f"   • {dir_name}/\n"
-                if len(directories) > 5:
-                    output += f"   ... and {len(directories) - 5} more directories\n"
-                output += "\n"
-
-            # Show sample files
-            sample_files = structure.get("sample_files", [])
-            if sample_files:
-                output += f" Sample Files:\n"
-                for file_path in sample_files[:5]:
-                    file_name = Path(file_path).name
-                    file_format = s3_connector.detect_data_format(file_path)
-                    output += f"   • {file_name} ({file_format})\n"
-                if len(sample_files) > 5:
-                    output += f"   ... and {len(sample_files) - 5} more files\n"
-                output += "\n"
-
-            # Show directory samples
-            dir_samples = structure.get("directory_samples", {})
-            if dir_samples:
-                output += f" Directory Content Samples:\n"
-                for dir_path, dir_info in list(dir_samples.items())[:3]:
-                    dir_name = Path(dir_path).name
-                    if "error" in dir_info:
-                        output += f"   📂 {dir_name}/: {dir_info['error']}\n"
-                    else:
-                        item_count = dir_info.get("item_count", 0)
-                        sample_items = dir_info.get("sample_items", [])
-                        output += f"   📂 {dir_name}/: {item_count} items\n"
-                        for item in sample_items[:3]:
-                            output += f"      • {item}\n"
-                output += "\n"
-
-            output += f" Use 'load_s3_data' with specific file paths to access data\n"
-            output += f" Example: load_s3_data s3://{bucket_name}/path/to/file.nc"
-
-            return output
-
-        except Exception as e:
-            return f" Error exploring AWS Open Data bucket: {str(e)}"
 
 class ListAllStoredDatasetsTool(BaseTool):
     """List ALL datasets from the knowledge graph database for comprehensive analysis"""
@@ -2075,29 +2772,6 @@ class ProcessAllDatasetsForDataAccessTool(BaseTool):
                     except Exception:
                         pass
 
-                    # PRIORITY 2: Only if no dataset-specific links found, try AWS Open Data Registry as fallback
-                    if not found_links and search_terms:
-                        for term in search_terms[:2]:  # Try first 2 terms
-                            matching_buckets = open_data_connector.search_open_data_buckets(term)
-
-                            if matching_buckets:
-                                for bucket in matching_buckets[:1]:  # Take best match
-                                    bucket_name = bucket["bucket_name"]
-                                    s3_path = f"s3://{bucket_name}"
-
-                                    # Check accessibility
-                                    access_info = open_data_connector.check_bucket_accessibility(bucket_name)
-                                    if access_info.get("accessible", False):
-                                        found_links.append({
-                                            "url": s3_path,
-                                            "type": "S3",
-                                            "source": "AWS_Open_Data_Fallback",
-                                            "description": bucket["description"],
-                                            "access_method": "anonymous",
-                                            "match_term": term
-                                        })
-                                        break
-
                     # Configure data access if found
                     if found_links:
                         # Store all found links
@@ -2150,7 +2824,7 @@ class ProcessAllDatasetsForDataAccessTool(BaseTool):
 class FindDataAccessForDatasetTool(BaseTool):
     """Find data access locations (Earthdata URLs and S3 paths) for an existing stored dataset"""
     name: str = "find_data_access_for_dataset"
-    description: str = "Find data access locations (Earthdata URLs and S3 paths) for a dataset that's already stored in the database but lacks data access. Searches CMR metadata first, then AWS Open Data as fallback."
+    description: str = "Find data access locations (Earthdata URLs and S3 paths) for a dataset that's already stored in the database but lacks data access. Searches CMR metadata for dataset-specific links."
 
     def _run(self, dataset_id: str, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
         try:
@@ -2271,43 +2945,6 @@ class FindDataAccessForDatasetTool(BaseTool):
 
                 output += "\n"
 
-                # Method 2: AWS Open Data Registry (FALLBACK ONLY)
-                if not found_s3_paths and search_terms:
-                    output += f"🥈 METHOD 2: AWS Open Data Registry (Fallback Only)\n"
-
-                    try:
-                        # Only try AWS Open Data if no dataset-specific links were found
-                        matching_buckets = open_data_connector.search_buckets(search_terms[:3])  # Use first 3 search terms
-
-                        if matching_buckets:
-                            output += f"    Found {len(matching_buckets)} potential matches in AWS Open Data:\n"
-
-                            # Add matches as potential S3 paths
-                            for bucket_info in matching_buckets[:2]:  # Limit to top 2 matches
-                                bucket_name = bucket_info["bucket_name"]
-                                s3_path = f"s3://{bucket_name}/"
-
-                                # Check if bucket is accessible
-                                if open_data_connector.check_bucket_accessible(bucket_name):
-                                    output += f"        S3 {s3_path} -  Accessible (Generic Match)\n"
-                                    found_s3_paths.append({
-                                        "path": s3_path,
-                                        "source": "AWS_Open_Data_Fallback",
-                                        "description": f"AWS Open Data fallback match for {bucket_info.get('description', 'dataset')}",
-                                        "match_term": "fallback_search"
-                                    })
-                                else:
-                                    output += f"        S3 {s3_path} -  Not accessible\n"
-                        else:
-                            output += f"   ⚪ No matches found in AWS Open Data Registry\n"
-
-                    except Exception as aws_error:
-                        output += f"    AWS Open Data search failed: {str(aws_error)[:50]}\n"
-
-                    output += "\n"
-                elif found_s3_paths:
-                    output += f" Skipping AWS Open Data Registry - Dataset metadata links found\n\n"
-
                 # Summary and recommendations
                 output += f" SEARCH RESULTS SUMMARY:\n"
                 output += f"   • Found {len(found_s3_paths)} accessible S3 locations\n"
@@ -2336,10 +2973,10 @@ class FindDataAccessForDatasetTool(BaseTool):
                 else:
                     output += f"\n NO S3 PATHS FOUND\n"
                     output += f" Possible reasons:\n"
-                    output += f"   • Dataset not available in AWS Open Data Registry\n"
+                    output += f"   • No data URLs available in CMR metadata\n"
                     output += f"   • S3 paths require authentication\n"
                     output += f"   • Data may be in different format or location\n"
-                    output += f"   • Try manual search with 'search_aws_open_data' using different keywords\n"
+                    output += f"   • Try manual exploration with 'inspect_dataset_metadata' for more details\n"
 
                 return output
 
@@ -2496,8 +3133,7 @@ class LoadS3DataTool(BaseTool):
                        f" No data files found at {path_or_url}. Try a specific file path or explore the bucket structure first.\n\n" + \
                        f" 💡 To access actual data:\n" + \
                        f"   • Use 'find_data_access_for_dataset [dataset_id]' to find direct data URLs\n" + \
-                       f"   • Use 'query_data_locations [dataset_id]' to explore available files\n" + \
-                       f"   • Use 'search_aws_open_data' to find S3 data sources"
+                       f"   • Use 'query_data_locations [dataset_id]' to explore available files"
 
             # Check if it's an Earthdata URL
             if s3_connector.earthdata_auth.is_earthdata_url(path_or_url):
@@ -2635,7 +3271,7 @@ class LoadS3DataTool(BaseTool):
 class LoadSeaSurfaceTemperatureDataTool(BaseTool):
     """Specifically load sea surface temperature data from known sources"""
     name: str = "load_sea_surface_temperature_data"
-    description: str = "Load actual sea surface temperature data from known NASA/NOAA sources in AWS Open Data. This tool directly accesses SST data files."
+    description: str = "Load actual sea surface temperature data from known NASA/NOAA sources. This tool guides you to access SST data through the proper workflow."
 
     def _find_data_files_recursive(self, base_path: str, max_depth: int = 3, current_depth: int = 0) -> List[str]:
         """Recursively find actual data files in S3 directories"""
@@ -2645,7 +3281,9 @@ class LoadSeaSurfaceTemperatureDataTool(BaseTool):
             return data_files
 
         try:
-            contents = open_data_connector.s3_fs.ls(base_path)
+            if not s3_connector.s3_fs:
+                return data_files
+            contents = s3_connector.s3_fs.ls(base_path)
 
             for item in contents[:20]:  # Limit to avoid too many API calls
                 path_obj = Path(item)
@@ -2677,137 +3315,16 @@ class LoadSeaSurfaceTemperatureDataTool(BaseTool):
 
     def _run(self, data_source: str = "auto", run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
         try:
-            # Known SST data locations in AWS Open Data
-            sst_sources = {
-                "goes16": {
-                    "bucket": "noaa-goes16",
-                    "description": "GOES-16 ABI L2 Sea Surface Temperature",
-                    "sample_path": "noaa-goes16/ABI-L2-SSTF",
-                    "format": "NetCDF"
-                },
-                "goes17": {
-                    "bucket": "noaa-goes17",
-                    "description": "GOES-17 ABI L2 Sea Surface Temperature",
-                    "sample_path": "noaa-goes17/ABI-L2-SSTF",
-                    "format": "NetCDF"
-                },
-                "modis": {
-                    "bucket": "modis-pds",
-                    "description": "MODIS Sea Surface Temperature (if available)",
-                    "sample_path": "modis-pds",
-                    "format": "HDF4/NetCDF"
-                }
-            }
-
             output = f" LOADING SEA SURFACE TEMPERATURE DATA\n"
             output += "=" * 50 + "\n\n"
 
-            successful_loads = 0
+            output += f"⚠️  Direct SST loading requires specific S3 paths or Earthdata URLs.\n"
+            output += f"   Please use 'load_data' with a known SST dataset URL or S3 path.\n\n"
 
-            # Try each known SST source
-            for source_name, source_info in sst_sources.items():
-                bucket = source_info["bucket"]
-                description = source_info["description"]
-
-                output += f"📡 Trying {source_name.upper()}: {description}\n"
-
-                # Check if bucket is accessible
-                access_info = open_data_connector.check_bucket_accessibility(bucket)
-
-                if not access_info.get("accessible", False):
-                    output += f"    Bucket {bucket} not accessible\n\n"
-                    continue
-
-                output += f"    Bucket {bucket} is accessible\n"
-
-                # Try to find SST-specific files
-                try:
-                    # List contents looking for SST files
-                    bucket_path = f"s3://{bucket}"
-                    contents = open_data_connector.s3_fs.ls(bucket_path)
-
-                    # Look for SST-related directories or files
-                    sst_candidates = []
-                    for item in contents[:20]:  # Check first 20 items
-                        item_name = item.lower()
-                        if any(sst_term in item_name for sst_term in ['sst', 'temperature', 'temp', 'l2']):
-                            sst_candidates.append(item)
-
-                    if sst_candidates:
-                        output += f"    Found {len(sst_candidates)} potential SST locations:\n"
-                        for candidate in sst_candidates[:3]:
-                            output += f"      • {Path(candidate).name}\n"
-
-                        # Try to load from the first candidate
-                        first_candidate = sst_candidates[0]
-
-                        # If it's a directory, look inside for actual files
-                        if not Path(first_candidate).suffix:
-                            try:
-                                # Recursively explore to find actual data files
-                                output += f"    Exploring directory: {Path(first_candidate).name}\n"
-                                data_files = self._find_data_files_recursive(first_candidate, max_depth=3)
-
-                                if data_files:
-                                    output += f"    Found {len(data_files)} data files\n"
-                                    sample_file = data_files[0]
-                                    output += f"    Attempting to load: {Path(sample_file).name}\n"
-
-                                    # Try to load the data
-                                    data = s3_connector.load_data_from_s3(sample_file)
-
-                                    if data and not (isinstance(data, dict) and "error" in data):
-                                        output += f"    Successfully loaded SST data!\n"
-                                        output += f"    File: {sample_file}\n"
-
-                                        # Describe the data
-                                        if hasattr(data, 'data_vars'):
-                                            vars_list = list(data.data_vars)
-                                            output += f"    Variables: {vars_list[:5]}\n"
-                                            if hasattr(data, 'dims'):
-                                                output += f"   📐 Dimensions: {dict(data.dims)}\n"
-
-                                        successful_loads += 1
-                                    else:
-                                        if isinstance(data, dict) and "error" in data:
-                                            output += f"    Load error: {data['error']}\n"
-                                        else:
-                                            output += f"    Failed to load data\n"
-                                else:
-                                    output += f"    No data files found in directory structure\n"
-
-                            except Exception as sub_error:
-                                output += f"    Error exploring subdirectory: {str(sub_error)[:50]}\n"
-                        else:
-                            # Direct file - try to load it
-                            output += f"    Attempting to load: {Path(first_candidate).name}\n"
-                            data = s3_connector.load_data_from_s3(first_candidate)
-
-                            if data and not (isinstance(data, dict) and "error" in data):
-                                output += f"    Successfully loaded data!\n"
-                                successful_loads += 1
-                    else:
-                        output += f"    No obvious SST files found in top-level directory\n"
-
-                except Exception as e:
-                    output += f"    Error accessing bucket contents: {str(e)[:50]}\n"
-
-                output += "\n"
-
-            # Summary
-            output += f" SUMMARY:\n"
-            output += f"    Successfully loaded data from {successful_loads} sources\n"
-            output += f"    Checked {len(sst_sources)} potential SST data sources\n\n"
-
-            if successful_loads > 0:
-                output += f" SUCCESS: Found and loaded sea surface temperature data!\n"
-                output += f" Use this data for your ocean temperature analysis.\n"
-            else:
-                output += f" No SST data successfully loaded. Possible reasons:\n"
-                output += f"   • Different file organization than expected\n"
-                output += f"   • Files require different access methods\n"
-                output += f"   • Network connectivity issues\n"
-                output += f" Try exploring specific buckets manually with 'explore_aws_open_data_bucket'\n"
+            output += f"💡 RECOMMENDED APPROACH:\n"
+            output += f"   1. Use 'list_all_stored_datasets' to find SST datasets\n"
+            output += f"   2. Use 'find_data_access_for_dataset' to get data URLs\n"
+            output += f"   3. Use 'load_data' with the discovered URLs\n"
 
             return output
 
@@ -4263,7 +4780,11 @@ def create_nasa_cmr_agent():
 
     # Define all available tools (prioritized order - Database First!)
     tools = [
+        ShowDataAccessPipelinesTool(),        # Show available data access pipelines
+        ConfigureDataAccessAuthTool(),        # Manually configure auth for any domain
         AskDataProcessingFollowUpTool(),      # Follow-up questions for data processing
+        WebSearchTool(),                      # 🔍 CRITICAL: Search web for API docs, access methods, tutorials
+        FetchWebsiteTool(),                   # 📄 CRITICAL: Read documentation pages, API references
         ValidateAllDataLinksCompatibilityTool(), # NEW: Check all data links for compatibility
         QueryNOAADatasetTool(),               # NOAA: Query NOAA CDO API for dataset info
         SearchNOAALocationsTool(),            # NOAA: Search for location codes
@@ -4274,8 +4795,6 @@ def create_nasa_cmr_agent():
         FindDataAccessForDatasetTool(),       # Database: Find data access paths for individual datasets
         AddDataUrlToDatasetTool(),            # Database: Add both S3 and Earthdata URLs to datasets
         AddS3PathToDatasetTool(),             # Legacy: Add S3 paths to datasets (backward compatibility)
-        SearchAWSOpenDataTool(),              # Secondary: AWS Open Data Registry
-        ExploreAWSOpenDataBucketTool(),       # Secondary: AWS Open Data exploration
         ExploreSubdirectoriesTool(),          # Navigation: Flexible subdirectory exploration
         LoadSeaSurfaceTemperatureDataTool(),  # Direct: SST data loading
         DebugS3StructureTool(),               # Debug: Deep structure exploration
@@ -4292,13 +4811,23 @@ def create_nasa_cmr_agent():
 
     DATABASE-FIRST STRATEGY:
     🥇 PRIMARY: Stored Datasets Database - Work with datasets already discovered by the Knowledge Graph Agent
-    🥈 SECONDARY: AWS Open Data Registry - Find S3 access for stored datasets as fallback
-    🥉 FALLBACK: Full NASA CMR Catalog - Only when stored datasets need additional metadata
+    🥈 FALLBACK: Full NASA CMR Catalog - Only when stored datasets need additional metadata
 
-    DATA SOURCE PRIORITY:
-    EARTHDATA: NASA's official authenticated data access (highest priority)
-    🌡️ NOAA CDO API: NOAA Climate Data Online API for NOAA datasets (high priority)
-    S3: Anonymous AWS Open Data access (fallback)
+    🚀 UNIVERSAL DATA ACCESS SYSTEM:
+    The system can access data from ANY URL/API automatically!
+    - Use 'show_data_access_pipelines' to see current status
+    - Use 'configure_data_access_auth' to manually set up auth BEFORE accessing data
+    - Tries anonymous access first, prompts for credentials only when needed
+    - Auto-detects authentication type (Basic, Bearer, API Key, Custom Headers)
+    - Credentials are prompted interactively (NEVER hardcoded)
+    - Works with ANY data source: NASA, NOAA, custom APIs, research portals, anything!
+
+    SUPPORTED AUTH TYPES (for ANY domain):
+    - Basic Auth (username + password)
+    - Bearer Tokens
+    - API Keys (any custom header name)
+    - Custom Headers
+    - AWS S3 (public and private buckets)
 
     CORE MISSION: Add data access (Earthdata URLs, NOAA API access, and S3 paths) to existing datasets, don't discover new ones!
 
@@ -4317,19 +4846,24 @@ def create_nasa_cmr_agent():
     2. VALIDATE LINKS: Use 'validate_all_data_links_compatibility' to check which existing links work with current authentication
     3. PROCESS ALL: Use 'process_all_datasets_for_data_access' to systematically find access for ALL datasets (replaces existing paths with better ones)
     4. INDIVIDUAL: Use 'find_data_access_for_dataset' + 'add_data_url_to_dataset' for specific datasets (can replace existing paths)
-    5. DIRECT DOWNLOAD: Use 'download_and_save_data' with existing dataset URLs to download and save data files directly
-    6. CODE EXECUTION: Use 'execute_python_code' to read saved files, create dataframes, generate plots, and perform analysis from local file paths
-    7. VALIDATION: Assess data quality and format consistency
+    5. 🔍 IF NO ACCESS FOUND: Use 'web_search' to find API documentation, access methods, download tutorials for the dataset
+    6. 📄 READ DOCS: Use 'fetch_website' to read documentation pages and learn how to access the data
+    7. 💡 LEARN & ADAPT: Based on docs, generate appropriate commands (curl, wget, Python) and configure authentication if needed
+    8. DIRECT DOWNLOAD: Use 'download_and_save_data' with existing dataset URLs to download and save data files directly
+    9. CODE EXECUTION: Use 'execute_python_code' to read saved files, create dataframes, generate plots, and perform analysis from local file paths
+    10. VALIDATION: Assess data quality and format consistency
+
+    🧠 INTELLIGENT ACCESS DISCOVERY:
+    When 'find_data_access_for_dataset' returns no results, YOU MUST:
+    - Use 'web_search' with queries like: "[dataset_name] API access", "[dataset_name] download tutorial", "[data_center] [dataset_name] documentation"
+    - Use 'fetch_website' on URLs from search results to read actual documentation
+    - Extract download URLs, API endpoints, authentication requirements from the documentation
+    - Generate actual access commands based on what you learned (don't guess!)
+    - Use 'configure_data_access_auth' if authentication is needed
 
     REMEMBER: Don't assume what the user wants to do with the data - ask for clarification using 'ask_data_processing_followup' whenever you need more specific information!
 
     PRIORITY: Trust your intelligence to match relevant data access to dataset descriptions! Replace existing paths when you find better ones. Prioritize Earthdata URLs over S3 paths.
-
-    ADVANTAGES OF AWS OPEN DATA:
-    • Direct S3 access (no authentication needed)
-    • Cloud-optimized formats for better performance
-    • No data egress costs
-    • Analytics-ready data (minimal preprocessing)
 
     You have access to these tools:
     {tools}
@@ -4417,8 +4951,6 @@ def get_nasa_cmr_tools():
             FindDataAccessForDatasetTool(),       # Database: Find data access paths for individual datasets
             AddDataUrlToDatasetTool(),            # Database: Add both S3 and Earthdata URLs to datasets
             AddS3PathToDatasetTool(),             # Legacy: Add S3 paths to datasets (backward compatibility)
-            SearchAWSOpenDataTool(),              # Secondary: AWS Open Data Registry
-            ExploreAWSOpenDataBucketTool(),       # Secondary: AWS Open Data exploration
             ExploreSubdirectoriesTool(),          # Navigation: Flexible subdirectory exploration
             LoadSeaSurfaceTemperatureDataTool(),  # Direct: SST data loading
             DebugS3StructureTool(),               # Debug: Deep structure exploration
