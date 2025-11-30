@@ -16,6 +16,8 @@ from pathlib import Path
 import logging
 import uuid
 import boto3
+from botocore import UNSIGNED
+from botocore.client import Config
 import re
 import sys
 import pandas as pd  # Re-enabled - pandas is working
@@ -107,8 +109,8 @@ class JSONToCSVConverter:
         if self.generate_embeddings and SENTENCE_TRANSFORMERS_AVAILABLE:
             self._load_embedding_model()
 
-        # Initialize S3 client
-        self.s3_client = boto3.client('s3')
+        # Initialize S3 client (anonymous for public bucket)
+        self.s3_client = boto3.client('s3', config=Config(signature_version=UNSIGNED))
         self.s3_bucket = 'autoclimds-simulation-kg'
         
         # Define all the collections/classes from NASA Knowledge Graph
