@@ -472,23 +472,41 @@ class JSONToCSVConverter:
         return keep
 
     def load_cesm_variables(self):
-        """Load CESM variables from the raw CSV file."""
+        """Load CESM variables from S3 or local CSV file."""
         try:
-            # Fixed path - CESM variables are in cesm_variables subdirectory
-            cesm_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "NasaCMRData", "cesm_variables", "cesm_variables_raw.csv")
-            if os.path.exists(cesm_file_path):
-                # Use standard CSV module instead of pandas
-                cesm_variables = []
-                with open(cesm_file_path, 'r', encoding='utf-8') as f:
-                    reader = csv.DictReader(f)
-                    for row in reader:
-                        cesm_variables.append(row)
+            # Try loading from S3 first
+            s3_key = 'NasaCMRData/cesm_variables/cesm_variables_raw.csv'
+            try:
+                logger.info(f"Attempting to load CESM variables from S3: {s3_key}")
+                response = self.s3_client.get_object(Bucket=self.s3_bucket, Key=s3_key)
+                content = response['Body'].read().decode('utf-8')
 
-                logger.info(f"✓ Loaded {len(cesm_variables)} CESM variables from {cesm_file_path}")
+                # Parse CSV from string
+                cesm_variables = []
+                lines = content.splitlines()
+                reader = csv.DictReader(lines)
+                for row in reader:
+                    cesm_variables.append(row)
+
+                logger.info(f"✓ Loaded {len(cesm_variables)} CESM variables from S3")
                 return cesm_variables
-            else:
-                logger.warning(f"CESM variables file not found at {cesm_file_path}")
-                return []
+            except Exception as s3_error:
+                logger.warning(f"Could not load from S3: {s3_error}, trying local file...")
+
+                # Fallback to local file
+                cesm_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "NasaCMRData", "cesm_variables", "cesm_variables_raw.csv")
+                if os.path.exists(cesm_file_path):
+                    cesm_variables = []
+                    with open(cesm_file_path, 'r', encoding='utf-8') as f:
+                        reader = csv.DictReader(f)
+                        for row in reader:
+                            cesm_variables.append(row)
+
+                    logger.info(f"✓ Loaded {len(cesm_variables)} CESM variables from local file: {cesm_file_path}")
+                    return cesm_variables
+                else:
+                    logger.warning(f"CESM variables file not found at {cesm_file_path}")
+                    return []
         except Exception as e:
             logger.error(f"Error loading CESM variables: {e}")
             return []
@@ -1718,12 +1736,29 @@ class JSONToCSVConverter:
             logger.warning("No Dataset data found - skipping CESM variable mappings")
             return
         
-        # Load ML predictions from CSV file
+        # Load ML predictions from S3 or local CSV file
         try:
             import pandas as pd
-            predictions_file = "../ML Model/predictions/cmr_dataset_predictions.csv"
-            predictions_df = pd.read_csv(predictions_file)
-            logger.info(f" Loaded {len(predictions_df)} ML predictions from {predictions_file}")
+
+            # Try loading from S3 first
+            s3_key = 'MLModel/predictions/cmr_dataset_predictions.csv'
+            try:
+                logger.info(f"Attempting to load ML predictions from S3: {s3_key}")
+                response = self.s3_client.get_object(Bucket=self.s3_bucket, Key=s3_key)
+                content = response['Body'].read()
+
+                # Use pandas to read CSV from bytes
+                import io
+                predictions_df = pd.read_csv(io.BytesIO(content))
+                logger.info(f" Loaded {len(predictions_df)} ML predictions from S3")
+            except Exception as s3_error:
+                logger.warning(f"Could not load from S3: {s3_error}, trying local file...")
+
+                # Fallback to local file
+                predictions_file = "../ML Model/predictions/cmr_dataset_predictions.csv"
+                predictions_df = pd.read_csv(predictions_file)
+                logger.info(f" Loaded {len(predictions_df)} ML predictions from local file: {predictions_file}")
+
         except FileNotFoundError:
             logger.warning("¥î Could not find cmr_dataset_predictions.csv - skipping CESM variable mappings")
             return
