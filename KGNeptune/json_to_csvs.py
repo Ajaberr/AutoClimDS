@@ -106,6 +106,10 @@ class JSONToCSVConverter:
         # Initialize embedding model if requested
         if self.generate_embeddings and SENTENCE_TRANSFORMERS_AVAILABLE:
             self._load_embedding_model()
+
+        # Initialize S3 client
+        self.s3_client = boto3.client('s3')
+        self.s3_bucket = 'autoclimds-simulation-kg'
         
         # Define all the collections/classes from NASA Knowledge Graph
         self.collections = [
@@ -553,6 +557,37 @@ class JSONToCSVConverter:
             logger.error(f"Error loading embedding model: {e}")
             self.generate_embeddings = False
 
+    def _list_s3_json_files(self, prefix):
+        """List all JSON files in an S3 prefix."""
+        try:
+            response = self.s3_client.list_objects_v2(
+                Bucket=self.s3_bucket,
+                Prefix=prefix
+            )
+
+            if 'Contents' not in response:
+                return []
+
+            json_files = [obj['Key'] for obj in response['Contents']
+                         if obj['Key'].endswith('.json')]
+            return json_files
+        except Exception as e:
+            logger.error(f"Error listing S3 files in {prefix}: {e}")
+            return []
+
+    def _download_s3_json(self, s3_key):
+        """Download and parse a JSON file from S3."""
+        try:
+            response = self.s3_client.get_object(
+                Bucket=self.s3_bucket,
+                Key=s3_key
+            )
+            content = response['Body'].read().decode('utf-8')
+            return json.loads(content)
+        except Exception as e:
+            logger.error(f"Error downloading {s3_key} from S3: {e}")
+            return None
+
     def _create_text_for_embedding(self, node_type, item):
         """Create text representation for embedding based on node type."""
         if node_type == "DataCategory":
@@ -890,13 +925,122 @@ class JSONToCSVConverter:
         
         return vertex
 
+    def _process_loaded_data(self):
+        """Process the loaded JSON data (from self.json_data)."""
+        data = self.json_data
+
+        # Pre-process RelatedUrl for NOAA format (separate array at top level)
+        if 'RelatedUrl' in data and isinstance(data['RelatedUrl'], list):
+            logger.info(f"Processing NOAA format: found {len(data['RelatedUrl'])} RelatedUrls")
+            for related_url in data['RelatedUrl']:
+                dataset_id = related_url.get('dataset_id')
+                if dataset_id:
+                    if dataset_id not in self.related_urls_by_dataset:
+                        self.related_urls_by_dataset[dataset_id] = []
+                    # Convert NOAA RelatedUrl format to NASA links format
+                    link = {
+                        'href': related_url.get('url', ''),
+                        'rel': related_url.get('type', ''),
+                        'description': related_url.get('description', ''),
+                        'length': related_url.get('length', ''),
+                        'hreflang': related_url.get('hreflang', '')
+                    }
+                    self.related_urls_by_dataset[dataset_id].append(link)
+            logger.info(f"✓ Indexed RelatedUrls for {len(self.related_urls_by_dataset)} datasets")
+
+        # Load and add CESM variables to data if not already present or if empty
+        if 'CESMVariable' not in data or not data.get('CESMVariable'):
+            logger.info("🔬 Loading CESM variables from CSV file...")
+            cesm_variables = self.load_cesm_variables()
+            logger.info(f"DEBUG: load_cesm_variables returned {len(cesm_variables) if cesm_variables else 0} variables")
+            if cesm_variables:
+                data['CESMVariable'] = cesm_variables
+                logger.info(f"✓ Added {len(cesm_variables)} CESM variables to data")
+                logger.info(f"DEBUG: First CESM variable: {cesm_variables[0] if cesm_variables else 'None'}")
+            else:
+                logger.warning("⚠️  No CESM variables loaded - CESMVariable processing will be skipped")
+
+        # Process each node type
+        nodes_processed = 0
+        for node_type in self.collections:
+            if node_type in data:
+                # Handle CESMVariable separately (will be processed normally)
+                if node_type == 'CESMVariable':
+                    logger.info(f"Processing CESMVariable nodes... (found {len(data[node_type])} variables)")
+                    try:
+                        self.process_cesm_variables(data[node_type])
+                        nodes_processed += len(data[node_type]) if isinstance(data[node_type], list) else 1
+                        logger.info(f"✓ Successfully processed {len(data[node_type])} CESM variables into self.nodes")
+                    except Exception as e:
+                        logger.error(f"¥î Error processing CESMVariable nodes: {e}")
+                    continue
+
+                # Handle Dataset nodes specially to extract and create Link nodes
+                elif node_type == 'Dataset':
+                    logger.info("Processing Dataset nodes and extracting links...")
+                    try:
+                        if isinstance(data[node_type], list):
+                            for i, dataset in enumerate(data[node_type]):
+                                self.process_dataset_with_links(dataset, i)
+                                nodes_processed += 1
+                        nodes_processed += self.link_nodes_created
+                    except Exception as e:
+                        logger.error(f"¥î Error processing Dataset nodes: {e}")
+                    continue
+
+                # Handle other node types as arrays
+                if isinstance(data[node_type], list):
+                    for i, item in enumerate(data[node_type]):
+                        try:
+                            self.process_node(node_type, item, i)
+                            nodes_processed += 1
+                        except Exception as e:
+                            logger.error(f"¥î Error processing {node_type} node {i}: {e}")
+                            continue
+                elif isinstance(data[node_type], dict):
+                    # Handle dict-based node types
+                    for key, item in data[node_type].items():
+                        try:
+                            self.process_node(node_type, item, key)
+                            nodes_processed += 1
+                        except Exception as e:
+                            logger.error(f"¥î Error processing {node_type} node {key}: {e}")
+                            continue
+            else:
+                logger.debug(f"Node type '{node_type}' not found in JSON data")
+
+        logger.info(f" Processed {nodes_processed} nodes from JSON file")
+
+        # Create order-based relationships for datasets
+        try:
+            self.create_order_based_relationships(data)
+            logger.info(" Successfully created order-based relationships")
+        except Exception as e:
+            logger.error(f"¥î Error creating order-based relationships: {e}")
+
+        # Create workflow-specific relationships
+        try:
+            self.create_workflow_relationships(data)
+            logger.info(" Successfully created workflow relationships")
+        except Exception as e:
+            logger.error(f"¥î Error creating workflow relationships: {e}")
+
+        # Note: CESM variable mappings moved after simulation data processing
+            
+        # Create climate ML workflow nodes
+        try:
+            self.create_climate_workflows()
+            logger.info(" Successfully created climate ML workflow nodes")
+        except Exception as e:
+            logger.error(f"¥î Error creating climate workflows: {e}")
+
     def process_json_file(self, json_file):
         """Process a single JSON file and extract nodes and relationships."""
         try:
             # Check if file exists (Windows-compatible)
             if not os.path.exists(json_file):
                 raise FileNotFoundError(f"JSON file not found: {json_file}")
-            
+
             # Read JSON file with error handling
             try:
                 with open(json_file, 'r', encoding='utf-8') as f:
@@ -911,110 +1055,8 @@ class JSONToCSVConverter:
                 logger.error(f"¥î Error reading {json_file}: {e}")
                 raise
 
-            # Pre-process RelatedUrl for NOAA format (separate array at top level)
-            if 'RelatedUrl' in data and isinstance(data['RelatedUrl'], list):
-                logger.info(f"Processing NOAA format: found {len(data['RelatedUrl'])} RelatedUrls")
-                for related_url in data['RelatedUrl']:
-                    dataset_id = related_url.get('dataset_id')
-                    if dataset_id:
-                        if dataset_id not in self.related_urls_by_dataset:
-                            self.related_urls_by_dataset[dataset_id] = []
-                        # Convert NOAA RelatedUrl format to NASA links format
-                        link = {
-                            'href': related_url.get('url', ''),
-                            'rel': related_url.get('type', ''),
-                            'description': related_url.get('description', ''),
-                            'length': related_url.get('length', ''),
-                            'hreflang': related_url.get('hreflang', '')
-                        }
-                        self.related_urls_by_dataset[dataset_id].append(link)
-                logger.info(f"✓ Indexed RelatedUrls for {len(self.related_urls_by_dataset)} datasets")
-
-            # Load and add CESM variables to data if not already present or if empty
-            if 'CESMVariable' not in data or not data.get('CESMVariable'):
-                logger.info("🔬 Loading CESM variables from CSV file...")
-                cesm_variables = self.load_cesm_variables()
-                logger.info(f"DEBUG: load_cesm_variables returned {len(cesm_variables) if cesm_variables else 0} variables")
-                if cesm_variables:
-                    data['CESMVariable'] = cesm_variables
-                    logger.info(f"✓ Added {len(cesm_variables)} CESM variables to data")
-                    logger.info(f"DEBUG: First CESM variable: {cesm_variables[0] if cesm_variables else 'None'}")
-                else:
-                    logger.warning("⚠️  No CESM variables loaded - CESMVariable processing will be skipped")
-
-            # Process each node type
-            nodes_processed = 0
-            for node_type in self.collections:
-                if node_type in data:
-                    # Handle CESMVariable separately (will be processed normally)
-                    if node_type == 'CESMVariable':
-                        logger.info(f"Processing CESMVariable nodes... (found {len(data[node_type])} variables)")
-                        try:
-                            self.process_cesm_variables(data[node_type])
-                            nodes_processed += len(data[node_type]) if isinstance(data[node_type], list) else 1
-                            logger.info(f"✓ Successfully processed {len(data[node_type])} CESM variables into self.nodes")
-                        except Exception as e:
-                            logger.error(f"¥î Error processing CESMVariable nodes: {e}")
-                        continue
-                    
-                    # Handle Dataset nodes specially to extract and create Link nodes
-                    elif node_type == 'Dataset':
-                        logger.info("Processing Dataset nodes and extracting links...")
-                        try:
-                            if isinstance(data[node_type], list):
-                                for i, dataset in enumerate(data[node_type]):
-                                    self.process_dataset_with_links(dataset, i)
-                                    nodes_processed += 1
-                            nodes_processed += self.link_nodes_created
-                        except Exception as e:
-                            logger.error(f"¥î Error processing Dataset nodes: {e}")
-                        continue
-                        
-                    # Handle other node types as arrays
-                    if isinstance(data[node_type], list):
-                        for i, item in enumerate(data[node_type]):
-                            try:
-                                self.process_node(node_type, item, i)
-                                nodes_processed += 1
-                            except Exception as e:
-                                logger.error(f"¥î Error processing {node_type} node {i}: {e}")
-                                continue
-                    elif isinstance(data[node_type], dict):
-                        # Handle dict-based node types
-                        for key, item in data[node_type].items():
-                            try:
-                                self.process_node(node_type, item, key)
-                                nodes_processed += 1
-                            except Exception as e:
-                                logger.error(f"¥î Error processing {node_type} node {key}: {e}")
-                                continue
-                else:
-                    logger.debug(f"Node type '{node_type}' not found in JSON data")
-
-            logger.info(f" Processed {nodes_processed} nodes from JSON file")
-
-            # Create order-based relationships for datasets
-            try:
-                self.create_order_based_relationships(data)
-                logger.info(" Successfully created order-based relationships")
-            except Exception as e:
-                logger.error(f"¥î Error creating order-based relationships: {e}")
-            
-            # Create workflow-specific relationships
-            try:
-                self.create_workflow_relationships(data)
-                logger.info(" Successfully created workflow relationships")
-            except Exception as e:
-                logger.error(f"¥î Error creating workflow relationships: {e}")
-            
-            # Note: CESM variable mappings moved after simulation data processing
-            
-            # Create climate ML workflow nodes
-            try:
-                self.create_climate_workflows()
-                logger.info(" Successfully created climate ML workflow nodes")
-            except Exception as e:
-                logger.error(f"¥î Error creating climate workflows: {e}")
+            # Process the loaded data
+            self._process_loaded_data()
 
         except Exception as e:
             logger.error(f"¥î Error processing {json_file}: {str(e)}")
@@ -3101,15 +3143,15 @@ class JSONToCSVConverter:
             node_id = self._create_or_get_sim_update_frequency(prop_value)
             self._create_relationship(dataset_id, node_id, 'hasUpdateFrequency', 'SimDataset', 'SimUpdateFrequency')
 
-    def _load_cmip6_vocabularies(self, cmip6_dir, vocab_files):
-        """Load all CMIP6 controlled vocabularies into lookup dictionaries for enrichment."""
-        logger.info("📚 Loading CMIP6 controlled vocabularies for enrichment...")
+    def _load_cmip6_vocabularies(self, vocab_files):
+        """Load all CMIP6 controlled vocabularies into lookup dictionaries for enrichment from S3."""
+        logger.info("📚 Loading CMIP6 controlled vocabularies for enrichment from S3...")
 
-        for json_file in vocab_files:
-            filepath = os.path.join(cmip6_dir, json_file)
+        for s3_key in vocab_files:
             try:
-                with open(filepath, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
+                data = self._download_s3_json(s3_key)
+                if data is None:
+                    continue
 
                 # Load into appropriate lookup dictionary
                 if 'variable_id' in data:
@@ -3145,23 +3187,25 @@ class JSONToCSVConverter:
                     logger.debug(f"  ✓ Loaded {len(data['grid_label'])} grid label descriptions")
 
             except Exception as e:
-                logger.error(f"  ❌ Error loading vocabulary from {json_file}: {e}")
+                logger.error(f"  ❌ Error loading vocabulary from {s3_key}: {e}")
 
         total_entries = sum(len(vocab) for vocab in self.cmip6_vocabulary_lookups.values())
         logger.info(f"✓ Loaded {total_entries} total vocabulary entries for enrichment")
 
-    def _process_cmip6_datasets_sample(self, metadata_file, sample_size=None):
-        """Process CMIP6 datasets using simple JSON loading."""
+    def _process_cmip6_datasets_sample(self, metadata_s3_key, sample_size=None):
+        """Process CMIP6 datasets using simple JSON loading from S3."""
 
         try:
             if sample_size:
-                logger.info(f"📊 Loading CMIP6 datasets from metadata file (sampling {sample_size})")
+                logger.info(f"📊 Loading CMIP6 datasets from S3 (sampling {sample_size})")
             else:
-                logger.info(f"📊 Loading CMIP6 datasets from metadata file (processing all)")
+                logger.info(f"📊 Loading CMIP6 datasets from S3 (processing all)")
 
-            # Load JSON file the same way as NASA CMR data
-            with open(metadata_file, 'r', encoding='utf-8') as f:
-                data = json.load(f)
+            # Load JSON file from S3
+            data = self._download_s3_json(metadata_s3_key)
+            if data is None:
+                logger.error(f"Failed to load CMIP6 metadata from S3: {metadata_s3_key}")
+                return
 
             if sample_size:
                 logger.info(f"📊 Loaded {len(data)} total CMIP6 datasets, processing sample of {sample_size}")
@@ -3590,24 +3634,25 @@ class JSONToCSVConverter:
         return provider_id
 
     def process_climate_simulations(self):
-        """Process CMIP6 and ERA5 climate simulation JSON files."""
-        script_parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        """Process CMIP6 and ERA5 climate simulation JSON files from S3."""
+        # Process CMIP6 files from S3
+        logger.info("📊 Processing CMIP6 data from S3...")
+        cmip6_s3_prefix = 'CMIP6Data/'
+        cmip6_vocab_files = [f for f in self._list_s3_json_files(cmip6_s3_prefix)
+                            if 'CMIP6_' in f and f != f'{cmip6_s3_prefix}220514_CMIP6_metaData_restartedInd-24949000.json']
 
-        # Process CMIP6 files
-        cmip6_dir = os.path.join(script_parent_dir, 'CMIP6Data', 'CMIP6Meta')
-        if os.path.exists(cmip6_dir):
+        if cmip6_vocab_files:
             # First load controlled vocabularies into lookup dictionaries for enrichment
-            cmip6_vocab_files = [f for f in os.listdir(cmip6_dir) if f.endswith('.json') and f.startswith('CMIP6_')]
-            logger.info(f"📊 Loading {len(cmip6_vocab_files)} CMIP6 controlled vocabularies for enrichment")
-            self._load_cmip6_vocabularies(cmip6_dir, cmip6_vocab_files)
+            logger.info(f"📊 Loading {len(cmip6_vocab_files)} CMIP6 controlled vocabularies for enrichment from S3")
+            self._load_cmip6_vocabularies(cmip6_vocab_files)
 
             # Then process controlled vocabularies to create unified nodes
-            logger.info(f"📊 Processing CMIP6 controlled vocabulary files")
-            for json_file in cmip6_vocab_files:
-                filepath = os.path.join(cmip6_dir, json_file)
+            logger.info(f"📊 Processing CMIP6 controlled vocabulary files from S3")
+            for s3_key in cmip6_vocab_files:
                 try:
-                    with open(filepath, 'r', encoding='utf-8') as f:
-                        data = json.load(f)
+                    data = self._download_s3_json(s3_key)
+                    if data is None:
+                        continue
 
                     # Process based on vocabulary type
                     if 'experiment_id' in data:
@@ -3627,42 +3672,43 @@ class JSONToCSVConverter:
                     elif 'grid_label' in data:
                         self._process_cmip6_grid_labels(data['grid_label'])
                     else:
-                        logger.debug(f"  ⏭️  Skipping non-vocabulary file: {json_file}")
+                        logger.debug(f"  ⏭️  Skipping non-vocabulary file: {s3_key}")
 
                 except Exception as e:
-                    logger.error(f"  ❌ Error processing CMIP6 vocabulary file {json_file}: {e}")
+                    logger.error(f"  ❌ Error processing CMIP6 vocabulary file {s3_key}: {e}")
 
             # Process CMIP6 dataset metadata (sample from the large file)
-            cmip6_metadata_file = os.path.join(cmip6_dir, '220514_CMIP6_metaData_restartedInd-24949000.json')
-            if os.path.exists(cmip6_metadata_file):
-                logger.info(f"📊 Processing CMIP6 dataset metadata (all datasets)")
-                self._process_cmip6_datasets_sample(cmip6_metadata_file)
-            else:
-                logger.warning(f"CMIP6 metadata file not found: {cmip6_metadata_file}")
+            cmip6_metadata_s3_key = f'{cmip6_s3_prefix}220514_CMIP6_metaData_restartedInd-24949000.json'
+            logger.info(f"📊 Processing CMIP6 dataset metadata from S3 (all datasets)")
+            self._process_cmip6_datasets_sample(cmip6_metadata_s3_key)
 
         else:
-            logger.warning(f"CMIP6 directory not found: {cmip6_dir}")
+            logger.warning(f"No CMIP6 files found in S3 bucket")
 
-        # Process ERA5 files with enhanced extraction
-        era5_dir = os.path.join(script_parent_dir, 'ERA5Data', 'ERA5Meta')
-        if os.path.exists(era5_dir):
-            era5_files = [f for f in os.listdir(era5_dir) if f.endswith('.json')]
-            logger.info(f"🌡️  Found {len(era5_files)} ERA5 files")
+        # Process ERA5 files with enhanced extraction from S3
+        logger.info("🌡️  Processing ERA5 data from S3...")
+        era5_s3_prefix = 'ERA5Data/'
+        era5_files = self._list_s3_json_files(era5_s3_prefix)
+
+        if era5_files:
+            logger.info(f"🌡️  Found {len(era5_files)} ERA5 files in S3")
 
             era5_processed = 0
             era5_errors = 0
-            for json_file in era5_files:
-                filepath = os.path.join(era5_dir, json_file)
+            for s3_key in era5_files:
                 try:
-                    with open(filepath, 'r', encoding='utf-8') as f:
-                        data = json.load(f)
+                    data = self._download_s3_json(s3_key)
+                    if data is None:
+                        era5_errors += 1
+                        continue
 
                     if not isinstance(data, dict):
-                        logger.debug(f"  Skipping {json_file}: data is not a dictionary")
+                        logger.debug(f"  Skipping {s3_key}: data is not a dictionary")
                         era5_errors += 1
                         continue
 
                     # ERA5 files follow STAC format
+                    json_file = s3_key.split('/')[-1]  # Get filename from S3 key
                     simulation_id = f"era5_{self._safe_csv_value(data.get('id', json_file.replace('.json', '')))}"
 
                     # Extract structured keywords with validation
@@ -3786,17 +3832,17 @@ class JSONToCSVConverter:
                                 }
                                 self.relationships.append(rel)
 
-                    logger.debug(f"  ✓ Processed ERA5: {data.get('title', json_file)}")
+                    logger.debug(f"  ✓ Processed ERA5: {data.get('title', s3_key)}")
                     era5_processed += 1
 
                 except Exception as e:
-                    logger.error(f"  ❌ Error processing ERA5 file {json_file}: {e}")
+                    logger.error(f"  ❌ Error processing ERA5 file {s3_key}: {e}")
                     era5_errors += 1
 
             logger.info(f"✓ Processed {era5_processed} ERA5 datasets, {era5_errors} errors")
 
         else:
-            logger.warning(f"ERA5 directory not found: {era5_dir}")
+            logger.warning(f"No ERA5 files found in S3 bucket")
 
         # CMIP6 relationships now handled by unified sim node relationships
 
@@ -3836,15 +3882,35 @@ class JSONToCSVConverter:
             
             # Using pre-computed ML predictions for CESM variable mapping
             logger.info("Using pre-computed ML predictions for CESM variable to dataset mapping")
-            
-            # Process JSON file (Windows-compatible path)
-            input_file_path = os.path.abspath(input_file)
-            logger.info(f"Processing JSON file: {input_file_path}")
-            
-            if not os.path.exists(input_file_path):
-                raise FileNotFoundError(f"Input JSON file not found: {input_file_path}")
-                
-            self.process_json_file(input_file_path)
+
+            # Process JSON file (supports both local paths and S3 paths)
+            if input_file.startswith('s3://'):
+                # Extract S3 key from s3://bucket/key format
+                s3_path_parts = input_file.replace('s3://', '').split('/', 1)
+                if len(s3_path_parts) == 2:
+                    bucket, key = s3_path_parts
+                    if bucket == self.s3_bucket:
+                        logger.info(f"Processing JSON file from S3: {key}")
+                        data = self._download_s3_json(key)
+                        if data is None:
+                            raise FileNotFoundError(f"Failed to download S3 file: {input_file}")
+                        self.json_data = data
+                        logger.info(f" Successfully loaded JSON data from S3: {key}")
+                        # Process the loaded data
+                        self._process_loaded_data()
+                    else:
+                        raise ValueError(f"S3 bucket mismatch. Expected {self.s3_bucket}, got {bucket}")
+                else:
+                    raise ValueError(f"Invalid S3 path format: {input_file}")
+            else:
+                # Local file path (Windows-compatible)
+                input_file_path = os.path.abspath(input_file)
+                logger.info(f"Processing JSON file: {input_file_path}")
+
+                if not os.path.exists(input_file_path):
+                    raise FileNotFoundError(f"Input JSON file not found: {input_file_path}")
+
+                self.process_json_file(input_file_path)
 
             # Process climate simulation files (CMIP6 and ERA5)
             logger.info("🌍 Processing climate simulation datasets...")
@@ -3933,9 +3999,9 @@ def upload_to_s3(local_dir, bucket_name, prefix):
         return False
 
 def main():
-    parser = argparse.ArgumentParser(description='Convert JSON to Neptune CSV format (NASA CMR and NOAA OneStop)')
+    parser = argparse.ArgumentParser(description='Convert JSON to Neptune CSV format (NASA CMR and NOAA OneStop) - Supports S3!')
     parser.add_argument('--input', default='../NasaCMRData/noaa_json/noaa_nasa_enhanced_multi_query.json',
-                       help='Input JSON file path (default: NOAA OneStop data)')
+                       help='Input JSON file path or S3 URI (e.g., s3://autoclimds-simulation-kg/NasaCMRData/file.json)')
     parser.add_argument('--output-dir', default='neptune_csvs', help='Output directory for CSV files')
     parser.add_argument('--upload-s3', help='S3 bucket name to upload files (optional)')
     parser.add_argument('--s3-prefix', default='neptune-data/', help='S3 prefix for uploaded files')
