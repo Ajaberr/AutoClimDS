@@ -14,7 +14,7 @@ Climate data science remains constrained by fragmented data sources, heterogeneo
 **Keywords:** Knowledge Graphs, AI Agents, Climate Data Science, Generative AI, Cloud-Native Data Access, Human–AI Collaboration
 
 ## Overview
-Climate data science faces challenges like fragmented data, heterogeneous formats, and high expertise barriers. AutoClimDS addresses these by combining a curated KG (stored in AWS Neptune) with AI agents for autonomous workflows. The KG encodes procedural knowledge (e.g., access links, variable mappings, preprocessing steps), while agents handle discovery, acquisition, modeling, and verification. Key results include reproducing published figures (e.g., from NPCC4 reports) from natural-language prompts alone. This repo provides the code, CSVs for KG loading, and setup instructions.
+Climate data science faces challenges like fragmented data, heterogeneous formats, and high expertise barriers. AutoClimDS addresses these by combining a curated KG (stored in AWS Neptune) with AI agents for autonomous workflows. The KG encodes procedural knowledge (e.g., access links, variable mappings, preprocessing steps), while agents handle discovery, acquisition, modeling, and verification. Key results include reproducing published figures (e.g., from NPCC4 reports) from natural-language prompts alone. This repo provides the code and setup instructions. **All data files (KG CSVs, climate metadata, ML predictions) are stored on S3 at `s3://autoclimds-simulation-kg/` for public read access** to reduce repository size.
 
 The architecture (as shown in Fig. 1 of the paper) features a central Orchestrator Agent routing tasks to specialized agents: Data Discovery, Data Acquisition, Climate Modeling, and Verification. It uses LangChain for agentic loops, AWS Bedrock for LLM inference (Claude Sonnet 4), and Neptune for KG queries.
 
@@ -44,19 +44,18 @@ The repository is structured as follows (rooted under `AutoClimDS/` on the `test
     - `env_example`: Template for `.env` file. Copy to `.env` and add secrets (e.g., NASA Earthdata credentials, NOAA tokens, Neptune GRAPH_ID).
     - `README.md`: Internal documentation for the agents directory, including quick start and agent details.
 
-- **`CMIP6Data/`**: Contains scripts and tools for ingesting and processing CMIP6 data (Section II.A). Includes API request scripts for metadata resolution via ESGF distributed index, DRS tuple filtering, and related utilities.
+- **`CMIP6Data/`**: Contains scripts and tools for ingesting and processing CMIP6 data (Section II.A). Includes API request scripts for metadata resolution via ESGF distributed index, DRS tuple filtering, and related utilities. Generated metadata JSONs are stored on S3 at `s3://autoclimds-simulation-kg/CMIP6Data/CMIP6Meta/`.
 
-- **`ERA5Data/`**: Contains scripts for ERA5 data handling (Section II.A). Includes metadata scraper scripts for Copernicus CDS, web crawling, JSON normalization, and data discovery tools.
+- **`ERA5Data/`**: Contains scripts for ERA5 data handling (Section II.A). Includes metadata scraper scripts for Copernicus CDS, web crawling, JSON normalization, and data discovery tools. Generated metadata JSONs are stored on S3 at `s3://autoclimds-simulation-kg/ERA5Data/ERA5Meta/`.
 
-- **`KGNeptune/`**: Contains CSV files and related assets for building the KG (Section II.A). These are in OpenCypher-compatible format (nodes and edges) derived from sources like NASA CMR, NOAA OneStop, ERA5, and CMIP6. Files include node CSVs (e.g., for DataCategory, Variable, Location) and edge CSVs (e.g., hasLink, hasLocation). Also includes scripts for CSV appending and graph construction.
+- **`KGNeptune/`**: Contains scripts and tools for building the KG (Section II.A). The actual CSV files (82 files, ~3 GB) are stored on S3 at `s3://autoclimds-simulation-kg/neptune_csvs/` and are **not** included in the repository. CSVs are in OpenCypher-compatible format derived from NASA CMR, NOAA OneStop, ERA5, and CMIP6. The `json_to_csvs.py` script automatically downloads source data from S3, generates CSVs, and uploads them back to S3.
 
-- **`ML_Model/`**: Contains assets for the machine learning components (Section II.A). Includes fine-tuned ClimateBERT model scripts, training requirements, and utilities for semantic variable mapping and classification.
+- **`ML_Model/`**: Contains scripts and tools for the machine learning components (Section II.A). Includes fine-tuned ClimateBERT model scripts, training requirements, and utilities for semantic variable mapping and classification. ML predictions (67 MB) are stored on S3 at `s3://autoclimds-simulation-kg/MLModel/predictions/`.
 
-- **`NasaCMRData/`**: Contains scripts for NASA CMR data retrieval and processing (Section II.A). Includes requirements and tools for API interactions, UMM-JSON parsing, and metadata handling.
+- **`NasaCMRData/`**: Contains scripts for NASA CMR data retrieval and processing (Section II.A). Includes requirements and tools for API interactions, UMM-JSON parsing, and metadata handling. Source JSON files (~106K datasets), CESM variables (2,289 variables), and NOAA data are stored on S3 at `s3://autoclimds-simulation-kg/NasaCMRData/`.
 
 - **Other Root Files**:
-  - `.gitattributes`: Configuration for Git attributes (e.g., handling large files or line endings).
-  - `.gitignore`: Specifies files to ignore in Git (e.g., .env, __pycache__, temporary files).
+  - `.gitignore`: Specifies files to ignore in Git (e.g., .env, __pycache__, temporary files, S3-stored data directories).
   - `Documentation.txt`: Additional project documentation, including setup notes, flow descriptions, or high-level explanations.
   - `LICENSE`: The project's license file (e.g., MIT or Apache; check for specifics).
 
@@ -65,7 +64,7 @@ The code flow starts with the orchestrator (`Agents/climate_research_orchestrato
 ## How to Access Each Component of the Research Paper
 This repo maps directly to the paper's sections for reproducibility:
 
-- **Knowledge Graph Ontology and Construction (Section II.A)**: See `KGNeptune/` for CSVs (nodes/edges). Load into Neptune as described below. The ingestion pipeline logic is in directories like `CMIP6Data/`, `ERA5Data/`, and `NasaCMRData/` (e.g., API scripts, vector embeddings via sentence-transformers, link scoring). ML components for variable mapping are in `ML_Model/`.
+- **Knowledge Graph Ontology and Construction (Section II.A)**: KG CSVs (~3 GB) are stored on S3 at `s3://autoclimds-simulation-kg/neptune_csvs/`. Load into Neptune as described below. The ingestion pipeline logic is in directories like `CMIP6Data/`, `ERA5Data/`, and `NasaCMRData/` (e.g., API scripts, vector embeddings via sentence-transformers, link scoring). Source metadata files are also on S3. ML components for variable mapping are in `ML_Model/` with predictions on S3.
   
 - **AutoClimDS Agentic AI Architecture (Section II.B)**:
   - Data Discovery: `Agents/knowledge_graph_agent_bedrock.py` (vector search, multi-criteria queries).
@@ -88,15 +87,47 @@ This repo maps directly to the paper's sections for reproducibility:
 To access: Set up environment (see `Agents/requirements.txt` and `Agents/env_example`), load KG CSVs from `KGNeptune/` into Neptune, then run `Agents/AgenticAIPipeline.ipynb` or individual agents with prompts matching paper examples.
 
 ## What to Do with the CSVs
-The CSVs in `KGNeptune/` are for populating the KG in AWS Neptune Analytics (essential for discovery agents). Follow these steps:
+
+**Important:** All KG CSVs, climate data files (CMIP6/ERA5/NASA CMR/NOAA), ML predictions, and CESM variables are now stored on S3 at `s3://autoclimds-simulation-kg/` for public read access. These files are **not** included in the Git repository to reduce repo size.
+
+### Accessing the Data
+
+**Option 1: Use Pre-Loaded S3 Data (Recommended)**
+The complete KG CSVs are available at `s3://autoclimds-simulation-kg/neptune_csvs/` with ~1.48M nodes and ~5.8M edges. To load into your Neptune instance:
 
 1. **Prepare AWS**: Install AWS CLI, configure credentials (`aws configure`).
 
-2. **Upload to S3**: Create an S3 bucket (e.g., `aws s3 mb s3://your-bucket-name`). Upload CSVs: `aws s3 cp KGNeptune/ s3://your-bucket-name/KGNeptune/ --recursive`.
+2. **Create Neptune Graph**: Use AWS Console or CLI to create a Neptune Analytics graph. Specify the S3 URI: `s3://autoclimds-simulation-kg/neptune_csvs/`. Use OpenCypher format.
 
-3. **Create Neptune Graph**: Use AWS Console or CLI to create a Neptune Analytics graph. Specify the S3 URI (e.g., `s3://your-bucket-name/KGNeptune/`) for import. Use OpenCypher format; the CSVs include ~1.3M nodes and ~3.6M edges (as per paper).
+3. **Configure**: Update `Agents/.env` with `GRAPH_ID` (from Neptune). The `Agents/knowledge_graph_agent_bedrock.py` will query it.
 
-4. **Configure**: Update `Agents/.env` with `GRAPH_ID` (from Neptune). The `Agents/knowledge_graph_agent_bedrock.py` will query it.
+**Option 2: Generate CSVs Yourself**
+To regenerate CSVs from source data (also stored on S3):
+
+```bash
+cd KGNeptune
+python json_to_csvs.py --output-dir neptune_csvs
+```
+
+The script automatically:
+- Downloads source JSON files from S3 (NASA CMR, NOAA, CMIP6, ERA5)
+- Loads CESM variables and ML predictions from S3
+- Generates Neptune CSV files locally
+- Uploads completed CSVs back to S3
+
+### S3 Data Structure
+
+```
+s3://autoclimds-simulation-kg/
+├── neptune_csvs/           # Complete KG CSVs (82 files, ~3 GB)
+├── CMIP6Data/CMIP6Meta/    # CMIP6 metadata JSONs
+├── ERA5Data/ERA5Meta/      # ERA5 dataset metadata
+├── NasaCMRData/
+│   ├── json_files/         # NASA CMR structured data
+│   ├── noaa_json/          # NOAA OneStop data
+│   └── cesm_variables/     # CESM variable mappings (2,289 variables)
+└── MLModel/predictions/    # ClimateBERT predictions (67 MB)
+```
 
 This enables semantic search (e.g., vector-enabled nodes like Variable, Location). Do not modify CSVs without understanding the schema (available in supplementary materials [20]).
 
@@ -106,10 +137,10 @@ All figures from the paper are reproduced or referenced here. Generated figures 
 Based on code examination in Agents/cesm_lens_langchain_agent.py, figures are generated using matplotlib.pyplot and saved with plt.savefig (e.g., plt.savefig('ensemble_analysis_polars.png', dpi=300, bbox_inches='tight'); plt.savefig('trend_analysis_polars.png', dpi=300, bbox_inches='tight'); plt.savefig('uncertainty_analysis_polars.png', dpi=300, bbox_inches='tight')) to the current working directory (no specific subfolder is used; paths are relative to os.getcwd()). Similarly, data outputs like CSVs (e.g., cesm_df.write_csv(f"cesm_{safe_var_name}_{start_year}_{end_year}_texas.csv")) and Parquet files are saved to the current directory. The Agents/AgenticAIPipeline.ipynb invokes these agents but does not directly save figures—saving happens within the agent logic. The repository structure does not include output folders, as outputs are runtime-generated and not committed.
 
 - **Fig. 1: Multi-agent system architecture.**
-  Shows the Orchestrator routing to Data Discovery, Data Acquisition, and Modeling & Analytics agents. Citation: Paper Section II.B.6. ![Fig 1](Agents/assets/figs/FinalDiagramAgenticAI.drawio%20(1).png)
+  Shows the Orchestrator routing to Data Discovery, Data Acquisition, and Modeling & Analytics agents. Citation: Paper Section II.B.6. ![Fig 1](<Agents/assets/figs/FinalDiagramAgenticAI.drawio (1).png>)
 
-- **Fig. 2: End-to-end AWS architecture with frontend (CloudFront, React, API Gateway, Cognito) and backend (Bedrock, Neptune, SageMaker) integration.**  
-  Illustrates cloud deployment. Citation: Paper Section II.C. (Not directly generated; reference AWS docs or draw via code.)
+- **Fig. 2: End-to-end AWS architecture with frontend (CloudFront, React, API Gateway, Cognito) and backend (Bedrock, Neptune, SageMaker) integration.**
+  Illustrates cloud deployment. Citation: Paper Section II.C. ![Fig 2](<Agents/assets/figs/image (21).png>)
 
 - **Fig. 3: AutoClimDS replicated NPCC4 sea level trends.**
   Replicates Battery Park and global sea level trends (e.g., 0.112 in/yr long-term). Citation: Paper Section III.A; based on [25] (NPCC4). (Path: Battery Park - ![Fig 3a](Agents/assets/figs/battery_reproduction.png), Global Mean Sea Level - ![Fig 3b](Agents/assets/figs/gmsl_reproduction.png))
@@ -118,10 +149,10 @@ Based on code examination in Agents/cesm_lens_langchain_agent.py, figures are ge
   Original NPCC4 sea level plots for comparison. Citation: [25]. (Path: Battery Park - ![Fig 4a](Agents/assets/figs/battery_original.png), Global Mean Sea Level - ![Fig 4b](Agents/assets/figs/gmsl_original.png))
 
 - **Fig. 5: Sea level trends with VLM-driven SLR: AutoClimDS (left) vs. Original [25] (right).**
-  Compares Vertical Land Motion contributions (-1.5 mm/yr). Citation: Paper Section III.A; [25]. (Path: ![Fig 5](Agents/sea_fig3.2/figs/battery_sea_level_trends.png))
+  Compares Vertical Land Motion contributions (-1.5 mm/yr). Citation: Paper Section III.A; [25]. (AutoClimDS - ![Fig 5a](Agents/npcc_fig6_good/figs/battery_sea_level_1856_2022.png), Original [25] - ![Fig 5b](<Agents/assets/figs/complex_orig (1).png>))
 
 - **Fig. 6: CMIP6/ERA5 temperature analysis for NYC: historical reanalysis and multi-model SSP2-4.5 projections with ensemble uncertainty.**
-  Shows temperature projections (e.g., ensemble means). Citation: Paper Section III.B. (Path: ![Fig 6](Agents/npcc_fig7/figs/nyc_temperature_trends.png))
+  Shows temperature projections (e.g., ensemble means). Citation: Paper Section III.B. (Global Annual - ![Fig 6a](Agents/assets/figs/01_global_annual_temperature-min.png), Seasonal Patterns - ![Fig 6b](Agents/assets/figs/02_seasonal_temperature_patterns-min.png))
 
 These figures demonstrate reproducibility (e.g., JSD=0 for exact matches). Citations reference the paper and [25] (NPCC4 report).
 
