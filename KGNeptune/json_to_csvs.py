@@ -109,8 +109,11 @@ class JSONToCSVConverter:
         if self.generate_embeddings and SENTENCE_TRANSFORMERS_AVAILABLE:
             self._load_embedding_model()
 
-        # Initialize S3 client (anonymous for public bucket)
-        self.s3_client = boto3.client('s3', config=Config(signature_version=UNSIGNED))
+        # Initialize S3 clients
+        # Anonymous client for downloading public files
+        self.s3_client_anonymous = boto3.client('s3', config=Config(signature_version=UNSIGNED))
+        # Authenticated client for uploading (uses AWS credentials)
+        self.s3_client = boto3.client('s3')
         self.s3_bucket = 'autoclimds-simulation-kg'
         
         # Define all the collections/classes from NASA Knowledge Graph
@@ -478,7 +481,7 @@ class JSONToCSVConverter:
             s3_key = 'NasaCMRData/cesm_variables/cesm_variables_raw.csv'
             try:
                 logger.info(f"Attempting to load CESM variables from S3: {s3_key}")
-                response = self.s3_client.get_object(Bucket=self.s3_bucket, Key=s3_key)
+                response = self.s3_client_anonymous.get_object(Bucket=self.s3_bucket, Key=s3_key)
                 content = response['Body'].read().decode('utf-8')
 
                 # Parse CSV from string
@@ -580,7 +583,7 @@ class JSONToCSVConverter:
     def _list_s3_json_files(self, prefix):
         """List all JSON files in an S3 prefix."""
         try:
-            response = self.s3_client.list_objects_v2(
+            response = self.s3_client_anonymous.list_objects_v2(
                 Bucket=self.s3_bucket,
                 Prefix=prefix
             )
@@ -598,7 +601,7 @@ class JSONToCSVConverter:
     def _download_s3_json(self, s3_key):
         """Download and parse a JSON file from S3."""
         try:
-            response = self.s3_client.get_object(
+            response = self.s3_client_anonymous.get_object(
                 Bucket=self.s3_bucket,
                 Key=s3_key
             )
@@ -1744,7 +1747,7 @@ class JSONToCSVConverter:
             s3_key = 'MLModel/predictions/cmr_dataset_predictions.csv'
             try:
                 logger.info(f"Attempting to load ML predictions from S3: {s3_key}")
-                response = self.s3_client.get_object(Bucket=self.s3_bucket, Key=s3_key)
+                response = self.s3_client_anonymous.get_object(Bucket=self.s3_bucket, Key=s3_key)
                 content = response['Body'].read()
 
                 # Use pandas to read CSV from bytes
@@ -3937,6 +3940,33 @@ class JSONToCSVConverter:
 
         return merged
 
+    def _upload_csvs_to_s3(self, local_dir, s3_prefix):
+        """Upload all CSV files from local directory to S3 bucket."""
+        try:
+            uploaded_count = 0
+            failed_count = 0
+
+            # Get all files in the directory
+            for filename in os.listdir(local_dir):
+                if filename.endswith('.csv') or filename.endswith('.json'):
+                    local_path = os.path.join(local_dir, filename)
+                    s3_key = f"{s3_prefix}/{filename}"
+
+                    try:
+                        logger.info(f"  Uploading {filename}...")
+                        self.s3_client.upload_file(local_path, self.s3_bucket, s3_key)
+                        uploaded_count += 1
+                    except Exception as e:
+                        logger.error(f"  ❌ Failed to upload {filename}: {e}")
+                        failed_count += 1
+
+            logger.info(f"📊 Upload complete: {uploaded_count} files uploaded, {failed_count} failed")
+            return failed_count == 0
+
+        except Exception as e:
+            logger.error(f"Error during S3 upload: {str(e)}")
+            return False
+
     def convert_to_csvs(self, input_file, output_dir):
         """Convert JSON data to Neptune CSV format."""
         try:
@@ -4047,9 +4077,17 @@ class JSONToCSVConverter:
             
             logger.info(f" Conversion complete. Created {len(self.nodes)} nodes and {len(self.relationships)} relationships")
             logger.info(f" Conversion summary written to {summary_path}")
-            
+
+            # Automatically upload CSVs to S3
+            logger.info("📤 Uploading CSVs to S3 bucket...")
+            upload_success = self._upload_csvs_to_s3(output_dir_path, 'neptune_csvs')
+            if upload_success:
+                logger.info(f"✅ Successfully uploaded all CSVs to s3://{self.s3_bucket}/neptune_csvs/")
+            else:
+                logger.warning("⚠️  Failed to upload some files to S3. CSVs are still available locally.")
+
             return summary_path
-            
+
         except Exception as e:
             logger.error(f"¥î Error in conversion: {str(e)}")
             raise

@@ -18,3 +18,12 @@ venv/
 *.swo
 
 .env
+
+# Data files stored on S3
+CMIP6Data/CMIP6Meta/
+ERA5Data/ERA5Meta/
+NasaCMRData/cesm_variables/
+NasaCMRData/json_files/
+NasaCMRData/noaa_json/
+ML Model/predictions/
+KGNeptune/neptune_csvs/
