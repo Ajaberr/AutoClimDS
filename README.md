@@ -109,11 +109,13 @@ cd KGNeptune
 python json_to_csvs.py --output-dir neptune_csvs
 ```
 
+**Important: No AWS credentials or configuration required.** The script downloads all data from public S3 URLs using standard HTTPS requests. You only need Python 3.10+ and the packages in `KGNeptune/requirements.txt` (including `requests`). The `boto3` library is optional and only needed if you want to upload CSVs back to S3 (maintainers only).
+
 The script automatically:
-- Downloads source JSON files from S3 (NASA CMR, NOAA, CMIP6, ERA5)
-- Loads CESM variables and ML predictions from S3
+- Downloads source JSON files from public S3 URLs (NASA CMR, NOAA, CMIP6, ERA5)
+- Loads CESM variables and ML predictions from public S3 URLs
 - Generates Neptune CSV files locally
-- Uploads completed CSVs back to S3
+- Optionally uploads completed CSVs back to S3 (requires AWS credentials)
 
 ### S3 Data Structure
 
