@@ -3899,55 +3899,96 @@ class JSONToCSVConverter:
         logger.info(f"✓ Created {sim_provider_count} unified SimProvider nodes")
         logger.info(f"✓ Created {sim_temporal_res_count} SimTemporalResolution, {sim_spatial_cov_count} SimSpatialCoverage, {sim_horiz_res_count} SimHorizontalResolution, {sim_file_format_count} SimFileFormat nodes")
 
+    def _merge_json_data(self, data1, data2):
+        """Merge two JSON datasets, combining arrays and avoiding duplicates."""
+        merged = {}
+
+        # Get all unique keys from both datasets
+        all_keys = set(data1.keys()) | set(data2.keys())
+
+        for key in all_keys:
+            val1 = data1.get(key, [])
+            val2 = data2.get(key, [])
+
+            # If both are lists, merge them
+            if isinstance(val1, list) and isinstance(val2, list):
+                # For Dataset nodes, deduplicate by dataset_id or entry_id
+                if key == 'Dataset':
+                    seen_ids = set()
+                    merged_list = []
+                    for dataset in val1 + val2:
+                        dataset_id = dataset.get('dataset_id') or dataset.get('entry_id') or dataset.get('id')
+                        if dataset_id and dataset_id not in seen_ids:
+                            seen_ids.add(dataset_id)
+                            merged_list.append(dataset)
+                        elif not dataset_id:
+                            merged_list.append(dataset)
+                    merged[key] = merged_list
+                else:
+                    # For other lists, concatenate (duplicates will be handled by node creation logic)
+                    merged[key] = val1 + val2
+            elif isinstance(val1, list):
+                merged[key] = val1
+            elif isinstance(val2, list):
+                merged[key] = val2
+            else:
+                # Non-list values: prefer non-empty
+                merged[key] = val1 if val1 else val2
+
+        return merged
+
     def convert_to_csvs(self, input_file, output_dir):
         """Convert JSON data to Neptune CSV format."""
         try:
             self.reset_state()
-            
+
             # Log system information and capabilities
             logger.info(f" SYSTEM INFORMATION:")
             logger.info(f"    Operating System: {os.name}")
             logger.info(f"    Python Version: {sys.version}")
             logger.info(f"    Working Directory: {os.getcwd()}")
             logger.info(f"    Script Location: {os.path.abspath(__file__)}")
-            
+
             # Log available components
             logger.info(f" AVAILABLE COMPONENTS:")
             logger.info(f"    SentenceTransformers: {' Available' if SENTENCE_TRANSFORMERS_AVAILABLE else '¥î Missing'}")
             logger.info(f"    Pandas: {' Available' if 'pandas' in sys.modules else '¥î Missing'}")
             logger.info(f"    Embedding Generation: {' Enabled' if self.generate_embeddings else '¥î Disabled'}")
-            
+
             # Using pre-computed ML predictions for CESM variable mapping
             logger.info("Using pre-computed ML predictions for CESM variable to dataset mapping")
 
-            # Process JSON file (supports both local paths and S3 paths)
-            if input_file.startswith('s3://'):
-                # Extract S3 key from s3://bucket/key format
-                s3_path_parts = input_file.replace('s3://', '').split('/', 1)
-                if len(s3_path_parts) == 2:
-                    bucket, key = s3_path_parts
-                    if bucket == self.s3_bucket:
-                        logger.info(f"Processing JSON file from S3: {key}")
-                        data = self._download_s3_json(key)
-                        if data is None:
-                            raise FileNotFoundError(f"Failed to download S3 file: {input_file}")
-                        self.json_data = data
-                        logger.info(f" Successfully loaded JSON data from S3: {key}")
-                        # Process the loaded data
-                        self._process_loaded_data()
-                    else:
-                        raise ValueError(f"S3 bucket mismatch. Expected {self.s3_bucket}, got {bucket}")
-                else:
-                    raise ValueError(f"Invalid S3 path format: {input_file}")
+            # Load and merge multiple NASA/NOAA JSON files from S3
+            logger.info("📥 Loading NASA/NOAA data files from S3...")
+            nasa_noaa_files = [
+                'NOAAData/noaa_nasa_enhanced_multi_query.json',
+                'NasaCMRData/structured_cmr_data.json'
+            ]
+
+            merged_data = {}
+            for s3_key in nasa_noaa_files:
+                try:
+                    logger.info(f"  Loading {s3_key}...")
+                    data = self._download_s3_json(s3_key)
+                    if data:
+                        dataset_count = len(data.get('Dataset', []))
+                        logger.info(f"  ✓ Loaded {dataset_count} datasets from {s3_key}")
+                        if not merged_data:
+                            merged_data = data
+                        else:
+                            merged_data = self._merge_json_data(merged_data, data)
+                except Exception as e:
+                    logger.warning(f"  ⚠️  Could not load {s3_key}: {e}")
+
+            if merged_data:
+                total_datasets = len(merged_data.get('Dataset', []))
+                logger.info(f"📊 Merged data contains {total_datasets} unique datasets")
+                self.json_data = merged_data
+                logger.info(f" Successfully loaded and merged NASA/NOAA data")
+                # Process the merged data
+                self._process_loaded_data()
             else:
-                # Local file path (Windows-compatible)
-                input_file_path = os.path.abspath(input_file)
-                logger.info(f"Processing JSON file: {input_file_path}")
-
-                if not os.path.exists(input_file_path):
-                    raise FileNotFoundError(f"Input JSON file not found: {input_file_path}")
-
-                self.process_json_file(input_file_path)
+                raise FileNotFoundError("Failed to load any NASA/NOAA data from S3")
 
             # Process climate simulation files (CMIP6 and ERA5)
             logger.info("🌍 Processing climate simulation datasets...")
