@@ -16,8 +16,7 @@ from pathlib import Path
 import logging
 import uuid
 import boto3
-from botocore import UNSIGNED
-from botocore.client import Config
+import requests
 import re
 import sys
 import pandas as pd  # Re-enabled - pandas is working
@@ -109,12 +108,14 @@ class JSONToCSVConverter:
         if self.generate_embeddings and SENTENCE_TRANSFORMERS_AVAILABLE:
             self._load_embedding_model()
 
-        # Initialize S3 clients
-        # Anonymous client for downloading public files
-        self.s3_client_anonymous = boto3.client('s3', config=Config(signature_version=UNSIGNED))
-        # Authenticated client for uploading (uses AWS credentials)
-        self.s3_client = boto3.client('s3')
+        # S3 configuration
         self.s3_bucket = 'autoclimds-simulation-kg'
+        self.s3_public_url = 'https://autoclimds-simulation-kg.s3.us-east-2.amazonaws.com'
+        # Authenticated client for uploading (uses AWS credentials, only needed for maintainers)
+        try:
+            self.s3_client = boto3.client('s3')
+        except Exception:
+            self.s3_client = None  # Not needed for users, only for uploading
         
         # Define all the collections/classes from NASA Knowledge Graph
         self.collections = [
@@ -477,12 +478,14 @@ class JSONToCSVConverter:
     def load_cesm_variables(self):
         """Load CESM variables from S3 or local CSV file."""
         try:
-            # Try loading from S3 first
+            # Try loading from S3 first using public HTTPS URL
             s3_key = 'NasaCMRData/cesm_variables/cesm_variables_raw.csv'
             try:
-                logger.info(f"Attempting to load CESM variables from S3: {s3_key}")
-                response = self.s3_client_anonymous.get_object(Bucket=self.s3_bucket, Key=s3_key)
-                content = response['Body'].read().decode('utf-8')
+                url = f"{self.s3_public_url}/{s3_key}"
+                logger.info(f"Attempting to load CESM variables from S3: {url}")
+                response = requests.get(url, timeout=60)
+                response.raise_for_status()
+                content = response.text
 
                 # Parse CSV from string
                 cesm_variables = []
@@ -599,14 +602,13 @@ class JSONToCSVConverter:
             return []
 
     def _download_s3_json(self, s3_key):
-        """Download and parse a JSON file from S3."""
+        """Download and parse a JSON file from S3 using public HTTPS URL."""
         try:
-            response = self.s3_client_anonymous.get_object(
-                Bucket=self.s3_bucket,
-                Key=s3_key
-            )
-            content = response['Body'].read().decode('utf-8')
-            return json.loads(content)
+            url = f"{self.s3_public_url}/{s3_key}"
+            logger.info(f"Downloading from {url}")
+            response = requests.get(url, timeout=60)
+            response.raise_for_status()
+            return response.json()
         except Exception as e:
             logger.error(f"Error downloading {s3_key} from S3: {e}")
             return None
@@ -1743,16 +1745,17 @@ class JSONToCSVConverter:
         try:
             import pandas as pd
 
-            # Try loading from S3 first
+            # Try loading from S3 first using public HTTPS URL
             s3_key = 'MLModel/predictions/cmr_dataset_predictions.csv'
             try:
-                logger.info(f"Attempting to load ML predictions from S3: {s3_key}")
-                response = self.s3_client_anonymous.get_object(Bucket=self.s3_bucket, Key=s3_key)
-                content = response['Body'].read()
+                url = f"{self.s3_public_url}/{s3_key}"
+                logger.info(f"Attempting to load ML predictions from S3: {url}")
+                response = requests.get(url, timeout=120)
+                response.raise_for_status()
 
                 # Use pandas to read CSV from bytes
                 import io
-                predictions_df = pd.read_csv(io.BytesIO(content))
+                predictions_df = pd.read_csv(io.BytesIO(response.content))
                 logger.info(f" Loaded {len(predictions_df)} ML predictions from S3")
             except Exception as s3_error:
                 logger.warning(f"Could not load from S3: {s3_error}, trying local file...")
@@ -3677,9 +3680,25 @@ class JSONToCSVConverter:
         """Process CMIP6 and ERA5 climate simulation JSON files from S3."""
         # Process CMIP6 files from S3
         logger.info("📊 Processing CMIP6 data from S3...")
-        cmip6_s3_prefix = 'CMIP6Data/'
-        cmip6_vocab_files = [f for f in self._list_s3_json_files(cmip6_s3_prefix)
-                            if 'CMIP6_' in f and f != f'{cmip6_s3_prefix}220514_CMIP6_metaData_restartedInd-24949000.json']
+        cmip6_s3_prefix = 'CMIP6Data/CMIP6Meta/'
+        # Hardcoded list of CMIP6 vocabulary files
+        cmip6_vocab_files = [
+            f'{cmip6_s3_prefix}CMIP6_activity_id.json',
+            f'{cmip6_s3_prefix}CMIP6_experiment_id.json',
+            f'{cmip6_s3_prefix}CMIP6_frequency.json',
+            f'{cmip6_s3_prefix}CMIP6_grid_label.json',
+            f'{cmip6_s3_prefix}CMIP6_institution_id.json',
+            f'{cmip6_s3_prefix}CMIP6_license.json',
+            f'{cmip6_s3_prefix}CMIP6_nominal_resolution.json',
+            f'{cmip6_s3_prefix}CMIP6_realm.json',
+            f'{cmip6_s3_prefix}CMIP6_required_global_attributes.json',
+            f'{cmip6_s3_prefix}CMIP6_source_id.json',
+            f'{cmip6_s3_prefix}CMIP6_source_type.json',
+            f'{cmip6_s3_prefix}CMIP6_sub_experiment_id.json',
+            f'{cmip6_s3_prefix}CMIP6_table_id.json',
+            f'{cmip6_s3_prefix}CMIP6_DRS.json',
+            f'{cmip6_s3_prefix}summary.json'
+        ]
 
         if cmip6_vocab_files:
             # First load controlled vocabularies into lookup dictionaries for enrichment
@@ -3727,8 +3746,17 @@ class JSONToCSVConverter:
 
         # Process ERA5 files with enhanced extraction from S3
         logger.info("🌡️  Processing ERA5 data from S3...")
-        era5_s3_prefix = 'ERA5Data/'
-        era5_files = self._list_s3_json_files(era5_s3_prefix)
+        era5_s3_prefix = 'ERA5Data/ERA5Meta/'
+        # Hardcoded list of ERA5 dataset metadata files
+        era5_files = [
+            f'{era5_s3_prefix}dataset_reanalysis-era5-land.json',
+            f'{era5_s3_prefix}dataset_reanalysis-era5-single-levels.json',
+            f'{era5_s3_prefix}dataset_reanalysis-era5-pressure-levels.json',
+            f'{era5_s3_prefix}dataset_reanalysis-era5-complete.json',
+            f'{era5_s3_prefix}dataset_reanalysis-era5-land-monthly-means.json',
+            f'{era5_s3_prefix}dataset_reanalysis-era5-single-levels-monthly-means.json',
+            f'{era5_s3_prefix}dataset_reanalysis-era5-pressure-levels-monthly-means.json',
+        ]
 
         if era5_files:
             logger.info(f"🌡️  Found {len(era5_files)} ERA5 files in S3")
