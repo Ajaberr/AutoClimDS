@@ -1,11 +1,6 @@
 # AutoClimDS: Climate Data Science Agentic AI — A Knowledge Graph is All You Need
 
-## Citation
-Please cite the original research paper as follows:
-
-> Anonymous, "AutoClimDS: Climate Data Science Agentic AI — A Knowledge Graph is All You Need," 2025. [Supplementary materials available at https://anonymous.4open.science/r/AutoClimDS-E041/README.md (anonymous repository for double-blind review).]
-
-This repository implements the proof-of-concept system described in the paper, focusing on agentic AI workflows for climate data science powered by a knowledge graph (KG). The system integrates datasets from sources like NASA CMR, NOAA OneStop, ERA5, and CMIP6, enabling natural-language-driven data discovery, acquisition, and analysis.
+This repository implements a proof-of-concept system for agentic AI workflows in climate data science powered by a knowledge graph (KG). The system integrates datasets from sources like NASA CMR, NOAA OneStop, ERA5, and CMIP6, enabling natural-language-driven data discovery, acquisition, and analysis.
 
 ## Abstract
 
