@@ -1,7 +1,0 @@
-Run Script 1 to capture all the individual links in the in the JSON to a CSV
-
-This script will give a CSV with column names for related_urls to further use for Script2 to crawl those links to see if those links are API callable.
-
-As the Script 2 runs, it will generate multiple CSV files which contains the individual status of the links if those are API querable or not.
-
-Once Script2 run ends, transfer the CSV files generated in the script2 to a new folder and use that folder link in Script3 to make the final file containing all the parent links which are API querable.
