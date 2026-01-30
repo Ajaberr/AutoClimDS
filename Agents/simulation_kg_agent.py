@@ -1804,49 +1804,17 @@ class RequestClarificationTool(BaseTool):
     )
 
     def _run(self, tool_input: str, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
-        missing: List[str] = []
-        context: str = ""
-        question: str = ""
-        if tool_input.strip().startswith("{"):
-            try:
-                payload = json.loads(tool_input)
-                missing = payload.get("missing", []) if isinstance(payload.get("missing"), list) else missing
-                context = str(payload.get("context", ""))
-                question = str(payload.get("question", ""))
-            except json.JSONDecodeError:
-                question = tool_input.strip()
-        else:
-            question = tool_input.strip()
-
-        if not question:
-            if missing:
-                question = (
-                    "Could you provide more details about "
-                    + ", ".join(missing)
-                    + " so I can find precise simulation datasets?"
-                )
-            else:
-                question = "Could you clarify your request so I can refine the simulation dataset search?"
-
-        if context:
-            question = f"{question}\n\nContext: {context}"
-
-        # Actually pause execution and wait for user input (like AskFollowUpQuestionTool in knowledge_graph_agent_bedrock.py)
-        print("\n" + "=" * 60)
-        print("🔴 CLARIFICATION REQUEST 🔴")
-        print("=" * 60)
-        print(f"\n{question}\n")
-        print("=" * 60)
-        print("⏸️  WAITING FOR USER INPUT - Please provide the requested information:")
-        print("=" * 60)
-        
-        user_response = input("\n>>> Your response: ")
-        
-        print(f"\n✅ Received user input: {user_response}\n")
-        print("=" * 60 + "\n")
-        
-        # Return the user's response so the agent can continue with the workflow
-        return f"User provided the following clarification: {user_response}\n\nNow I can proceed with searching for simulation datasets based on this information."
+        # Instead of calling input(), we return a instruction that the LLM should parse as a Final Answer request.
+        # This prevents blocking the Streamlit UI.
+        question = tool_input
+        try:
+             # Try parsing if JSON
+             payload = json.loads(tool_input)
+             question = payload.get("question", tool_input)
+        except:
+             pass
+             
+        return f"STOP_EXECUTION_AND_ASK_USER: {question}. (Please output this question as your Final Answer now)"
 
 
 class MultiCriteriaSimulationSearchTool(BaseTool):
@@ -2327,7 +2295,27 @@ class GenerateDownloadPlanTool(BaseTool):
         except json.JSONDecodeError:
             return "Input must be a JSON string."
         dataset_id = params.get("dataset_id", "")
+        
+        # Try finding in local loader
         dataset = ERA5_LOADER.get(dataset_id)
+        
+        # Fallback: Create "Virtual Dataset" if standard ID is recognized
+        if not dataset:
+            if dataset_id.startswith("ERA5::"):
+                 real_id = dataset_id.replace("ERA5::", "")
+                 dataset = SimulationDataset(
+                     dataset_id=dataset_id,
+                     family="ERA5",
+                     title=f"Virtual Dataset: {real_id}",
+                     description="Standard ERA5 dataset accessed directly via CDS API.",
+                     variables=["(All CDS Variables Supported)"],
+                     provider="Copernicus C3S",
+                     api_endpoint="https://cds.climate.copernicus.eu/api/v2",
+                     search_handles={"slug": real_id, "retrieve_payload_schema": {}} # Empty schema
+                 )
+            elif dataset_id.startswith("CMIP6::"):
+                 pass # Will handle below in CMIP6 block
+
         if dataset:
             plan = self._build_era5_plan(dataset, params.get("parameters"))
             GRAPH_STORE.log_event(
@@ -2340,6 +2328,12 @@ class GenerateDownloadPlanTool(BaseTool):
         if dataset_id.startswith("CMIP6::"):
             filters = params.get("filters") or {}
             res = CMIP6_LOADER.search(filters=filters, limit=1)
+            # Create virtual CMIP6 if search yields nothing but ID looks real?
+            # For now keep existing logic but allow fallback if filters provided
+            if not res and not filters:
+                 # Try inferring from ID string if complex
+                 pass 
+            
             if res:
                 dataset = res[0]
                 plan = self._build_cmip6_plan(dataset, params.get("limit", 3))
@@ -2349,6 +2343,7 @@ class GenerateDownloadPlanTool(BaseTool):
                     {"family": dataset.family, "plan": plan, "timestamp": datetime.utcnow().isoformat()},
                 )
                 return json.dumps(plan, ensure_ascii=False, indent=2)
+                
         return f"Unable to generate a download plan; dataset not recognized: {dataset_id}"
 
     def _build_era5_plan(self, dataset: SimulationDataset, override_params: Optional[Dict[str, Any]]) -> Dict[str, Any]:
