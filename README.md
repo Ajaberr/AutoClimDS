@@ -134,22 +134,22 @@ All figures from the paper are reproduced or referenced here. Generated figures 
 Based on code examination in Agents/cesm_lens_langchain_agent.py, figures are generated using matplotlib.pyplot and saved with plt.savefig (e.g., plt.savefig('ensemble_analysis_polars.png', dpi=300, bbox_inches='tight'); plt.savefig('trend_analysis_polars.png', dpi=300, bbox_inches='tight'); plt.savefig('uncertainty_analysis_polars.png', dpi=300, bbox_inches='tight')) to the current working directory (no specific subfolder is used; paths are relative to os.getcwd()). Similarly, data outputs like CSVs (e.g., cesm_df.write_csv(f"cesm_{safe_var_name}_{start_year}_{end_year}_texas.csv")) and Parquet files are saved to the current directory. The Agents/AgenticAIPipeline.ipynb invokes these agents but does not directly save figures—saving happens within the agent logic. The repository structure does not include output folders, as outputs are runtime-generated and not committed.
 
 - **Fig. 1: Multi-agent system architecture.**
-  Shows the Orchestrator routing to Data Discovery, Data Acquisition, and Modeling & Analytics agents. Citation: Paper Section II.B.6. ![Fig 1](<asserts/FinalDiagramAgenticAI.drawio (1).png>)
+  Shows the Orchestrator routing to Data Discovery, Data Acquisition, and Modeling & Analytics agents. Citation: Paper Section II.B.6. ![Fig 1](<assets/FinalDiagramAgenticAI.drawio (1).png>)
 
 - **Fig. 2: End-to-end AWS architecture with frontend (CloudFront, React, API Gateway, Cognito) and backend (Bedrock, Neptune, SageMaker) integration.**
-  Illustrates cloud deployment. Citation: Paper Section II.C. ![Fig 2](<asserts/image (21).png>)
+  Illustrates cloud deployment. Citation: Paper Section II.C. ![Fig 2](<assets/image (21).png>)
 
 - **Fig. 3: AutoClimDS replicated NPCC4 sea level trends.**
-  Replicates Battery Park and global sea level trends (e.g., 0.112 in/yr long-term). Citation: Paper Section III.A; based on [25] (NPCC4). (Path: Battery Park - ![Fig 3a](asserts/battery_reproduction.png), Global Mean Sea Level - ![Fig 3b](asserts/gmsl_reproduction.png))
+  Replicates Battery Park and global sea level trends (e.g., 0.112 in/yr long-term). Citation: Paper Section III.A; based on [25] (NPCC4). (Path: Battery Park - ![Fig 3a](assets/battery_reproduction.png), Global Mean Sea Level - ![Fig 3b](assets/gmsl_reproduction.png))
 
 - **Fig. 4: Original figures from [25] (CC BY-NC license).**
-  Original NPCC4 sea level plots for comparison. Citation: [25]. (Path: Battery Park - ![Fig 4a](asserts/battery_original.png), Global Mean Sea Level - ![Fig 4b](asserts/gmsl_original.png))
+  Original NPCC4 sea level plots for comparison. Citation: [25]. (Path: Battery Park - ![Fig 4a](assets/battery_original.png), Global Mean Sea Level - ![Fig 4b](assets/gmsl_original.png))
 
 - **Fig. 5: Sea level trends with VLM-driven SLR: AutoClimDS (left) vs. Original [25] (right).**
-  Compares Vertical Land Motion contributions (-1.5 mm/yr). Citation: Paper Section III.A; [25]. (AutoClimDS - ![Fig 5a](case_studies/npcc_fig6_good/figs/battery_sea_level_1856_2022.png), Original [25] - ![Fig 5b](<asserts/complex_orig (1).png>))
+  Compares Vertical Land Motion contributions (-1.5 mm/yr). Citation: Paper Section III.A; [25]. (AutoClimDS - ![Fig 5a](case_studies/npcc_fig6_good/figs/battery_sea_level_1856_2022.png), Original [25] - ![Fig 5b](<assets/complex_orig (1).png>))
 
 - **Fig. 6: CMIP6/ERA5 temperature analysis for NYC: historical reanalysis and multi-model SSP2-4.5 projections with ensemble uncertainty.**
-  Shows temperature projections (e.g., ensemble means). Citation: Paper Section III.B. (Global Annual - ![Fig 6a](asserts/01_global_annual_temperature-min.png), Seasonal Patterns - ![Fig 6b](asserts/02_seasonal_temperature_patterns-min.png))
+  Shows temperature projections (e.g., ensemble means). Citation: Paper Section III.B. (Global Annual - ![Fig 6a](assets/01_global_annual_temperature-min.png), Seasonal Patterns - ![Fig 6b](assets/02_seasonal_temperature_patterns-min.png))
 
 These figures demonstrate reproducibility (e.g., JSD=0 for exact matches). Citations reference the paper and [25] (NPCC4 report).
 
