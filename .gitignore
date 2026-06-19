@@ -1,0 +1,44 @@
+# Ignore Python cache and environment
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+
+
+
+
+
+# Ignore Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Ignore system files
+.DS_Store
+*.swp
+*.swo
+
+.env
+
+# Data files stored on S3
+CMIP6Data/CMIP6Meta/
+ERA5Data/ERA5Meta/
+NasaCMRData/cesm_variables/
+NasaCMRData/json_files/
+NasaCMRData/noaa_json/
+ML Model/predictions/
+KGNeptune/neptune_csvs/
+
+# Runtime-generated data and downloads
+Agents/*.csv
+Agents/*.db
+Agents/*.nc
+Agents/*.png
+Agents/*.jsonl
+Agents/token_usage_log.csv
+Agents/floodnet_downloads/
+Agents/floodsimbench_downloads/
+Agents/mrms_downloads/
+Agents/fema_data/
+Agents/era5_data/
+Agents/us_311_data/
+Agents/cmip6_out/
