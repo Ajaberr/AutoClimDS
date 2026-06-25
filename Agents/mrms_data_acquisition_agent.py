@@ -248,6 +248,8 @@ Observation: <result>
 ...
 Final Answer: <answer>
 
+MANDATORY: always include COMPLETE absolute file path in Final Answer for any saved file.
+
 Question: {input}
 Thought:{agent_scratchpad}""")
 
@@ -255,10 +257,9 @@ Thought:{agent_scratchpad}""")
 def get_mrms_agent() -> AgentExecutor:
     llm = BedrockClaudeLLM()
     tools = [SearchMRMSKGTool(), ListMRMSProductsTool(), DownloadMRMSTool()]
-    memory = ConversationBufferWindowMemory(k=5, memory_key="chat_history", return_messages=True)
     agent = create_react_agent(llm=llm, tools=tools, prompt=MRMS_PROMPT)
     return AgentExecutor(
-        agent=agent, tools=tools, memory=memory,
+        agent=agent, tools=tools,
         verbose=True, max_iterations=8, handle_parsing_errors=True,
     )
 
