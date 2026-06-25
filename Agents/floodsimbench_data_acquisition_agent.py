@@ -330,6 +330,8 @@ Observation: <result>
 ...
 Final Answer: <answer>
 
+MANDATORY: always include COMPLETE absolute file path(s) in Final Answer for any saved files.
+
 Question: {input}
 Thought:{agent_scratchpad}""")
 
@@ -337,10 +339,9 @@ Thought:{agent_scratchpad}""")
 def get_floodsimbench_agent() -> AgentExecutor:
     llm = BedrockClaudeLLM()
     tools = [SearchFloodSimBenchKGTool(), ListFloodSimBenchFilesTool(), DownloadFloodSimBenchTool()]
-    memory = ConversationBufferWindowMemory(k=5, memory_key="chat_history", return_messages=True)
     agent = create_react_agent(llm=llm, tools=tools, prompt=FLOODSIMBENCH_PROMPT)
     return AgentExecutor(
-        agent=agent, tools=tools, memory=memory,
+        agent=agent, tools=tools,
         verbose=True, max_iterations=12, handle_parsing_errors=True,
     )
 
