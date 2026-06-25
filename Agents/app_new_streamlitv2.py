@@ -2,6 +2,10 @@ import streamlit as st
 import sys
 import os
 import time
+import json
+import re
+import zipfile
+import io as _io
 from typing import Dict, Any
 
 # Load AWS + API credentials from .env before any agent imports
@@ -15,13 +19,14 @@ except ImportError:
 # 🔒 Security Configuration
 # Add allowed emails here. They must also end with @columbia.edu
 ALLOWED_EMAILS = [
-    "user@columbia.edu",
+    "your-uni@columbia.edu",
 ]
 
 # Import agents
 # Note: Ensure these are in the python path or same directory
 try:
     from climate_research_orchestrator_new_V1 import create_climate_research_orchestrator
+    import climate_research_orchestrator_new_V1 as _orch_module
 except ImportError:
     st.error("Could not import agents. Please ensure you are running this from the 'Agents/Final' directory.")
     st.stop()
@@ -340,6 +345,85 @@ def create_pdf_report(messages, files_list):
 
     return pdf.output(dest='S').encode('latin-1')
 
+
+def create_memory_md(messages):
+    sid = st.session_state.get("session_id", "unknown")
+    email = st.session_state.get("user_email", "unknown")
+    tokens = st.session_state.get("session_tokens", {})
+    lines = [
+        "# AutoClimDS Session Memory", "",
+        f"**Session ID:** `{sid}`",
+        f"**User:** {email}",
+        f"**Date:** {time.strftime('%Y-%m-%d %H:%M:%S')}",
+        f"**Tokens used:** {tokens.get('total', 0):,}  |  **Cost:** ${tokens.get('cost', 0):.3f}",
+        "", "---", "", "## Conversation", "",
+    ]
+    for msg in messages:
+        role = "**User**" if msg["role"] == "user" else "**Assistant**"
+        lines.append(f"### {role}")
+        lines.append(msg["content"].strip())
+        lines.append("")
+    return "\n".join(lines).encode("utf-8")
+
+
+def create_jupyter_notebook(messages):
+    cells = [{
+        "cell_type": "markdown", "metadata": {},
+        "source": [f"# AutoClimDS Research Notebook\nSession: {st.session_state.get('session_id', 'unknown')}  \nGenerated: {time.strftime('%Y-%m-%d %H:%M:%S')}\n"]
+    }]
+    code_block_re = re.compile(r"```(?:python)?\n(.*?)```", re.DOTALL)
+    for msg in messages:
+        if msg["role"] != "assistant":
+            continue
+        code_blocks = code_block_re.findall(msg["content"])
+        text_only = code_block_re.sub("", msg["content"]).strip()
+        if text_only:
+            cells.append({"cell_type": "markdown", "metadata": {}, "source": [text_only]})
+        for code in code_blocks:
+            cells.append({"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": [code.strip()]})
+    nb = {
+        "nbformat": 4, "nbformat_minor": 5,
+        "metadata": {"kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"}, "language_info": {"name": "python", "version": "3.10.0"}},
+        "cells": cells
+    }
+    return json.dumps(nb, indent=2).encode("utf-8")
+
+
+def create_session_zip(messages, session_id, include_memory=True, include_data=True, include_notebook=True):
+    buf = _io.BytesIO()
+    scan_start = st.session_state.get("file_scan_start_time", 0)
+    search_dirs = ['.', 'era5_data', 'cmip6_out', 'downloads', 'fema_data', 'us_311_data',
+                   'floodnet_downloads', 'floodsimbench_downloads', 'mrms_downloads', 'outputs']
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        if include_memory:
+            zf.writestr(f"{session_id}_memory.md", create_memory_md(messages))
+        if include_notebook:
+            zf.writestr(f"{session_id}_notebook.ipynb", create_jupyter_notebook(messages))
+        zf.writestr(f"{session_id}_session.json", json.dumps({
+            "session_id": session_id,
+            "user_email": st.session_state.get("user_email", "unknown"),
+            "messages": messages,
+            "metrics": st.session_state.get("session_tokens", {})
+        }, indent=2))
+        if include_data:
+            added = set()
+            for d in search_dirs:
+                if not os.path.exists(d):
+                    continue
+                for fname in os.listdir(d):
+                    fpath = os.path.join(d, fname)
+                    if fname in added or not os.path.isfile(fpath):
+                        continue
+                    if os.path.getmtime(fpath) >= scan_start:
+                        try:
+                            zf.write(fpath, arcname=f"data/{fname}")
+                            added.add(fname)
+                        except Exception:
+                            pass
+    buf.seek(0)
+    return buf.read()
+
+
 def initialize_agent():
     """Initialize the orchestrator agent and store in session state"""
     try:
@@ -402,7 +486,13 @@ with st.sidebar:
     st.divider()
 
     st.header("⚙️ Configuration")
-    
+
+    _jupyter_on = st.toggle("LAMBDA", value=False, key="jupyter_kernel_toggle")
+    if _jupyter_on:
+        os.environ["AUTOCLIMDS_JUPYTER_MODE"] = "1"
+    else:
+        os.environ.pop("AUTOCLIMDS_JUPYTER_MODE", None)
+
     # Credential Inputs (Safe fallback if env vars missing)
     with st.expander("🔑 API Credentials (Optional)"):
         st.caption("If not set in `.env`, enter keys here.")
@@ -433,6 +523,52 @@ with st.sidebar:
     else:
         st.warning("Install 'fpdf' to enable PDF export.")
 
+    st.divider()
+    st.subheader("💾 Session Memory")
+
+    with st.expander("📦 Save Session", expanded=False):
+        _inc_mem  = st.checkbox("Memory summary (.md)",       value=True, key="save_inc_mem")
+        _inc_data = st.checkbox("Downloaded data files",       value=True, key="save_inc_data")
+        _inc_nb   = st.checkbox("Jupyter notebook (.ipynb)",   value=True, key="save_inc_nb")
+        if st.button("Build ZIP", use_container_width=True, key="save_session_zip_btn"):
+            _sid = st.session_state.get("session_id", "session")
+            with st.spinner("Packaging session…"):
+                try:
+                    _zip = create_session_zip(st.session_state.messages, _sid,
+                                              include_memory=_inc_mem,
+                                              include_data=_inc_data,
+                                              include_notebook=_inc_nb)
+                    st.session_state["_session_zip_bytes"] = _zip
+                    st.session_state["_session_zip_name"] = f"{_sid}_autoclimds.zip"
+                except Exception as e:
+                    st.error(f"Failed to build ZIP: {e}")
+        if st.session_state.get("_session_zip_bytes"):
+            st.download_button(
+                "⬇️ Download ZIP",
+                st.session_state["_session_zip_bytes"],
+                st.session_state.get("_session_zip_name", "session.zip"),
+                "application/zip",
+                use_container_width=True,
+                key="dl_session_zip"
+            )
+
+    with st.expander("📂 Load Session", expanded=False):
+        _uploaded_zip = st.file_uploader("Upload session ZIP", type=["zip"], key="load_session_zip_uploader")
+        if _uploaded_zip and st.button("Restore Session", use_container_width=True, key="restore_session_btn"):
+            try:
+                zf = zipfile.ZipFile(_io.BytesIO(_uploaded_zip.read()))
+                json_files = [n for n in zf.namelist() if n.endswith("_session.json")]
+                if json_files:
+                    data = json.loads(zf.read(json_files[0]))
+                    st.session_state.messages = data.get("messages", st.session_state.messages)
+                    st.session_state["session_tokens"] = data.get("metrics", st.session_state.get("session_tokens", {}))
+                    st.success("Session restored! Scroll up to see conversation history.")
+                    st.rerun()
+                else:
+                    st.error("No session JSON found in ZIP.")
+            except Exception as e:
+                st.error(f"Failed to restore session: {e}")
+
 # --- Main Chat Interface ---
 
 # 1. Display Chat History
@@ -460,6 +596,8 @@ if prompt := st.chat_input("What is your research question?"):
         callback = SafeStreamlitCallbackHandler(tool_container)
         
         try:
+            _orch_module._LAMBDA_CONTEXT = list(st.session_state.messages)
+
             # Run the agent with the user's prompt
             # We use 'invoke' which maintains chain history if memory is configured in the agent
             response = st.session_state.agent.invoke(
