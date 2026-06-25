@@ -487,20 +487,21 @@ Observation: result
 ...
 Final Answer: Final response.
 
+MANDATORY: always include COMPLETE absolute file path in Final Answer for any saved file.
+
 Question: {input}
 Thought: {agent_scratchpad}"""
 
     prompt = PromptTemplate.from_template(template)
-    
+
     agent = create_react_agent(llm, tools, prompt)
-    
+
     return AgentExecutor(
         agent=agent,
         tools=tools,
         verbose=True,
         max_iterations=50,
         handle_parsing_errors=True,
-        memory=ConversationBufferWindowMemory(k=5, memory_key="chat_history", return_messages=True)
     )
 
 def get_311_agent():
