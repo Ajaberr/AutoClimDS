@@ -203,10 +203,11 @@ class DownloadFemaDataTool(BaseTool):
                 return "No data found to download."
             
             df = pd.DataFrame(data)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
             df.to_csv(output_path, index=False)
-            
-            return f"Successfully downloaded {len(df)} records to {output_path}."
-            
+
+            return f"Successfully downloaded {len(df)} records to {output_path.resolve()}."
+
         except Exception as e:
             return f"Download failed: {e}"
 
@@ -214,15 +215,15 @@ class DownloadFemaDataTool(BaseTool):
 
 def create_fema_agent() -> AgentExecutor:
     """Create the FEMA Data Acquisition Agent."""
-    
+
     llm = BedrockClaudeLLM()
-    
+
     tools = [
         ListFemaDatasetsTool(),
         QueryFemaDatasetTool(),
         DownloadFemaDataTool()
     ]
-    
+
     template = """You are an expert FEMA Data Acquisition Agent.
 Your goal is to help users find and download disaster, flood, and emergency management data using the OpenFEMA API.
 
@@ -240,6 +241,31 @@ Your goal is to help users find and download disaster, flood, and emergency mana
 1. If the user asks for data but doesn't specify a dataset ID, use `list_fema_datasets` to find the most relevant one.
 2. Use `query_fema_dataset` to peek at the data and verify filters work (e.g. valid fields).
 3. Use `download_fema_data` to save the final file.
+4. **File Path Reporting (MANDATORY)**: In your Final Answer, ALWAYS include the COMPLETE absolute file path for any saved file. NEVER report just the filename without the full directory path.
+
+**Methodological Guardrails (CRITICAL):**
+1. **Cross-Categorical Search**: "Flood" is a result, not just a cause. When users ask for "flood data", you MUST qualify your search to include related Incident Types:
+   - "Hurricane" (e.g., Hurricane Ida caused massive flooding but is classified as Hurricane)
+   - "Severe Storm(s)"
+   - "Coastal Storm"
+   - "Dam/Levee Break"
+   - "Tornado" (often accompanied by heavy rain/flooding)
+2. **Zero-Result Safety Check**: If a query for `incidentType eq 'Flood'` returns 0 results for a known disaster period, do NOT conclude "no floods occurred". IMMEDIATELY re-run the query with `incidentType eq 'Hurricane'` or `incidentType eq 'Severe Storm'`.
+3. **Clarification**: If unsure, list the disaster declarations found for that period regardless of type, so the user can see explicit event names.
+4. **Expanded Disaster Types (Rule of Thumb)**:
+   - **Wildfire**: Check also "Fire", "Drought" (precursor), "Mud/Landslide" (post-fire).
+   - **Winter Storm**: Check also "Snow", "Ice Storm", "Freezing", "Blizzard", "Severe Storm".
+   - **Severe Storm**: Check also "Tornado", "Straight-line Winds", "Thunderstorm", "Hail".
+   - **Earthquake**: Check also "Tsunami", "Fire".
+5. **Counting Methodology (CRITICAL - Avoid Misleading Numbers)**:
+   - FEMA declarations are counted **per county and per declaration type** (IA, PA, EM). One hurricane affecting 20 counties = 20+ records in DisasterDeclarationsSummaries, NOT 20 separate hurricanes.
+   - When reporting "how many" disasters occurred, ALWAYS deduplicate by `disasterNumber` to get **unique disaster events** (not raw record count).
+   - Example: "261 hurricane declaration records" is WRONG to report as "261 hurricanes". It should be: "X unique hurricanes resulted in 261 county-level declarations."
+   - Use this pattern: group by `disasterNumber` first, then count unique events vs total declaration records.
+6. **Cascading Disaster Chains (Explain Relationships)**:
+   - Hurricanes often cause flooding, storm surge, tornadoes, and landslides — but FEMA classifies the event by its PRIMARY incident type.
+   - When a user asks about "floods in NY 2021", explain that Hurricane Ida (classified as "Hurricane") caused catastrophic flooding — it won't appear under `incidentType eq 'Flood'`.
+   - Always explain these causal chains in your response so users understand why a "flood" search may miss hurricane-caused floods.
 
 **Tools:**
 {tools}
@@ -256,20 +282,21 @@ Observation: result
 ...
 Final Answer: Final response.
 
+MANDATORY: always include COMPLETE absolute file path in Final Answer for any saved file.
+
 Question: {input}
 Thought: {agent_scratchpad}"""
 
     prompt = PromptTemplate.from_template(template)
-    
+
     agent = create_react_agent(llm, tools, prompt)
-    
+
     return AgentExecutor(
         agent=agent,
         tools=tools,
         verbose=True,
         max_iterations=20,
         handle_parsing_errors=True,
-        memory=ConversationBufferWindowMemory(k=5, memory_key="chat_history", return_messages=True)
     )
 
 def get_fema_agent():

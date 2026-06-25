@@ -4903,29 +4903,21 @@ def create_nasa_cmr_agent():
     Thought:{agent_scratchpad}"""
 
     prompt = PromptTemplate(
-        input_variables=["input", "agent_scratchpad"],
+        input_variables=["input", "agent_scratchpad", "tools", "tool_names"],
         template=template,
-        partial_variables={
-            "tools": "\n".join([f"{tool.name}: {tool.description}" for tool in tools]),
-            "tool_names": ", ".join([tool.name for tool in tools])
-        }
     )
+    tools_str = "\n".join([f"{tool.name}: {tool.description}" for tool in tools])
+    tool_names_str = ", ".join([tool.name for tool in tools])
+    prompt = prompt.partial(tools=tools_str, tool_names=tool_names_str)
 
     # Create the ReAct agent
     agent = create_react_agent(llm, tools, prompt)
 
-    # Create memory
-    memory = ConversationBufferWindowMemory(
-        memory_key="chat_history",
-        k=5,  # Keep last 5 exchanges
-        return_messages=True
-    )
     handler = JsonlEventCallback()
     # Create agent executor
     agent_executor = AgentExecutor(
         agent=agent,
         tools=tools,
-        memory=memory,
         verbose=True,
         handle_parsing_errors=True,
         max_iterations=75,  # Increased for data loading workflow
