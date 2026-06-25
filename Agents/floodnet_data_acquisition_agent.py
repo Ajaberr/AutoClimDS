@@ -168,10 +168,11 @@ class DownloadFloodNetTool(BaseTool):
         output_path = Path(DOWNLOAD_DIR) / filename
 
         df = pd.DataFrame(records)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
         df.to_csv(output_path, index=False)
 
         return (
-            f"Downloaded {len(df)} FloodNet flood event records to {output_path}.\n"
+            f"Downloaded {len(df)} FloodNet flood event records to {output_path.resolve()}.\n"
             f"Columns: {', '.join(df.columns.tolist())}\n"
             f"Date range: {df['flood_start_time'].min()} to {df['flood_start_time'].max()}"
         )
@@ -198,6 +199,8 @@ Observation: <result>
 Thought: I now know the final answer.
 Final Answer: <answer>
 
+MANDATORY: always include COMPLETE absolute file path in Final Answer for any saved file.
+
 Question: {input}
 Thought:{agent_scratchpad}""")
 
@@ -205,10 +208,9 @@ Thought:{agent_scratchpad}""")
 def get_floodnet_agent() -> AgentExecutor:
     llm = BedrockClaudeLLM()
     tools = [SearchFloodNetKGTool(), DownloadFloodNetTool()]
-    memory = ConversationBufferWindowMemory(k=5, memory_key="chat_history", return_messages=True)
     agent = create_react_agent(llm=llm, tools=tools, prompt=FLOODNET_PROMPT)
     return AgentExecutor(
-        agent=agent, tools=tools, memory=memory,
+        agent=agent, tools=tools,
         verbose=True, max_iterations=8, handle_parsing_errors=True,
     )
 
