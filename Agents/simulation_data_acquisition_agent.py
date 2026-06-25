@@ -93,8 +93,11 @@ except ImportError as e:
     CMIP6_HELPERS_AVAILABLE = False
     logger.warning(f"CMIP6 helper functions not available: {e}")
 
-from dotenv import load_dotenv
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 # --- Configuration Constants ---
 BEDROCK_REGION = os.getenv("BEDROCK_REGION", "us-east-2")
@@ -242,14 +245,43 @@ class ERA5DownloadHandler:
         self.client = None
         if CDSAPI_AVAILABLE:
             try:
-                self.client = cdsapi.Client()
-                logger.info("CDS API client initialized")
+                cds_url = os.environ.get("CDSAPI_URL", "")
+                cds_key = os.environ.get("CDSAPI_KEY", "")
+                if cds_url and cds_key:
+                    self.client = cdsapi.Client(url=cds_url, key=cds_key, quiet=True)
+                    logger.info("CDS API client initialized from environment variables")
+                else:
+                    self.client = cdsapi.Client(quiet=True)
+                    logger.info("CDS API client initialized from .cdsapirc")
             except Exception as e:
                 logger.warning(f"CDS API client init failed: {e}")
 
     def is_configured(self) -> bool:
         """Check if CDS API is properly configured"""
         return self.client is not None
+
+    def reconfigure(self, url: Optional[str] = None, key: Optional[str] = None):
+        """Reconfigure CDS API client with new credentials"""
+        if not CDSAPI_AVAILABLE:
+            return False, "cdsapi not available"
+        try:
+            if url and key:
+                self.client = cdsapi.Client(url=url, key=key, quiet=True)
+                logger.info("CDS API client reconfigured from user input")
+                return True, "Successfully reconfigured CDS API."
+            # Reload from env or file
+            env_url = os.environ.get("CDSAPI_URL", "")
+            env_key = os.environ.get("CDSAPI_KEY", "")
+            if env_url and env_key:
+                self.client = cdsapi.Client(url=env_url, key=env_key, quiet=True)
+                logger.info("CDS API client reconfigured from environment")
+                return True, "Reconfigured from environment variables."
+            self.client = cdsapi.Client(quiet=True)
+            logger.info("CDS API client reconfigured from .cdsapirc")
+            return True, "Reconfigured from .cdsapirc."
+        except Exception as e:
+            logger.error(f"Reconfiguration failed: {e}")
+            return False, f"Reconfiguration failed: {str(e)}"
 
     def build_download_request(
         self, dataset_info: Dict[str, Any], parameters: Optional[Dict[str, Any]] = None
@@ -311,13 +343,24 @@ class ERA5DownloadHandler:
 
         return payload
 
+    def _get_chunk_suffix(self, params: Dict[str, Any]) -> str:
+        """Generate suffix for chunk filename based on year/month"""
+        years = params.get("year", [])
+        months = params.get("month", [])
+        if len(years) == 1:
+            y = years[0]
+            if len(months) == 1:
+                return f"_{y}{months[0]}"
+            return f"_{y}"
+        return ""
+
     def download_era5_data(
         self,
         dataset_id: str,
         output_file: str,
         parameters: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """Download ERA5 data using cdsapi"""
+        """Download ERA5 data using cdsapi (with auto-chunking)"""
         if not self.is_configured():
             return {
                 "success": False,
@@ -340,32 +383,74 @@ class ERA5DownloadHandler:
             if not slug:
                 return {"success": False, "error": "Dataset missing CDS slug"}
 
-            payload = self.build_download_request(dataset_info, parameters)
+            base_payload = self.build_download_request(dataset_info, parameters)
 
-            # Validate payload before submission
-            if not payload.get("variable"):
+            # Validate base payload
+            if not base_payload.get("variable"):
                 return {"success": False, "error": "Missing required parameter: variable"}
-            if not payload.get("year"):
-                return {"success": False, "error": "Missing required parameter: year"}
-            
-            # Log payload for debugging
-            logger.info(f"Downloading ERA5 data: {dataset_id} -> {output_file}")
+
+            # --- AUTO-CHUNKING LOGIC ---
+            # Check if request spans multiple years
+            years = base_payload.get("year", [])
+            if not isinstance(years, list):
+                years = [years]
+
+            # Rule: Split if > 1 year
+            should_chunk = len(years) > 1
+
+            if should_chunk:
+                logger.info(f"Auto-chunking logic triggered for {len(years)} years")
+                downloaded_files = []
+                total_size = 0
+
+                for year in sorted(years):
+                    chunk_payload = base_payload.copy()
+                    chunk_payload["year"] = [year]
+
+                    # Generate chunk filename: inject year before extension
+                    p = Path(output_file)
+                    chunk_filename = p.parent / f"{p.stem}_{year}{p.suffix}"
+                    chunk_file_str = str(chunk_filename)
+
+                    logger.info(f"Downloading chunk: {year} -> {chunk_file_str}")
+
+                    try:
+                        self.client.retrieve(slug, chunk_payload, chunk_file_str)
+
+                        if Path(chunk_file_str).exists():
+                            sz = Path(chunk_file_str).stat().st_size
+                            total_size += sz
+                            downloaded_files.append(chunk_file_str)
+                        else:
+                            logger.error(f"Chunk download failed (file missing): {chunk_file_str}")
+                    except Exception as e:
+                        logger.error(f"Chunk download error for {year}: {e}")
+                        return {"success": False, "error": f"Failed to download chunk {year}: {str(e)}"}
+
+                return {
+                    "success": True,
+                    "output_file": downloaded_files,
+                    "file_size_bytes": total_size,
+                    "dataset_id": dataset_id,
+                    "payload": base_payload,
+                    "chunked": True,
+                }
+
+            # --- STANDARD SINGLE DOWNLOAD ---
+            logger.info(f"Downloading ERA5 data (single request): {dataset_id} -> {output_file}")
             logger.info(f"CDS Slug: {slug}")
-            logger.info(f"Payload: {json.dumps(payload, indent=2)}")
-            
+
             # Validate payload format (all list params should be lists)
             list_params = ["year", "month", "day", "time", "variable"]
             for key in list_params:
-                if key in payload and not isinstance(payload[key], list):
+                if key in base_payload and not isinstance(base_payload[key], list):
                     return {
                         "success": False,
-                        "error": f"Parameter '{key}' must be a list, got {type(payload[key])}: {payload[key]}"
+                        "error": f"Parameter '{key}' must be a list, got {type(base_payload[key])}: {base_payload[key]}"
                     }
 
-            # Submit download request (asynchronous)
-            self.client.retrieve(slug, payload, output_file)
+            self.client.retrieve(slug, base_payload, output_file)
 
-            # Check if file was created
             if Path(output_file).exists():
                 file_size = Path(output_file).stat().st_size
                 return {
@@ -373,7 +458,7 @@ class ERA5DownloadHandler:
                     "output_file": output_file,
                     "file_size_bytes": file_size,
                     "dataset_id": dataset_id,
-                    "payload": payload,
+                    "payload": base_payload,
                 }
             else:
                 return {
@@ -2893,28 +2978,20 @@ def create_simulation_data_acquisition_agent() -> AgentExecutor:
                 """
 
     prompt = PromptTemplate(
-        input_variables=["input", "agent_scratchpad"],
+        input_variables=["input", "agent_scratchpad", "tools", "tool_names"],
         template=template,
-        partial_variables={
-            "tools": "\n".join([f"{tool.name}: {tool.description}" for tool in tools]),
-            "tool_names": ", ".join([tool.name for tool in tools]),
-        },
     )
-    
+    tools_str = "\n".join([f"{tool.name}: {tool.description}" for tool in tools])
+    tool_names_str = ", ".join([tool.name for tool in tools])
+    prompt = prompt.partial(tools=tools_str, tool_names=tool_names_str)
+
     agent = create_react_agent(llm, tools, prompt)
-    memory = ConversationBufferWindowMemory(
-        memory_key="chat_history",
-        k=5,
-        return_messages=True,
-    )
     executor = AgentExecutor(
         agent=agent,
         tools=tools,
-        memory=memory,
         verbose=True,
         handle_parsing_errors=True,
         max_iterations=50,
-        early_stopping_method="generate",
     )
     return executor
 

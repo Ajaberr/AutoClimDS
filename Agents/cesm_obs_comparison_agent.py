@@ -235,7 +235,6 @@ Thought: {agent_scratchpad}"""
         verbose=True,
         max_iterations=10,
         handle_parsing_errors=True,
-        memory=ConversationBufferWindowMemory(k=5, memory_key="chat_history", return_messages=True)
     )
 
 if __name__ == "__main__":

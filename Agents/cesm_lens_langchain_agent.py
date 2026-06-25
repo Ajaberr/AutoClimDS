@@ -108,7 +108,7 @@ def setup_dual_logging(log_file="climate_sim_log.txt"):
 BEDROCK_REGION = "us-east-2"
 BEDROCK_MODEL_ID = "us.anthropic.claude-sonnet-4-20250514-v1:0"
 NEPTUNE_REGION = "us-east-2" 
-GRAPH_ID = "g-kn6xkxo6r5"
+GRAPH_ID = os.getenv("GRAPH_ID", "g-xxxx")
 
 # --- Bedrock LLM (same as KG agent) ---
 class BedrockClaudeLLM(LLM):

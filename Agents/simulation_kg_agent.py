@@ -105,9 +105,11 @@ if not LANGCHAIN_AVAILABLE:  # pragma: no cover - stub definitions
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-from dotenv import load_dotenv
-
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 ROOT_DIR = pathlib.Path(__file__).resolve().parents[1]
 # Use current directory (Agents/) for database and metadata
@@ -2462,27 +2464,19 @@ def create_simulation_agent() -> AgentExecutor:
         GetEvaluationMetricsTool(),
     ]
     prompt = PromptTemplate(
-        input_variables=["input", "agent_scratchpad"],
+        input_variables=["input", "agent_scratchpad", "tools", "tool_names"],
         template=SIMULATION_TEMPLATE,
-        partial_variables={
-            "tools": "\n".join(f"{tool.name}: {tool.description}" for tool in tools),
-            "tool_names": ", ".join([tool.name for tool in tools]),
-        },
     )
+    tools_str = "\n".join(f"{tool.name}: {tool.description}" for tool in tools)
+    tool_names_str = ", ".join([tool.name for tool in tools])
+    prompt = prompt.partial(tools=tools_str, tool_names=tool_names_str)
     agent = create_react_agent(LLM_INSTANCE, tools, prompt)
-    memory = ConversationBufferWindowMemory(
-        memory_key="chat_history",
-        k=4,
-        return_messages=True,
-    )
     executor = AgentExecutor(
         agent=agent,
         tools=tools,
-        memory=memory,
         verbose=True,
         handle_parsing_errors=True,
         max_iterations=40,
-        early_stopping_method="generate",
         return_intermediate_steps=False,
     )
     return executor
