@@ -114,7 +114,7 @@ class MethodologySearchTool(BaseTool):
                 results = search.run(enhanced_query)
                 
                 # Check if results are relevant (filter out irrelevant content)
-                if any(irrelevant in results.lower() for irrelevant in ['iphone', '手机', 'smartphone', 'car', '汽车']):
+                if any(irrelevant in results.lower() for irrelevant in ['iphone', 'smartphone', 'car', 'vehicle']):
                     raise Exception("Irrelevant search results")
                     
                 return f" Methodology Search Results for '{query}':\n{results}"
@@ -775,29 +775,20 @@ Question: {input}
 Thought:{agent_scratchpad}"""
 
     prompt = PromptTemplate(
-        input_variables=["input", "agent_scratchpad"],
+        input_variables=["input", "agent_scratchpad", "tools", "tool_names"],
         template=template,
-        partial_variables={
-            "tools": "\n".join([f"{tool.name}: {tool.description}" for tool in tools]),
-            "tool_names": ", ".join([tool.name for tool in tools])
-        }
     )
-    
+    tools_str = "\n".join([f"{tool.name}: {tool.description}" for tool in tools])
+    tool_names_str = ", ".join([tool.name for tool in tools])
+    prompt = prompt.partial(tools=tools_str, tool_names=tool_names_str)
+
     # Create the ReAct agent
     agent = create_react_agent(llm, tools, prompt)
-    
-    # Create memory
-    memory = ConversationBufferWindowMemory(
-        memory_key="chat_history",
-        k=3,
-        return_messages=True
-    )
-    
+
     # Create agent executor
     agent_executor = AgentExecutor(
         agent=agent,
         tools=tools,
-        memory=memory,
         verbose=True,
         handle_parsing_errors=True,
         max_iterations=10

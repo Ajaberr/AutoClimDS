@@ -19,7 +19,7 @@ except ImportError:
 # 🔒 Security Configuration
 # Add allowed emails here. They must also end with @columbia.edu
 ALLOWED_EMAILS = [
-    "your-uni@columbia.edu",
+    "ar4982@columbia.edu",
 ]
 
 # Import agents
@@ -346,24 +346,104 @@ def create_pdf_report(messages, files_list):
     return pdf.output(dest='S').encode('latin-1')
 
 
+# Memory compression: runs only when the user clicks Build ZIP.
+# Uses Bedrock Claude to summarize the conversation into a compact markdown
+# that a future session can load as prior context.
+_COMPACT_PROMPT = """You are summarizing an AutoClimDS climate research session
+for long-term memory storage. The output will be handed to a future assistant
+so the user can pick up where they left off.
+
+PRESERVE (never omit):
+- User identity, project goal, current focus
+- Every file path or dataset name that was referenced
+- Data sources loaded (variable, region, time range, size, storm event)
+- Decisions the user approved or rejected, with turn/context
+- Numerical results already reported (metric values, coefficients, AUCs, etc.)
+- User preferences on style, language, format
+- Open action items and what is still blocked
+
+MAY OMIT:
+- Long reasoning chains from the assistant
+- Raw tool outputs (keep only the conclusions)
+- Superseded intermediate values
+- Purely conversational chatter with no new content
+
+FORMAT: return valid markdown, in this order:
+
+## Session Context
+<1-2 sentences on user + goal>
+
+## Files & Artifacts
+- <path>: <one-line description>
+
+## Data Loaded
+- <dataset>: <scope>
+
+## Decisions Made
+- <decision>
+
+## Numerical Results
+- <metric> = <value>
+
+## Open Items
+- <task>
+
+## User Preferences
+- <preference>
+
+CONVERSATION:
+{conversation}
+"""
+
+
+def _bedrock_llm_or_none():
+    try:
+        from climate_research_orchestrator_new_V1 import BedrockClaudeLLM
+        return BedrockClaudeLLM()
+    except Exception:
+        return None
+
+
+def _compress_conversation(messages):
+    llm = _bedrock_llm_or_none()
+    if llm is None:
+        return "_(Compression unavailable: Bedrock client could not be initialized.)_"
+
+    parts = []
+    for m in messages:
+        role = m.get("role", "")
+        if role in ("system", "tool"):
+            continue
+        content = str(m.get("content", "")).strip()
+        if not content:
+            continue
+        parts.append(f"[{role.upper()}]: {content[:1500]}")
+    convo = "\n\n".join(parts)
+
+    prompt = _COMPACT_PROMPT.format(conversation=convo)
+    try:
+        resp = llm.invoke(prompt)
+        return resp.content if hasattr(resp, "content") else str(resp)
+    except Exception as e:
+        return f"_(Compression failed: {e})_"
+
+
 def create_memory_md(messages):
-    sid = st.session_state.get("session_id", "unknown")
-    email = st.session_state.get("user_email", "unknown")
+    """Claude-compressed markdown memory of the session."""
+    sid    = st.session_state.get("session_id", "unknown")
+    email  = st.session_state.get("user_email", "unknown")
     tokens = st.session_state.get("session_tokens", {})
-    lines = [
-        "# AutoClimDS Session Memory", "",
+    header = [
+        "# AutoClimDS Session Memory (Compressed)", "",
         f"**Session ID:** `{sid}`",
         f"**User:** {email}",
         f"**Date:** {time.strftime('%Y-%m-%d %H:%M:%S')}",
         f"**Tokens used:** {tokens.get('total', 0):,}  |  **Cost:** ${tokens.get('cost', 0):.3f}",
-        "", "---", "", "## Conversation", "",
+        f"**Turns compressed:** {len(messages)}",
+        "", "---", "",
     ]
-    for msg in messages:
-        role = "**User**" if msg["role"] == "user" else "**Assistant**"
-        lines.append(f"### {role}")
-        lines.append(msg["content"].strip())
-        lines.append("")
-    return "\n".join(lines).encode("utf-8")
+    summary = _compress_conversation(messages)
+    return ("\n".join(header) + summary).encode("utf-8")
 
 
 def create_jupyter_notebook(messages):
@@ -493,6 +573,44 @@ with st.sidebar:
     else:
         os.environ.pop("AUTOCLIMDS_JUPYTER_MODE", None)
 
+    # Scholar search controls: active only when the user asks for literature.
+    # Defaults still apply if the sidebar is never touched.
+    from datetime import datetime as _dt
+    _current_year = _dt.now().year
+
+    with st.expander("📚 Scholar Search Controls", expanded=False):
+        st.caption("Applied automatically when you ask to find papers or search literature.")
+
+        _top_k = st.number_input(
+            "Top K", min_value=1, max_value=100, value=5, step=1,
+            help="How many papers to return. Recommended 1-30; hard cap 100 (API limit)."
+        )
+
+        _year_from, _year_to = st.slider(
+            "Year range",
+            min_value=2000, max_value=_current_year,
+            value=(2020, _current_year),
+        )
+
+        _depth_label = st.radio(
+            "Summary depth",
+            options=["Quick", "Standard", "Detailed"],
+            index=1, horizontal=True,
+            help=(
+                "Quick: use the paper's TL;DR (no LLM call). "
+                "Standard: LLM produces a 3-sentence summary. "
+                "Detailed: LLM produces a ~100-word paragraph."
+            ),
+        )
+
+        # Push knobs to env so the Scholar agent picks them up on the next call.
+        # Advanced knobs (min citations, sort order, open-access, full abstract) stay
+        # at their code-side defaults and are not exposed in the sidebar.
+        os.environ["SCHOLAR_TOP_K"]         = str(int(_top_k))
+        os.environ["SCHOLAR_YEAR_FROM"]     = str(int(_year_from))
+        os.environ["SCHOLAR_YEAR_TO"]       = str(int(_year_to))
+        os.environ["SCHOLAR_SUMMARY_DEPTH"] = _depth_label.lower()
+
     # Credential Inputs (Safe fallback if env vars missing)
     with st.expander("🔑 API Credentials (Optional)"):
         st.caption("If not set in `.env`, enter keys here.")
@@ -532,7 +650,7 @@ with st.sidebar:
         _inc_nb   = st.checkbox("Jupyter notebook (.ipynb)",   value=True, key="save_inc_nb")
         if st.button("Build ZIP", use_container_width=True, key="save_session_zip_btn"):
             _sid = st.session_state.get("session_id", "session")
-            with st.spinner("Packaging session…"):
+            with st.spinner("Packaging session..."):
                 try:
                     _zip = create_session_zip(st.session_state.messages, _sid,
                                               include_memory=_inc_mem,
@@ -553,21 +671,77 @@ with st.sidebar:
             )
 
     with st.expander("📂 Load Session", expanded=False):
-        _uploaded_zip = st.file_uploader("Upload session ZIP", type=["zip"], key="load_session_zip_uploader")
-        if _uploaded_zip and st.button("Restore Session", use_container_width=True, key="restore_session_btn"):
-            try:
-                zf = zipfile.ZipFile(_io.BytesIO(_uploaded_zip.read()))
-                json_files = [n for n in zf.namelist() if n.endswith("_session.json")]
-                if json_files:
-                    data = json.loads(zf.read(json_files[0]))
-                    st.session_state.messages = data.get("messages", st.session_state.messages)
-                    st.session_state["session_tokens"] = data.get("metrics", st.session_state.get("session_tokens", {}))
-                    st.success("Session restored! Scroll up to see conversation history.")
-                    st.rerun()
-                else:
-                    st.error("No session JSON found in ZIP.")
-            except Exception as e:
-                st.error(f"Failed to restore session: {e}")
+        _uploaded = st.file_uploader(
+            "Upload files",
+            type=["zip", "csv", "xlsx", "json", "png", "jpg", "jpeg",
+                  "pdf", "nc", "grib", "txt", "md", "geojson", "tif", "tiff"],
+            accept_multiple_files=True,
+            key="unified_uploader",
+        )
+        if _uploaded and st.button("Load", use_container_width=True, key="unified_load_btn"):
+            sid_now    = st.session_state.get("session_id", "unknown")
+            upload_dir = os.path.join("uploads", sid_now)
+            os.makedirs(upload_dir, exist_ok=True)
+
+            session_restored = False
+            external_files   = []
+
+            with st.spinner("Loading uploads..."):
+                for uf in _uploaded:
+                    raw = uf.read()
+                    if uf.name.lower().endswith(".zip"):
+                        try:
+                            zf = zipfile.ZipFile(_io.BytesIO(raw))
+                            json_files = [n for n in zf.namelist()
+                                          if n.endswith("_session.json")]
+                            if json_files:
+                                data = json.loads(zf.read(json_files[0]))
+                                st.session_state.messages = data.get("messages", st.session_state.messages)
+                                st.session_state["session_tokens"] = data.get("metrics", st.session_state.get("session_tokens", {}))
+                                if data.get("session_id"):
+                                    st.session_state["session_id"] = data["session_id"]
+                                session_restored = True
+                            else:
+                                # Data ZIP: extract to uploads/<session>/
+                                for name in zf.namelist():
+                                    if name.endswith("/"):
+                                        continue
+                                    target = os.path.join(upload_dir,
+                                                          os.path.basename(name))
+                                    with open(target, "wb") as out:
+                                        out.write(zf.read(name))
+                                    external_files.append(os.path.basename(name))
+                        except zipfile.BadZipFile:
+                            st.error(f"{uf.name}: not a valid ZIP.")
+                    else:
+                        # Non-ZIP: save directly
+                        target = os.path.join(upload_dir, uf.name)
+                        with open(target, "wb") as out:
+                            out.write(raw)
+                        external_files.append(uf.name)
+
+            if session_restored:
+                st.success("✅ Session restored. Scroll up to see history.")
+            if external_files:
+                files_list = "\n".join(f"- `{f}`" for f in external_files)
+                note = (
+                    "📎 **User uploaded external files for analysis.**\n\n"
+                    f"Location: `{upload_dir}`\n\n"
+                    f"Files:\n{files_list}\n\n"
+                    "You may load them with pandas / xarray / PIL through "
+                    "`execute_analysis_code` when the user's next request "
+                    "requires them."
+                )
+                st.session_state.messages.append({
+                    "role":    "assistant",
+                    "content": note,
+                    "files":   [os.path.join(upload_dir, f) for f in external_files],
+                })
+                st.success(f"📎 {len(external_files)} file(s) attached, "
+                           "available on your next question.")
+            if not session_restored and not external_files:
+                st.warning("Nothing to load.")
+            st.rerun()
 
 # --- Main Chat Interface ---
 
