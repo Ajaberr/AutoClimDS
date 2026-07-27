@@ -178,6 +178,19 @@ def get_fema_data_agent():
             return {"output": "FEMA Agent (Mock): Would search/download FEMA data."}
     return WorkingMockAgent()
 
+def get_scholar_agent():
+    """Get Scholar Data Agent - works with .py files or same kernel"""
+    try:
+        from scholar_data_acquisition_agent import get_scholar_agent as _get
+        return _get()
+    except Exception:
+        pass
+
+    class WorkingMockAgent:
+        def invoke(self, inputs):
+            return {"output": "Scholar Agent (Mock): Would search Semantic Scholar for academic papers."}
+    return WorkingMockAgent()
+
 def get_floodnet_agent():
     """Get FloodNet Data Agent - works with .py files or same kernel"""
     try:
@@ -340,7 +353,7 @@ class ResearchContext:
 class UserQueryTool(BaseTool):
     """Interactive tool to ask intelligent follow-up questions to clarify research requirements"""
     name: str = "capture_user_query"
-    description: str = "Ask specific, targeted questions to gather missing research details. Examples: 'What geographic coordinates?', 'What time period?', 'Which variables?'. Use this ONLY ONCE per conversation turn, and NEVER if the user has already said 'Approve', 'Proceed', 'Yes', or 'Continue' — in that case use reasonable defaults and proceed immediately."
+    description: str = "Ask specific, targeted questions to gather missing research details. Examples: 'What geographic coordinates?', 'What time period?', 'Which variables?'. Use this ONLY ONCE per conversation turn, and NEVER if the user has already said 'Approve', 'Proceed', 'Yes', or 'Continue' - in that case use reasonable defaults and proceed immediately."
 
     def _run(self, query_prompt: str = "What climate research question would you like to investigate?", run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
         output = f"🔴 **WAITING FOR USER INPUT** 🔴\n\n"
@@ -427,6 +440,26 @@ class CallFemaAgent(BaseTool):
             return response.get('output', 'No output from FEMA agent')
         except Exception as e:
             return f" FEMA Agent error: {str(e)}"
+
+class CallScholarAgent(BaseTool):
+    """Call Scholar Data Acquisition Agent to search academic literature via Semantic Scholar."""
+    name: str = "search_scholar_literature"
+    description: str = (
+        "Search academic papers and literature using Semantic Scholar. "
+        "Use this when the user asks to find papers, research, publications, or literature "
+        "on any topic (climate science, flood modeling, agentic AI, crowdsourcing, etc.). "
+        "Returns titles, authors, year, citation counts, TL;DR summaries, and PDF links. "
+        "Input: 'Find papers on urban flood reporting bias' or "
+        "'Search for recent literature on LAMBDA agentic AI data analysis'."
+    )
+
+    def _run(self, query: str, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
+        try:
+            agent = get_scholar_agent()
+            response = agent.invoke({"input": query})
+            return response.get("output", "No output from Scholar agent")
+        except Exception as e:
+            return f"Scholar Agent error: {str(e)}"
 
 class CallFloodNetAgent(BaseTool):
     """Call FloodNet Data Acquisition Agent to search and download NYC street flood sensor data."""
@@ -1076,6 +1109,7 @@ def create_climate_research_orchestrator():
         NasaCMRDataAcquisitionAgent(), # Observational Data
         CallFemaAgent(),               # FEMA Disaster Data
         CallUs311Agent(),              # US 311 Service Data
+        CallScholarAgent(),            # Semantic Scholar Literature Search
         CallFloodNetAgent(),           # FloodNet NYC Street Flood Sensors
         CallFloodSimBenchAgent(),      # FloodSimBench Flood Simulation Benchmark
         CallMRMSAgent(),               # MRMS Radar/Precipitation Products
@@ -1100,6 +1134,9 @@ AVAILABLE SPECIALIZED AGENTS:
  **SIMULATION DATA AGENTS (ERA5 & CMIP6):**
 - query_simulation_metadata (Simulation KG Agent): QUERY local knowledge graph for ERA5/CMIP6 metadata. Use this FIRST to find available simulation datasets.
 - acquire_simulation_data (Simulation Data Agent): DOWNLOAD and PROCESS the actual ERA5/CMIP6 files found by the metadata agent.
+
+ **LITERATURE AGENT:**
+- search_scholar_literature (Scholar Agent): Search ACADEMIC PAPERS via Semantic Scholar. Returns titles, authors, TL;DR summaries, citation counts, and PDF links. Use for any request about finding papers, research, or literature. IMPORTANT: Call this tool AT MOST ONCE per user question. Return exactly the papers the tool returns; do not fetch more, do not re-query with different keywords to gather additional results, and do not add papers from your own knowledge. If the tool returns N papers, present N papers.
 
  **OBSERVATIONAL DATA AGENTS (SATELLITE & DISASTER):**
 - query_nasa_cmr_datasets (NASA CMR Agent): Search and load OBSERVATIONAL satellite data (MODIS, GOES, etc.) from NASA CMR.
@@ -1154,6 +1191,10 @@ SIMULATION AGENT FALLBACK RULE (CRITICAL):
 - For FLOOD SIMULATION / BENCHMARK data (ML training) → Use **FloodSimBench Agent**.
 - For RADAR PRECIPITATION / QPE / SEVERE WEATHER products → Use **MRMS Agent**.
 - For COMPARING Models vs Sats → Use **Comparison Agent**.
+- For PAPERS / RESEARCH / LITERATURE / PUBLICATIONS → Use **Scholar Agent**.
+  Trigger keywords: "find papers", "search literature", "what papers", "recent research",
+  "publications on", "studies about", "review of", "who has worked on", "cite", "references".
+  Do NOT use Scholar Agent for downloading climate data; only for academic literature search.
 
 FLEXIBLE WORKFLOW PHILOSOPHY:
 - START with specific queries to the relevant agents.
@@ -1230,14 +1271,27 @@ Thought: {agent_scratchpad}"""
         memory_key="chat_history"
     )
 
+    # Guide the model back to the ReAct format when its output cannot be parsed.
+    # Claude Sonnet 4 sometimes emits "## Final Answer" (markdown header) instead
+    # of "Final Answer:" (plain text), which triggers an infinite retry loop when
+    # combined with handle_parsing_errors=True. Returning a targeted instruction
+    # lets the model correct itself in one round.
+    def _guided_parse_error(error):
+        return (
+            "PARSE ERROR: Your response must strictly follow the ReAct format:\n"
+            "  Thought: <your reasoning>\n"
+            "  Final Answer: <your answer, PLAIN TEXT, no markdown ## headers>\n"
+            "\nDO NOT use '## Final Answer'; use 'Final Answer:' exactly."
+        )
+
     agent_executor = AgentExecutor(
         agent=agent,
         tools=all_tools,
         memory=memory,
         verbose=True,
-        handle_parsing_errors=True,
-        max_iterations=100,
-        max_execution_time=1200
+        handle_parsing_errors=_guided_parse_error,
+        max_iterations=8,
+        max_execution_time=300
     )
 
     return agent_executor
