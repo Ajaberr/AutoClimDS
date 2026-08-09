@@ -1,0 +1,13 @@
+{
+    "allowed_emails": [
+        "ayon.roy@columbia.edu",
+        "ar4982@columbia.edu"
+    ],
+    "admin_email": "ayon.roy@columbia.edu",
+    "users": {
+        "ar4982@columbia.edu": {
+            "password_hash": "72d72181d9449891b44d8365145504f0a2dc5e8515478ae79124cd9ef0523d0d",
+            "registered_at": "2026-08-08 15:25:01"
+        }
+    }
+}

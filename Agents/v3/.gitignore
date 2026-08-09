@@ -1,0 +1,35 @@
+# Environment
+.env
+*.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Runtime data
+Agents/outputs/
+Agents/mrms_downloads/
+Agents/era5_data/
+Agents/cmip6_out/
+Agents/fema_data/
+Agents/us_311_data/
+Agents/floodnet_downloads/
+Agents/floodsimbench_downloads/
+Agents/downloads/
+Agents/climate_knowledge_graph.db
+Agents/token_usage_log.csv
+
+# macOS
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs
+*.log
+
+# Claude Code
+.claude/

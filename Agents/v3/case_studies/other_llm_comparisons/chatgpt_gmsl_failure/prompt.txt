@@ -1,0 +1,12 @@
+Prompt for Sea_Fig3.1 (GMSL Trend 1993-2018)
+Goal: Produce a clean GMSL time series and linear trend for 1993-01 through 2018-12 using satellite altimetry. Steps:
+Using the KG links (or by searching if needed), acquire a GMSL or altimetry-based sea surface height anomaly product spanning 1993-01-2018-12. Prioritize NASA PO.DAAC/CMR products that merge TOPEX/Poseidon + Jason missions; acceptable fallback is a consistent L3/L4 gridded SLA product from which a global mean can be computed. Prefer NetCDF.
+If multiple options exist: prefer an explicit "Global Mean Sea Level" climate record; otherwise select a single consistent SLA product and compute an area-weighted ocean-only global mean (with optional 12-month running mean to reduce seasonality).
+Download only what is necessary to cover 1993-01-2018-12. Save the raw time series to ./data/gmsl_1993_2018.csv with columns [time, gmsl_mm].
+Generate and execute Python code to:
+load and harmonize the data; ensure monotonic time
+express GMSL in both millimeters and inches (1 in = 25.4 mm)
+fit an OLS linear trend over 1993-01-2018-12; report slope in mm/year and inches/year
+plot the GMSL time series as a thin gray line and the fitted linear trend as a thick black line
+label axes (time; mean sea level [inches]); set y-limits about -0.5 to 3.5 inches; title "Mean sea level rise (global)"
+save the figure to ./figs/gmsl_trend_1993_2018.png
