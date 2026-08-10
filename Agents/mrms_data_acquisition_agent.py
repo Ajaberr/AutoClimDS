@@ -34,6 +34,11 @@ try:
 except ImportError:
     pass
 
+try:
+    import kg_writer
+except Exception:
+    kg_writer = None
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -218,12 +223,31 @@ class DownloadMRMSTool(BaseTool):
                 for chunk in dl.iter_content(chunk_size=65536):
                     f.write(chunk)
             size_mb = out_path.stat().st_size / 1_000_000
+
+            import re as _re
+            m = _re.search(r"(\d{8}[-_]?\d{6})", latest_file)
+            ts_str = m.group(1).replace("-", "_") if m else ""
+
+            kg_msg = ""
+            if kg_writer is not None:
+                try:
+                    stats = kg_writer.write_mrms_product(
+                        product=product,
+                        file_url=file_url,
+                        timestamp=ts_str,
+                        size_mb=round(size_mb, 2),
+                    )
+                    kg_msg = f"\n  KG: {stats['written']} node written"
+                except Exception as e:
+                    kg_msg = f"\n  KG skipped ({e})"
+
             return (
                 f"Downloaded MRMS product '{product}':\n"
                 f"  File: {out_path}\n"
                 f"  Size: {size_mb:.2f} MB\n"
                 f"  Format: GRIB2 (compressed .gz) — use wgrib2 or cfgrib to read\n"
                 f"  Source: {file_url}"
+                f"{kg_msg}"
             )
         except Exception as e:
             return f"Download failed for {file_url}: {e}"
@@ -236,6 +260,7 @@ precipitation products covering the contiguous United States at ~1 km / 2-min re
 Product categories: Precipitation (QPE), Reflectivity, Severe Weather (Rotation/Shear),
                     Hail (MESH), Lightning, Quality Index
 Format: GRIB2 (.grib2.gz) — decode with wgrib2, cfgrib, or pygrib
+MANDATORY: In your Final Answer, ALWAYS include the COMPLETE absolute file path of any saved file. Never report just the filename.
 
 Tools: {tools}
 Tool names: {tool_names}
@@ -247,8 +272,6 @@ Action Input: <input>
 Observation: <result>
 ...
 Final Answer: <answer>
-
-MANDATORY: always include COMPLETE absolute file path in Final Answer for any saved file.
 
 Question: {input}
 Thought:{agent_scratchpad}""")

@@ -37,15 +37,20 @@ from langchain_core.callbacks import CallbackManagerForToolRun
 from langchain.prompts import PromptTemplate
 from langchain.llms.base import LLM
 
+try:
+    import kg_writer
+except Exception:
+    kg_writer = None
+
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Constants
-DEFAULT_DOWNLOAD_DIR = "us_311_data"
-SOCRATA_APP_TOKEN = os.getenv("SOCRATA_APP_TOKEN", "")
-
-NYC_311_V3_URL = "https://data.cityofnewyork.us/api/v3/views/erm2-nwe9/query.json"
+# Constants
+# --- EFS PERSISTENCE ---
+DATA_DIR_ROOT = os.getenv("SIMULATION_DATA_DIR", ".")
+DEFAULT_DOWNLOAD_DIR = os.path.join(DATA_DIR_ROOT, "us_311_data")
 
 # Known Socrata 311 Endpoints
 # Format: City Key -> {Name, API_URL, Dataset_ID}
@@ -54,8 +59,7 @@ CITY_ENDPOINTS = {
         "name": "New York City",
         "domain": "data.cityofnewyork.us",
         "dataset_id": "erm2-nwe9",
-        "doc_url": "https://data.cityofnewyork.us/resource/erm2-nwe9",
-        "v3_url": NYC_311_V3_URL,
+        "doc_url": "https://data.cityofnewyork.us/resource/erm2-nwe9"
     },
     "chicago": {
         "name": "Chicago",
@@ -78,14 +82,16 @@ CITY_ENDPOINTS = {
 }
 
 # Ensure download directory exists
-os.makedirs(DEFAULT_DOWNLOAD_DIR, exist_ok=True)
+if not os.path.exists(DEFAULT_DOWNLOAD_DIR):
+    try:
+        os.makedirs(DEFAULT_DOWNLOAD_DIR, exist_ok=True)
+    except Exception as e:
+        logger.warning(f"Could not create download directory {DEFAULT_DOWNLOAD_DIR}: {e}")
 
 # --- Bedrock LLM Wrapper ---
-from dotenv import load_dotenv
-load_dotenv()
 import boto3
-BEDROCK_REGION = os.getenv("BEDROCK_REGION", "us-east-2")
-BEDROCK_MODEL_ID = os.getenv("BEDROCK_MODEL_ID", "us.anthropic.claude-sonnet-4-20250514-v1:0")
+BEDROCK_REGION = "us-east-2"
+BEDROCK_MODEL_ID = "us.anthropic.claude-sonnet-4-20250514-v1:0"
 
 class BedrockClaudeLLM(LLM):
     bedrock: Any = None
@@ -130,29 +136,24 @@ def get_api_url(city_key: str) -> str:
     city_key = city_key.lower().replace(" ", "_")
     if city_key not in CITY_ENDPOINTS:
         raise ValueError(f"Unknown city '{city_key}'. Supported: {list(CITY_ENDPOINTS.keys())}")
-
+    
     meta = CITY_ENDPOINTS[city_key]
     return f"https://{meta['domain']}/resource/{meta['dataset_id']}.json"
 
-def get_socrata_headers() -> dict:
-    """Return headers with app token if available."""
-    headers = {}
-    if SOCRATA_APP_TOKEN:
-        headers["X-App-Token"] = SOCRATA_APP_TOKEN
-    return headers
-
-def resolve_city_key(city_input: str) -> str:
-    """Fuzzy match city input to a known key, or return as is if it seems to be an ID."""
+def resolve_city_key(city_input: str) -> Optional[str]:
+    """Fuzzy match city input to a known key. Returns None if not found."""
     city_input = city_input.lower().strip()
     if city_input in ["nyc", "new york", "new york city", "ny"]:
         return "nyc"
     if city_input in ["sf", "san francisco", "san fran"]:
         return "san_francisco"
-    if city_input in ["chi", "chicago"]:
+    if city_input in ["chi", "chicago", "illinois"]:
         return "chicago"
-    if city_input in ["austin", "tx"]:
+    if city_input in ["austin", "tx", "texas"]:
         return "austin"
-    return city_input
+    
+    # STRICT GUARDRAIL: Do not pass through unknown cities
+    return None
 
 # --- Tools ---
 
@@ -175,11 +176,14 @@ class Get311FieldsTool(BaseTool):
     def _run(self, tool_input: str, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
         try:
             city_key = resolve_city_key(tool_input)
+            if not city_key:
+                 return f"Error: City '{tool_input}' is not supported. Supported cities: {list(CITY_ENDPOINTS.keys())}"
+            
             url = get_api_url(city_key)
             
             # We fetch 1 record to see the keys
             params = {"$limit": 1}
-            response = requests.get(url, params=params, headers=get_socrata_headers(), timeout=10)
+            response = requests.get(url, params=params, timeout=60)
             response.raise_for_status()
             data = response.json()
             
@@ -209,6 +213,9 @@ class Query311DataTool(BaseTool):
                 return "Error: 'city' parameter is required."
                 
             city_key = resolve_city_key(city_input)
+            if not city_key:
+                 return f"Error: City '{city_input}' is not supported. Supported cities: {list(CITY_ENDPOINTS.keys())}"
+
             url = get_api_url(city_key)
             
             # Socrata Query Parameters
@@ -226,13 +233,13 @@ class Query311DataTool(BaseTool):
 
             output = f"Querying {CITY_ENDPOINTS.get(city_key, {}).get('name', city_key)} 311 API with params: {api_params}...\n"
             
-            response = requests.get(url, params=api_params, headers=get_socrata_headers(), timeout=15)
+            response = requests.get(url, params=api_params, timeout=120)
             response.raise_for_status()
             data = response.json()
-
+            
             if not data:
                 return f"No records found matching query: {api_params}"
-
+            
             output += f"Returned {len(data)} records.\n"
             output += f"Sample Record: {json.dumps(data[0], indent=2)}\n"
             
@@ -258,6 +265,9 @@ class Analyze311CategoryCountsTool(BaseTool):
                 return "Error: 'city' and 'group_by' parameters are required."
 
             city_key = resolve_city_key(city_input)
+            if not city_key:
+                 return f"Error: City '{city_input}' is not supported. Supported cities: {list(CITY_ENDPOINTS.keys())}"
+            
             url = get_api_url(city_key)
 
             # Construct Aggregate Query
@@ -272,7 +282,7 @@ class Analyze311CategoryCountsTool(BaseTool):
                 api_params["$where"] = params["where"]
 
             output = f"Analyzing counts for {city_key} by '{group_by_col}'...\n"
-            response = requests.get(url, params=api_params, headers=get_socrata_headers(), timeout=20)
+            response = requests.get(url, params=api_params, timeout=300)
             response.raise_for_status()
             data = response.json()
 
@@ -292,6 +302,12 @@ class Download311DataTool(BaseTool):
     """Download 311 data to a CSV file."""
     name: str = "download_311_data"
     description: str = "Download filtered 311 data to CSV. Input: JSON with 'city', 'where', 'limit', 'output_filename'. Example: {'city': 'sf', 'where': 'opened > \"2023-01-01\"', 'limit': 1000, 'output_filename': 'sf_311.csv'}"
+    session_id: Optional[str] = None
+
+    def __init__(self, session_id: Optional[str] = None, **kwargs):
+        super().__init__(**kwargs)
+        self.session_id = session_id
+
 
     def _run(self, tool_input: str, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
         try:
@@ -301,133 +317,64 @@ class Download311DataTool(BaseTool):
                 return "Error: 'city' parameter is required."
 
             city_key = resolve_city_key(city_input)
-            where_clause = params.get('where')
-            limit = params.get('limit', 50000)
-            filename = params.get('output_filename', f"{city_key}_311_data.csv")
-            output_path = Path(DEFAULT_DOWNLOAD_DIR) / filename
+            if not city_key:
+                 return f"Error: City '{city_input}' is not supported. Supported cities: {list(CITY_ENDPOINTS.keys())}"
 
-            # Route NYC through the faster v3 API
-            if city_key == "nyc":
-                soql_parts = [f"SELECT * LIMIT {limit}"]
-                if where_clause:
-                    soql_parts.insert(0, f"SELECT * WHERE {where_clause} LIMIT {limit}")
-                soql = soql_parts[0]
-                print(f"Downloading NYC 311 data via v3 API...")
-                resp = requests.get(NYC_311_V3_URL, params={"$query": soql},
-                                    headers=get_socrata_headers(), timeout=120)
-                resp.raise_for_status()
-                raw = resp.json()
-                if isinstance(raw, dict) and "data" in raw and "columns" in raw:
-                    cols = [c.get("fieldName", c.get("name", f"col{i}"))
-                            for i, c in enumerate(raw["columns"])]
-                    data = [dict(zip(cols, row)) for row in raw["data"]]
-                else:
-                    data = raw if isinstance(raw, list) else []
-            else:
-                url = get_api_url(city_key)
-                api_params = {"$limit": limit}
-                if where_clause:
-                    api_params["$where"] = where_clause
-                if "order" in params:
-                    api_params["$order"] = params["order"]
-                print(f"Downloading data from {url} with params {api_params}...")
-                response = requests.get(url, params=api_params,
-                                        headers=get_socrata_headers(), timeout=120)
-                if response.status_code != 200:
-                    print(f"Error Response: {response.text}")
-                response.raise_for_status()
-                data = response.json()
+            url = get_api_url(city_key)
+            
+            where_clause = params.get('where')
+            # INCREASED DEFAULT LIMIT to avoid undercounting (User feedback: 10k vs 30k reality)
+            limit = params.get('limit', 50000) 
+            filename = params.get('output_filename', f"{city_key}_311_data.csv")
+            
+            # Apply Session ID prefix to strict isolation
+            if self.session_id and not filename.startswith(f"{self.session_id}_"):
+                 filename = f"{self.session_id}_{filename}"
+            
+            output_path = Path(DEFAULT_DOWNLOAD_DIR) / filename
+            
+            api_params = {
+                "$limit": limit
+            }
+            if where_clause:
+                api_params["$where"] = where_clause
+            if "order" in params:
+                api_params["$order"] = params["order"]
+                
+            print(f"Downloading data from {url} with params {api_params}...")
+            response = requests.get(url, params=api_params, timeout=600)
+            
+            if response.status_code != 200:
+                print(f"Error Response: {response.text}")
+                
+            response.raise_for_status()
+            
+            data = response.json()
             
             if not data:
                 return "No data found to download."
             
             df = pd.DataFrame(data)
             df.to_csv(output_path, index=False)
-            
-            return f"Successfully downloaded {len(df)} records to {output_path}."
+
+            kg_msg = ""
+            if kg_writer is not None:
+                try:
+                    stats = kg_writer.write_311_complaints(data, city_key=city_key)
+                    kg_msg = f" KG: {stats['written']} nodes (errors {len(stats['errors'])})."
+                except Exception as e:
+                    kg_msg = f" KG skipped ({e})."
+
+            return f"Successfully downloaded {len(df)} records to {output_path}.{kg_msg}"
             
         except ValueError as ve:
             return str(ve)
         except Exception as e:
             return f"Download failed: {e}"
 
-class QueryNYC311V3Tool(BaseTool):
-    """Query NYC 311 data via the v3 API endpoint with full SoQL support."""
-    name: str = "query_nyc311_v3"
-    description: str = (
-        "Query NYC 311 Service Requests using the v3 API endpoint. "
-        "Supports SoQL: $where, $select, $order, $limit, $offset, or a full $query string. "
-        "Input: JSON with any of: 'where', 'select', 'order', 'limit' (default 1000), 'offset', 'query' (full SoQL), 'download' (true/false), 'filename'. "
-        "Example: {\"where\": \"complaint_type='Street Flooding' AND created_date>'2024-01-01'\", \"limit\": 500} "
-        "Example: {\"query\": \"SELECT complaint_type, count(*) as n GROUP BY complaint_type ORDER BY n DESC LIMIT 20\"}"
-    )
-
-    def _parse_v3_response(self, data: Any) -> list:
-        """Normalise v3 response to a list of dicts."""
-        if isinstance(data, list):
-            return data
-        if isinstance(data, dict):
-            # Format: {"data": [[...], ...], "columns": [...]}
-            if "data" in data and "columns" in data:
-                cols = [c.get("fieldName", c.get("name", f"col{i}"))
-                        for i, c in enumerate(data["columns"])]
-                rows = data["data"]
-                if rows and isinstance(rows[0], list):
-                    return [dict(zip(cols, row)) for row in rows]
-                return rows
-            # Format: {"data": [{...}, ...]}
-            if "data" in data:
-                return data["data"] if isinstance(data["data"], list) else [data["data"]]
-        return []
-
-    def _build_soql(self, params: dict) -> str:
-        """Build a SoQL SELECT statement from individual params."""
-        select  = params.get("select", "*")
-        limit   = params.get("limit", 1000)
-        offset  = params.get("offset", 0)
-        parts   = [f"SELECT {select}"]
-        if "where" in params:
-            parts.append(f"WHERE {params['where']}")
-        if "order" in params:
-            parts.append(f"ORDER BY {params['order']}")
-        parts.append(f"LIMIT {limit} OFFSET {offset}")
-        return " ".join(parts)
-
-    def _run(self, tool_input: str, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
-        try:
-            params = json.loads(tool_input) if tool_input.strip().startswith("{") else {}
-        except Exception:
-            return "Invalid input — provide a JSON object."
-
-        soql = params.get("query") or self._build_soql(params)
-
-        try:
-            resp = requests.get(NYC_311_V3_URL, params={"$query": soql}, timeout=30)
-            resp.raise_for_status()
-            records = self._parse_v3_response(resp.json())
-        except Exception as e:
-            return f"NYC 311 v3 API error: {e}"
-
-        if not records:
-            return "No records returned."
-
-        download = params.get("download", False)
-        if download:
-            filename = params.get("filename", "nyc_311_v3.csv")
-            out_path = Path(DEFAULT_DOWNLOAD_DIR) / filename
-            pd.DataFrame(records).to_csv(out_path, index=False)
-            return (f"Downloaded {len(records)} records to {out_path}.\n"
-                    f"Columns: {', '.join(records[0].keys()) if records else ''}")
-
-        summary = f"Returned {len(records)} records.\n"
-        summary += f"Columns: {', '.join(records[0].keys())}\n"
-        summary += f"Sample record:\n{json.dumps(records[0], indent=2, default=str)}"
-        return summary[:3000]
-
-
 # --- Agent Factory ---
 
-def create_us_311_agent() -> AgentExecutor:
+def create_us_311_agent(session_id: Optional[str] = None) -> AgentExecutor:
     """Create the US City 311 Data Acquisition Agent."""
     
     llm = BedrockClaudeLLM()
@@ -435,42 +382,46 @@ def create_us_311_agent() -> AgentExecutor:
     tools = [
         ListSupportedCitiesTool(),
         Get311FieldsTool(),
-        QueryNYC311V3Tool(),
         Query311DataTool(),
         Analyze311CategoryCountsTool(),
-        Download311DataTool()
+        Download311DataTool(session_id=session_id)
     ]
     
     template = """You are an expert US City 311 Data Acquisition Agent.
-Your goal is to help users find, filter, and download 311 Service Request data from multiple US cities.
+Your goal is to help users find, filter, and download 311 Service Request data.
 
-**Supported Cities:**
-- New York City (NYC) — has both v2 Socrata API and v3 API
-- Chicago
-- San Francisco
-- Austin
-- You can list them using `list_supported_cities`.
+**SCOPE GUARDRAILS (CRITICAL):**
+1. **Supported Cities Only**: You can ONLY query data for:
+   - New York City (NYC)
+   - Chicago
+   - San Francisco (SF)
+   - Austin
+2. **Unsupported Cities**: If a user asks for a city NOT on this list (e.g., "Los Angeles", "Houston"), you MUST explicitly state: 
+   "I currently only support NYC, Chicago, San Francisco, and Austin. I cannot access data for [City Name]."
+   - **Do NOT** offer to search other cities.
+   - **Do NOT** ask "Would you like to search [Supported City] instead?".
+   - Just state the limitation and stop.
+   Do NOT attempt to guess endpoints or hallucinate data.
 
 **API Information:**
-- NYC has a **dedicated v3 API** at https://data.cityofnewyork.us/api/v3/views/erm2-nwe9/query.json — prefer `query_nyc311_v3` for all NYC queries.
-- Other cities use the **Socrata v2 Open Data API** (SoQL syntax).
+- All supported cities use the **Socrata Open Data API**.
 - Query Language: SoQL (Similar to SQL).
   - `$where`: `status='Open'` or `created_date > '2023-01-01T00:00:00'`
   - `$limit`: Number of records.
 
 **Strategy:**
-1. **For NYC queries**: Always use `query_nyc311_v3` first — it is faster and more reliable.
-   - Pass `"download": true` and `"filename": "..."` to save results to CSV.
-   - Pass `"query"` for full SoQL, or use individual `"where"`, `"select"`, `"order"`, `"limit"` keys.
-2. **For other cities**: Use `get_311_fields` first to check column names, then `query_311_data` or `download_311_data`.
-3. **Inspect Fields**: Field names vary by city!
-   - NYC: `complaint_type`, `borough`, `created_date`, `incident_zip`
+1. **Identify the City**: Match user input to a supported city. If unsupported, stop and inform the user.
+2. **Inspect Fields**: Field names vary by city! 
+   - NYC: `complaint_type`, `borough`
    - Chicago: `sr_type`, `status`
    - SF: `service_request_id`, `service_name`
-4. **Verify Counts**: Before downloading, use `analyze_311_counts` to see if your query captures the full picture.
-   - If user asks for "Flooding", capture ALL relevant categories (e.g. `complaint_type IN ('Street Flooding', 'Sewer Backup', 'Catch Basin')`).
-5. **Download**: Use `download_311_data` for non-NYC cities, or `query_nyc311_v3` with `"download": true` for NYC.
-   - **CRITICAL**: Default limit is 50,000. For full-year analysis, set limit higher or filter first.
+   - ALWAYS use `get_311_fields(city)` first to check the column names.
+3. **Verify Counts**: Before downloading, use `analyze_311_counts` to see if your query captures the full picture.
+   - Example: Group by `complaint_type` to see if "Street Flooding" is separate from "Sewer Backup".
+   - If user asks for "Flooding", ensure you capture ALL relevant categories (e.g. `complaint_type IN ('Street Flooding', 'Sewer Backup', 'Catch Basin')`).
+4. **Download**: Use `download_311_data`.
+   - **CRITICAL**: The default limit is 50,000. For full-year analysis (like "2021 flooding"), ensure the limit is high enough (e.g. 100000) or check the counts first. Filters are your friend.
+5. **File Path Reporting (MANDATORY)**: In your Final Answer, ALWAYS include the COMPLETE absolute file path for any saved file. Example: "File saved to `/mnt/efs/data/us_311_data/session_nyc_flood_2022.csv`". NEVER report just the filename without the directory path.
 
 **Tools:**
 {tools}
@@ -487,15 +438,13 @@ Observation: result
 ...
 Final Answer: Final response.
 
-MANDATORY: always include COMPLETE absolute file path in Final Answer for any saved file.
-
 Question: {input}
 Thought: {agent_scratchpad}"""
 
     prompt = PromptTemplate.from_template(template)
-
+    
     agent = create_react_agent(llm, tools, prompt)
-
+    
     return AgentExecutor(
         agent=agent,
         tools=tools,
@@ -504,8 +453,8 @@ Thought: {agent_scratchpad}"""
         handle_parsing_errors=True,
     )
 
-def get_311_agent():
-    return create_us_311_agent()
+def get_311_agent(session_id: Optional[str] = None):
+    return create_us_311_agent(session_id=session_id)
 
 if __name__ == "__main__":
     print("Initializing US 311 Agent...")

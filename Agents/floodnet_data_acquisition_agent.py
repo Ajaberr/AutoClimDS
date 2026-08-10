@@ -34,6 +34,11 @@ try:
 except ImportError:
     pass
 
+try:
+    import kg_writer
+except Exception:
+    kg_writer = None
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -171,10 +176,20 @@ class DownloadFloodNetTool(BaseTool):
         output_path.parent.mkdir(parents=True, exist_ok=True)
         df.to_csv(output_path, index=False)
 
+        kg_msg = ""
+        if kg_writer is not None:
+            try:
+                stats = kg_writer.write_floodnet_events(records)
+                kg_msg = (f"\nKG: {stats['written']} events written "
+                          f"(skipped {stats['skipped']}, errors {len(stats['errors'])})")
+            except Exception as e:
+                kg_msg = f"\nKG: skipped ({e})"
+
         return (
-            f"Downloaded {len(df)} FloodNet flood event records to {output_path.resolve()}.\n"
+            f"Downloaded {len(df)} FloodNet flood event records to {output_path}.\n"
             f"Columns: {', '.join(df.columns.tolist())}\n"
             f"Date range: {df['flood_start_time'].min()} to {df['flood_start_time'].max()}"
+            f"{kg_msg}"
         )
 
 
@@ -186,6 +201,7 @@ IMPORTANT date handling rules:
 - If the user mentions a month (e.g. "August 2021"), set start="2021-08-01" and end="2021-08-31".
 - Always pass sensor_name and date filters together in the JSON input to download_floodnet_data.
 - Example for "Brooklyn 2024": {{"sensor_name": "Brooklyn", "start": "2024-01-01", "end": "2024-12-31", "limit": 2000}}
+- MANDATORY: In your Final Answer, ALWAYS include the COMPLETE absolute file path of any saved file (e.g. `/mnt/efs/data/floodnet_downloads/session_floodnet.csv`). Never report just the filename.
 
 Tools available: {tools}
 Tool names: {tool_names}
@@ -198,8 +214,6 @@ Observation: <result>
 ...
 Thought: I now know the final answer.
 Final Answer: <answer>
-
-MANDATORY: always include COMPLETE absolute file path in Final Answer for any saved file.
 
 Question: {input}
 Thought:{agent_scratchpad}""")

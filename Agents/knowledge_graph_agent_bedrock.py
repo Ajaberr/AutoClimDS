@@ -491,11 +491,14 @@ class ClimateGraphConnector:
             
             formatted_results = []
             for res in result.get("results", []):
-                node_properties = res.get('node', {})
+                raw = res.get('node', {})
+                node_properties = dict(raw.get('~properties', {}))
+                node_properties['~id'] = raw.get('~id')
+                node_properties['~labels'] = raw.get('~labels', [])
                 node_properties['score'] = res.get('score', 0.75)
                 formatted_results.append(node_properties)
             return formatted_results
-            
+
         except Exception as e:
             print(f" Text search failed: {e}")
             return []
@@ -516,17 +519,20 @@ class ClimateGraphConnector:
             ) YIELD node, score
             WHERE '{node_type}' IN labels(node)
             RETURN node, score, labels(node) as node_labels
-            ORDER BY score DESC
+            ORDER BY score ASC
             """
             result = self.execute_query(cypher_query)
-            
+
             if not result.get("results"):
                 print(f" Vector search returned 0 results, falling back to text search...")
                 return self._text_search_only(query_text, node_type, top_k)
-            
+
             formatted_results = []
             for res in result.get("results", []):
-                node_properties = res.get('node', {})
+                raw = res.get('node', {})
+                node_properties = dict(raw.get('~properties', {}))
+                node_properties['~id'] = raw.get('~id')
+                node_properties['~labels'] = raw.get('~labels', [])
                 node_properties['score'] = res.get('score')
                 formatted_results.append(node_properties)
             return formatted_results
@@ -1087,14 +1093,24 @@ class SearchByTemporalExtentTool(BaseTool):
             else:
                 return f"Invalid temporal query. Use: 'after:YYYY-MM-DD', 'before:YYYY-MM-DD', 'between:YYYY-MM-DD:YYYY-MM-DD', 'overlaps:YYYY-MM-DD:YYYY-MM-DD', 'year:YYYY', or just 'YYYY' for year."
             
-            # Build openCypher query using proper temporal functions
-            where_clause = " AND ".join(cypher_conditions)
+            # Guard against malformed date strings in the KG (Neptune date()
+            # raises 400 on any bad value; regex isn't supported so we use
+            # string functions to check YYYY-MM-DD shape).
+            date_valid = (
+                "te.start_time IS NOT NULL AND size(te.start_time) >= 10 "
+                "AND substring(te.start_time, 4, 1) = '-' "
+                "AND substring(te.start_time, 7, 1) = '-' "
+                "AND te.end_time IS NOT NULL AND size(te.end_time) >= 10 "
+                "AND substring(te.end_time, 4, 1) = '-' "
+                "AND substring(te.end_time, 7, 1) = '-'"
+            )
+            where_clause = date_valid + " AND " + " AND ".join(cypher_conditions)
             cypher_query = f"""
             MATCH (d:Dataset)-[:hasTemporalExtent]-(te:TemporalExtent)
             WHERE {where_clause}
             RETURN d.`~id` as dataset_id, d.title as title, d.short_name as short_name,
                    te.start_time as start_time, te.end_time as end_time, te.updated as updated
-            ORDER BY date(te.start_time) DESC
+            ORDER BY te.start_time DESC
             LIMIT 20
             """
             
@@ -1684,6 +1700,10 @@ class QueryDatasetByIdTool(BaseTool):
     description: str = "Query an existing dataset by its ID from the knowledge graph database. Returns complete dataset information including data access links if available."
     
     def _run(self, dataset_id: str, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
+        # Try SQLite cache first (used by Streamlit deployment with EFS-mounted DB).
+        # Fall back to Neptune when the SQLite table is absent (MCP deployment
+        # is stateless and does not carry the local .db file).
+        dataset_id = dataset_id.strip()
         try:
             db_path = "climate_knowledge_graph.db"
             
@@ -1782,8 +1802,58 @@ class QueryDatasetByIdTool(BaseTool):
                 
                 return output
                 
+        except Exception:
+            # SQLite unavailable in this deployment. Fall through to Neptune.
+            pass
+
+        # Neptune fallback: read the node and its neighbours.
+        try:
+            info = kg_connector.inspect_node(dataset_id)
+            props_row = info.get("properties") or {}
+            props = props_row.get("properties", {}) if isinstance(props_row, dict) else {}
+            labels = props_row.get("labels", []) if isinstance(props_row, dict) else []
+            rels = info.get("relationships") or []
+
+            if not props:
+                return f" Dataset not found in Neptune: {dataset_id}"
+
+            output  = " DATASET INFORMATION (from Neptune)\n"
+            output += "=" * 40 + "\n\n"
+            output += " Basic Information:\n"
+            output += f"   ID:         {dataset_id}\n"
+            output += f"   Title:      {props.get('title', 'N/A')}\n"
+            output += f"   Short Name: {props.get('short_name', 'N/A')}\n"
+            output += f"   Data Center:{props.get('data_center', 'N/A')}\n"
+            output += f"   Neighbors:  {len(rels)} (showing up to 20)\n"
+            if labels:
+                output += f"   Labels:     {', '.join(labels)}\n"
+            output += "\n"
+
+            useful_props = [
+                "summary", "description", "doi", "doi_authority",
+                "data_set_language", "archive_center", "processing_level_id",
+                "day_night_flag", "cloud_cover",
+            ]
+            shown = [k for k in useful_props if k in props and props[k]]
+            if shown:
+                output += " Properties:\n"
+                for k in shown:
+                    val = str(props[k])
+                    output += f"   {k}: {val[:120]}{'...' if len(val) > 120 else ''}\n"
+                output += "\n"
+
+            if rels:
+                output += f" Relationships ({len(rels)} shown):\n"
+                for r in rels:
+                    rt = r.get("relationship_type", "?")
+                    nl = ",".join(r.get("neighbor_labels", []) or [])
+                    nid = r.get("neighbor_id", "")
+                    nname = r.get("neighbor_title") or r.get("neighbor_name") or ""
+                    output += f"   [{rt}] -> ({nl}) {nname} [{nid}]\n"
+
+            return output
         except Exception as e:
-            return f" Error querying dataset: {str(e)}"
+            return f" Error querying dataset from Neptune: {str(e)}"
 
 class SearchDatasetLinksTool(BaseTool):
     """Search for data access links associated with datasets"""

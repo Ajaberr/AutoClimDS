@@ -33,3 +33,4 @@ Agents/token_usage_log.csv
 
 # Claude Code
 .claude/
+Agents/raw_graph_data.jsonl

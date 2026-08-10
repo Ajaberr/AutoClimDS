@@ -32,16 +32,27 @@ from langchain_core.callbacks import CallbackManagerForToolRun
 from langchain.prompts import PromptTemplate
 from langchain.llms.base import LLM
 
+try:
+    import kg_writer
+except Exception:
+    kg_writer = None
+
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Constants
 FEMA_API_BASE = "https://www.fema.gov/api/open/v2"
-DEFAULT_DOWNLOAD_DIR = "fema_data"
+# --- EFS PERSISTENCE ---
+DATA_DIR_ROOT = os.getenv("SIMULATION_DATA_DIR", ".")
+DEFAULT_DOWNLOAD_DIR = os.path.join(DATA_DIR_ROOT, "fema_data")
 
 # Ensure download directory exists
-os.makedirs(DEFAULT_DOWNLOAD_DIR, exist_ok=True)
+if not os.path.exists(DEFAULT_DOWNLOAD_DIR):
+    try:
+        os.makedirs(DEFAULT_DOWNLOAD_DIR, exist_ok=True)
+    except Exception as e:
+        logger.warning(f"Could not create download directory {DEFAULT_DOWNLOAD_DIR}: {e}")
 
 
 # --- Bedrock LLM Wrapper (Identical to other agents for consistency) ---
@@ -174,6 +185,12 @@ class DownloadFemaDataTool(BaseTool):
     """Download FEMA data to a local file."""
     name: str = "download_fema_data"
     description: str = "Download FEMA data to CSV. Input: JSON with {'dataset': '...', 'filter': '...', 'output_filename': 'data.csv'}."
+    session_id: Optional[str] = None
+
+    def __init__(self, session_id: Optional[str] = None, **kwargs):
+        super().__init__(**kwargs)
+        self.session_id = session_id
+
 
     def _run(self, tool_input: str, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
         try:
@@ -182,6 +199,10 @@ class DownloadFemaDataTool(BaseTool):
             odata_filter = params.get('filter', '')
             filename = params.get('output_filename', f"{dataset_name}.csv")
             
+            # Apply Session ID prefix to strict isolation
+            if self.session_id and not filename.startswith(f"{self.session_id}_"):
+                 filename = f"{self.session_id}_{filename}"
+
             if not dataset_name:
                 return "Error: dataset name required."
                 
@@ -206,24 +227,32 @@ class DownloadFemaDataTool(BaseTool):
             output_path.parent.mkdir(parents=True, exist_ok=True)
             df.to_csv(output_path, index=False)
 
-            return f"Successfully downloaded {len(df)} records to {output_path.resolve()}."
+            kg_msg = ""
+            if kg_writer is not None:
+                try:
+                    stats = kg_writer.write_fema_disasters(data, dataset_name=dataset_name)
+                    kg_msg = f" KG: {stats['written']} disasters (errors {len(stats['errors'])})."
+                except Exception as e:
+                    kg_msg = f" KG skipped ({e})."
 
+            return f"Successfully downloaded {len(df)} records to {output_path}.{kg_msg}"
+            
         except Exception as e:
             return f"Download failed: {e}"
 
 # --- Agent Factory ---
 
-def create_fema_agent() -> AgentExecutor:
+def create_fema_agent(session_id: Optional[str] = None) -> AgentExecutor:
     """Create the FEMA Data Acquisition Agent."""
-
+    
     llm = BedrockClaudeLLM()
-
+    
     tools = [
         ListFemaDatasetsTool(),
         QueryFemaDatasetTool(),
-        DownloadFemaDataTool()
+        DownloadFemaDataTool(session_id=session_id)
     ]
-
+    
     template = """You are an expert FEMA Data Acquisition Agent.
 Your goal is to help users find and download disaster, flood, and emergency management data using the OpenFEMA API.
 
@@ -241,7 +270,7 @@ Your goal is to help users find and download disaster, flood, and emergency mana
 1. If the user asks for data but doesn't specify a dataset ID, use `list_fema_datasets` to find the most relevant one.
 2. Use `query_fema_dataset` to peek at the data and verify filters work (e.g. valid fields).
 3. Use `download_fema_data` to save the final file.
-4. **File Path Reporting (MANDATORY)**: In your Final Answer, ALWAYS include the COMPLETE absolute file path for any saved file. NEVER report just the filename without the full directory path.
+4. **File Path Reporting (MANDATORY)**: In your Final Answer, ALWAYS include the COMPLETE absolute file path for any saved file. Example: "File saved to `/mnt/efs/data/fema_data/session_fema_2021.csv`". NEVER report just the filename without the full directory path.
 
 **Methodological Guardrails (CRITICAL):**
 1. **Cross-Categorical Search**: "Flood" is a result, not just a cause. When users ask for "flood data", you MUST qualify your search to include related Incident Types:
@@ -250,8 +279,8 @@ Your goal is to help users find and download disaster, flood, and emergency mana
    - "Coastal Storm"
    - "Dam/Levee Break"
    - "Tornado" (often accompanied by heavy rain/flooding)
-2. **Zero-Result Safety Check**: If a query for `incidentType eq 'Flood'` returns 0 results for a known disaster period, do NOT conclude "no floods occurred". IMMEDIATELY re-run the query with `incidentType eq 'Hurricane'` or `incidentType eq 'Severe Storm'`.
-3. **Clarification**: If unsure, list the disaster declarations found for that period regardless of type, so the user can see explicit event names.
+2. **Zero-Result Safety Check**: If a query for `incidentType eq 'Flood'` returns 0 results for a known disaster period (e.g., "NY 2021"), do NOT conclude "no floods occurred". IMMEDIATELY re-run the query with `incidentType eq 'Hurricane'` or `incidentType eq 'Severe Storm'`.
+3. **Clarification**: If unsure, list the disaster declarations found for that period regardless of type, so the user can see "Hurricane Ida" explicitly.
 4. **Expanded Disaster Types (Rule of Thumb)**:
    - **Wildfire**: Check also "Fire", "Drought" (precursor), "Mud/Landslide" (post-fire).
    - **Winter Storm**: Check also "Snow", "Ice Storm", "Freezing", "Blizzard", "Severe Storm".
@@ -266,6 +295,7 @@ Your goal is to help users find and download disaster, flood, and emergency mana
    - Hurricanes often cause flooding, storm surge, tornadoes, and landslides — but FEMA classifies the event by its PRIMARY incident type.
    - When a user asks about "floods in NY 2021", explain that Hurricane Ida (classified as "Hurricane") caused catastrophic flooding — it won't appear under `incidentType eq 'Flood'`.
    - Always explain these causal chains in your response so users understand why a "flood" search may miss hurricane-caused floods.
+   - Pattern: "Hurricane X caused significant flooding in [area], but FEMA classifies this as 'Hurricane', not 'Flood'. The flooding was a secondary effect of the hurricane."
 
 **Tools:**
 {tools}
@@ -282,15 +312,13 @@ Observation: result
 ...
 Final Answer: Final response.
 
-MANDATORY: always include COMPLETE absolute file path in Final Answer for any saved file.
-
 Question: {input}
 Thought: {agent_scratchpad}"""
 
     prompt = PromptTemplate.from_template(template)
-
+    
     agent = create_react_agent(llm, tools, prompt)
-
+    
     return AgentExecutor(
         agent=agent,
         tools=tools,
@@ -299,8 +327,8 @@ Thought: {agent_scratchpad}"""
         handle_parsing_errors=True,
     )
 
-def get_fema_agent():
-    return create_fema_agent()
+def get_fema_agent(session_id: Optional[str] = None):
+    return create_fema_agent(session_id=session_id)
 
 if __name__ == "__main__":
     print("Initializing FEMA Agent...")
