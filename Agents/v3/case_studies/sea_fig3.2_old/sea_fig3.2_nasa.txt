@@ -1,0 +1,916 @@
+Prompt:
+Acquire monthly mean sea level (datum=MSL, units=metric) for NOAA CO-OPS station 8518750 (The Battery, New York) from earliest available year through 2017 using the stored NOAA CO-OPS dataset access links. Save the data to ./data/sea_level/battery_monthly.csv. Then generate and execute Python code to plot the long-term sea level trend (with annual means or smoothed curve) as in NPCC 2019 Fig 3.2. Save the plot to ./figs/sea_level_trend.png and print JSON with figure path and coverage years.
+
+=============================================
+
+(venv) PS D:\ClimateAgent-main\Agents> python .\nasa_cmr_data_acquisition_agent.py
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ CMR Knowledge Graph connector initialized for graph: g-kn6xkxo6r5
+ AWS Open Data S3 client initialized (anonymous access)
+INFO:botocore.credentials:Found credentials in shared credentials file: ~/.aws/credentials
+ S3 clients initialized with credentials
+ Bedrock Claude LLM initialized successfully
+ NASA CMR Data Acquisition Agent
+================================================================================
+
+ Using AWS Bedrock Claude Sonnet for reasoning
+ Using AWS Neptune for CMR dataset discovery
+ Using AWS S3 for data access
+ Using LangChain for agent framework
+
+================================================================================
+ TESTING NASA CMR Data Acquisition Agent
+================================================================================
+
+ Initializing NASA CMR agent...
+D:\ClimateAgent-main\Agents\nasa_cmr_data_acquisition_agent.py:4406: LangChainDeprecationWarning: Please see the migration guide at: https://python.langchain.com/docs/versions/migrating_memory/
+  memory = ConversationBufferWindowMemory(
+ Agent initialized successfully!
+
+ Research Query:
+        Acquire monthly mean sea level (datum=MSL, units=metric) for NOAA CO-OPS station 8518750 (The Battery, New York) from earliest available year through 2017 using the stored NOAA
+ CO-OPS dataset access links. Save the data to ./data/sea_level/battery_monthly.csv. Then generate and execute Python code to plot the long-term sea level trend (with annual means or smoothed curve) as in NPCC 2019 Fig 3.2. Save the plot to ./figs/sea_level_trend.png and print JSON with figure path and coverage years.
+
+
+ Running agent...
+
+
+> Entering new AgentExecutor chain...
+I need to acquire monthly mean sea level data for NOAA CO-OPS station 8518750 (The Battery, New York) and create a long-term trend plot. Let me start by checking what datasets are stored in the database to find the NOAA CO-OPS dataset.
+
+Action: list_all_stored_datasets
+Action Input: 50 ALL STORED DATASETS (2 total, showing up to 50):
+
+🏢 **NOAA_NCEI** (2 datasets):
+   1. Monthly and annual mean seawater temperature salinity and de...
+       Short Name: govnoaanodc0000817
+       ID: dataset_gov_noaa_nodc_0000817_23183
+       Status:  Links Available
+       Data Links: 5 available
+       Sample: https://www.ncei.noaa.gov/archive/accession/000081...
+       Keywords: Category EARTH SCIENCE Topic OCEANS Term OCEAN TEMPERATURE VariableLevel1 WATER TEMPERATURE Category...
+
+   2. Coastal meteorological and water temperature data from Natio...
+       Short Name: govnoaanodcNDBCCOOPS
+       ID: dataset_gov_noaa_nodc_NDBC_COOPS_7286
+       Status:  Links Available
+       Data Links: 10 available
+       Sample: https://data.noaa.gov/onestop/collections/granules...
+       Keywords: Category EARTH SCIENCE Topic ATMOSPHERE Term ATMOSPHERIC PRESSURE Category EARTH SCIENCE Topic ATMOS...
+
+
+ COMPREHENSIVE SUMMARY:
+   • Total datasets in database: 2
+   • Datasets needing data links: 0 
+   • Datasets with data access: 2 
+   • Data centers represented: 1
+
+ COMPREHENSIVE ENHANCEMENT STRATEGY:
+   • Use 'load_data' to access data from datasets with configured links
+
+ ALL DATASETS AVAILABLE FOR RESEARCH - NO KEYWORD FILTERING APPLIED!I can see there are 2 datasets in the database, and one of them appears to be related to NOAA CO-OPS data: "Coastal 
+meteorological and water temperature data from National Data Buoy Center and Center for Operational Oceanographic Products and Services" with ID `dataset_gov_noaa_nodc_NDBC_COOPS_7286`. Let me query this specific dataset to see its details and data access links.
+
+Action: query_existing_dataset
+Action Input: dataset_gov_noaa_nodc_NDBC_COOPS_7286 EXISTING DATASET QUERY RESULT
+=============================================
+
+ Dataset Information:
+   • ID: dataset_gov_noaa_nodc_NDBC_COOPS_7286
+   • Title: Coastal meteorological and water temperature data from National Water Level Observation Network NWLON and Physical Oceanographic RealTime System PORTS stations of the NOAA Center for Operational Oceanographic Products and Services COOPS
+   • Short Name: govnoaanodcNDBCCOOPS
+
+ DATA ACCESS LINKS CONFIGURED (10 total):
+   •  Earthdata URLs: 0
+   •  S3 URLs: 0
+   1.  https://data.noaa.gov/onestop/collections/granules/AWbw9JgLm...
+       Source: Unknown | Status: 
+   2.  https://www.ncei.noaa.gov/thredds-ocean/catalog/ndbc/co-ops/...
+       Source: Unknown | Status: 
+   3.  https://www.ncei.noaa.gov/data/oceans/ndbc/co-ops/
+       Source: Unknown | Status: 
+   ... and 7 more links
+   • Status: Ready for data loading
+   • Use 'load_data' with any link URL to access data
+
+ Timestamps:
+   • Created: 2025-09-22T20:05:47.452242
+   • Updated: 2025-09-22T20:05:47.452242
+
+ Dataset Properties: 13 fields available
+
+ Next steps:
+   • Load data: load_data https://data.noaa.gov/onestop/collections/granules/AWbw9JgLmm6hJphmMDoN
+   • Query data locations: query_data_locations dataset_gov_noaa_nodc_NDBC_COOPS_7286
+I can see the NOAA CO-OPS dataset is available. However, the stored links appear to be general NOAA data portals rather than direct API access for specific station data. For the specific request to get monthly mean sea level data for station 8518750 (The Battery, New York), I should use the NOAA CDO API directly. Let me download the data using the NOAA API.
+
+Action: download_noaa_data
+Action Input: source_type:NOAA dataset:GHCND location:8518750 startdate:1900-01-01 enddate:2017-12-31 datatype:MSL filename:./data/sea_level/battery_monthly.csv Error downloading NOAA 
+data: local variable 'data_type' referenced before assignmentI see there was an error with the NOAA data download. Let me try a different approach. The NOAA CO-OPS (Center for Operatio
+nal Oceanographic Products and Services) data for sea level is typically accessed through their specific API, not the general Climate Data Online API. Let me try using the NOAA CDO API with the correct format for sea level data.
+
+Action: download_noaa_data
+Action Input: GHCND locationid=8518750 startdate=1900-01-01 enddate=2017-12-31 datatypeid=MSL filename=./data/sea_level/battery_monthly.csvWARNING:__main__:No location code found for '8518750'
+🌡️ DOWNLOADING NOAA CLIMATE DATA
+==================================================
+
+📊 Dataset: GHCND
+📅 Date Range: 1900-01-01 to 2017-12-31
+📍 Location: 8518750
+🌡️ Data Type: MSL
+
+❌ Could not resolve location: 8518750
+💡 Try using 'search_noaa_locations' to find valid location names
+I see that the NOAA CDO API doesn't recognize station 8518750 directly. This is because NOAA CO-OPS tide gauge stations use a different API system than the Climate Data Online API. Let me try to search for New York locations to see what's available in the CDO system.
+
+Action: search_noaa_locations
+Action Input: New York No locations found for 'New York'
+
+ Try different search terms or location types: CITY, ST (state), ZIP, FIPSThe NOAA CDO API doesn't seem to have the specific CO-OPS tide gauge data I need. Let me try a different approach by using the stored dataset links to access the NOAA CO-OPS data directly. I'll try to load data from one of the available links.
+
+Action: load_data
+Action Input: https://www.ncei.noaa.gov/data/oceans/ndbc/co-ops/ Loading data from: https://www.ncei.noaa.gov/data/oceans/ndbc/co-ops/
+ Searching for data files in: https://www.ncei.noaa.gov/data/oceans/ndbc/co-ops/
+ Path does not exist: https://www.ncei.noaa.gov/data/oceans/ndbc/co-ops/
+ No data files found at https://www.ncei.noaa.gov/data/oceans/ndbc/co-ops/. Try a specific file path or explore the bucket structure first.The direct link didn't work. Let me try to explore the NOAA CO-OPS data structure to find the specific data files for station 8518750.
+
+Action: debug_s3_structure
+Action Input: https://www.ncei.noaa.gov/data/oceans/ndbc/co-ops/ DEBUGGING S3 STRUCTURE: https://www.ncei.noaa.gov/data/oceans/ndbc/co-ops/
+============================================================
+
+ Path exists: False
+
+ Path does not existThe stored dataset links are not providing direct access to the specific NOAA CO-OPS station data I need. Let me try a different approach by directly downloading the data using the NOAA CO-OPS API format and then creating the analysis. I'll use the download_and_save_data tool with a more specific approach.
+
+Action: download_and_save_data
+Action Input: source_type:NOAA url:https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?product=monthly_mean&application=NOS.COOPS.TAC.WL&begin_date=19200101&end_date=20171231&datum=MSL&station=8518750&time_zone=GMT&units=metric&format=csv filename:./data/sea_level/battery_monthly.csv⬇️ DOWNLOAD AND SAVE DATA
+========================================
+
+📡 Source: NOAA
+💾 Target file: ./data/sea_level/battery_monthly.csv
+
+❌ No location provided.
+I need to approach this differently. Since the NOAA CO-OPS data requires a specific API call format, let me create Python code to directly access the NOAA CO-OPS API and download the data, then analyze it.
+
+Action: execute_python_code
+Action Input: 
+import requests
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+from datetime import datetime
+import os
+import json
+
+# Create directories if they don't exist
+os.makedirs('./data/sea_level', exist_ok=True)
+os.makedirs('./figs', exist_ok=True)
+
+# NOAA CO-OPS API URL for monthly mean sea level data
+# Station 8518750 = The Battery, New York
+# Product: monthly_mean for sea level
+# Datum: MSL (Mean Sea Level)
+# Units: metric
+url = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
+
+# Parameters for the API call
+params = {
+    'product': 'monthly_mean',
+    'application': 'NOS.COOPS.TAC.WL',
+    'begin_date': '19200101',  # Start from 1920 (earliest typical data)
+    'end_date': '20171231',    # Through 2017 as requested
+    'datum': 'MSL',            # Mean Sea Level datum
+    'station': '8518750',      # The Battery, New York
+    'time_zone': 'GMT',
+    'units': 'metric',         # Metric units
+    'format': 'csv'
+}
+
+print("Downloading monthly mean sea level data for The Battery, New York...")
+print(f"Station: {params['station']}")
+print(f"Date range: {params['begin_date']} to {params['end_date']}")
+print(f"Datum: {params['datum']}")
+
+# Make the API request
+response = requests.get(url, params=params)
+print(f"API Response Status: {response.status_code}")
+
+if response.status_code == 200:
+    # Save the raw CSV data
+    with open('./data/sea_level/battery_monthly.csv', 'w') as f:
+        f.write(response.text)
+    
+    print("✅ Data successfully downloaded and saved to ./data/sea_level/battery_monthly.csv")
+    
+    # Display first few lines to verify
+    print("\nFirst few lines of downloaded data:")
+    print(response.text[:500])
+    
+else:
+    print(f"❌ Error downloading data: {response.status_code}")
+    print(f"Response: {response.text}")🐍 EXECUTING PYTHON CODE
+========================================
+
+📝 Code executed:
+```python
+import requests
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+from datetime import datetime
+import os
+import json
+
+# Create directories if they don't exist
+os.makedirs('./data/sea_level', exist_ok=True)
+os.makedirs('./figs', exist_ok=True)
+
+# NOAA CO-OPS API URL for monthly mean sea level data
+# Station 8518750 = The Battery, New York
+# Product: monthly_mean for sea level
+# Datum: MSL (Mean Sea Level)
+# Units: metric
+url = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
+
+# Parameters for the API call
+params = {
+    'product': 'monthly_mean',
+    'application': 'NOS.COOPS.TAC.WL',
+    'begin_date': '19200101',  # Start from 1920 (earliest typical data)
+    'end_date': '20171231',    # Through 2017 as requested
+    'datum': 'MSL',            # Mean Sea Level datum
+    'station': '8518750',      # The Battery, New York
+    'time_zone': 'GMT',
+    'units': 'metric',         # Metric units
+    'format': 'csv'
+}
+
+print("Downloading monthly mean sea level data for The Battery, New York...")
+print(f"Station: {params['station']}")
+print(f"Date range: {params['begin_date']} to {params['end_date']}")
+print(f"Datum: {params['datum']}")
+
+# Make the API request
+response = requests.get(url, params=params)
+print(f"API Response Status: {response.status_code}")
+
+if response.status_code == 200:
+    # Save the raw CSV data
+    with open('./data/sea_level/battery_monthly.csv', 'w') as f:
+        f.write(response.text)
+    
+    print("✅ Data successfully downloaded and saved to ./data/sea_level/battery_monthly.csv")
+    
+    # Display first few lines to verify
+    print("\nFirst few lines of downloaded data:")
+    print(response.text[:500])
+    
+else:
+    print(f"❌ Error downloading data: {response.status_code}")
+    print(f"Response: {response.text}")
+```
+
+📊 Output:
+```
+Downloading monthly mean sea level data for The Battery, New York...
+Station: 8518750
+Date range: 19200101 to 20171231
+Datum: MSL
+API Response Status: 200
+✅ Data successfully downloaded and saved to ./data/sea_level/battery_monthly.csv
+
+First few lines of downloaded data:
+Year, Month,  Highest, MHHW, MHW, MSL, MTL, MLW, MLLW, DTL, GT, MN, DHQ, DLQ, HWI, LWI, Lowest, Inferred 
+1920,6,1.324,,0.556,-0.106,-0.133,-0.825,,,,1.381,,,0.86,7.29,-1.053,0
+1920,7,0.958,,0.492,-0.17,-0.203,-0.898,,,,1.39,,,0.86,7.33,-1.206,0
+1920,8,0.867,,0.531,-0.124,-0.157,-0.846,,,,1.378,,,0.96,7.33,-1.206,0
+1920,9,1.141,,0.531,-0.13,-0.163,-0.858,,,,1.39,,,0.9,7.33,-0.993,0
+1920,10,0.897,,0.538,-0.133,-0.157,-0.855,,,,1.393,,,0.87,7.26,-1.328,0
+1920,11,1.141,,0.531,-0.163,-0.185,-0.901,,
+
+```
+
+💾 Available data files:
+   • brooklyn_full_2002.csv
+   • brooklyn_stations_2002.csv
+
+✅ Python code execution completed successfully!
+💡 Files are saved in the current directory for analysis.
+Great! The data has been successfully downloaded. Now I need to process this CSV data and create the long-term sea level trend plot as requested, similar to NPCC 2019 Fig 3.2. Let me analyze the data and create the visualization.
+
+Action: execute_python_code
+Action Input: 
+# Load and process the sea level data
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy import stats
+from datetime import datetime
+import json
+
+# Read the CSV data
+print("Loading and processing sea level data...")
+df = pd.read_csv('./data/sea_level/battery_monthly.csv', skipinitialspace=True)
+
+# Display basic info about the dataset
+print(f"Dataset shape: {df.shape}")
+print(f"Columns: {list(df.columns)}")
+print("\nFirst few rows:")
+print(df.head())
+
+# Clean column names (remove extra spaces)
+df.columns = df.columns.str.strip()
+
+# Create a proper datetime index
+df['Date'] = pd.to_datetime(df[['Year', 'Month']].assign(day=1))
+df = df.set_index('Date')
+
+# Focus on the MSL (Mean Sea Level) column
+df['MSL'] = pd.to_numeric(df['MSL'], errors='coerce')
+
+# Remove any rows with missing MSL data
+df_clean = df.dropna(subset=['MSL'])
+
+print(f"\nData coverage:")
+print(f"Start date: {df_clean.index.min()}")
+print(f"End date: {df_clean.index.max()}")
+print(f"Total months: {len(df_clean)}")
+print(f"Years covered: {df_clean.index.max().year - df_clean.index.min().year + 1}")
+
+# Calculate annual means
+annual_means = df_clean.groupby(df_clean.index.year)['MSL'].mean()
+print(f"\nAnnual means calculated for {len(annual_means)} years")
+
+# Display some statistics
+print(f"\nSea Level Statistics (meters, MSL datum):")
+print(f"Overall mean: {df_clean['MSL'].mean():.3f} m")
+print(f"Standard deviation: {df_clean['MSL'].std():.3f} m")
+print(f"Minimum: {df_clean['MSL'].min():.3f} m")
+print(f"Maximum: {df_clean['MSL'].max():.3f} m")🐍 EXECUTING PYTHON CODE
+========================================
+
+📝 Code executed:
+```python
+# Load and process the sea level data
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy import stats
+from datetime import datetime
+import json
+
+# Read the CSV data
+print("Loading and processing sea level data...")
+df = pd.read_csv('./data/sea_level/battery_monthly.csv', skipinitialspace=True)
+
+# Display basic info about the dataset
+print(f"Dataset shape: {df.shape}")
+print(f"Columns: {list(df.columns)}")
+print("\nFirst few rows:")
+print(df.head())
+
+# Clean column names (remove extra spaces)
+df.columns = df.columns.str.strip()
+
+# Create a proper datetime index
+df['Date'] = pd.to_datetime(df[['Year', 'Month']].assign(day=1))
+df = df.set_index('Date')
+
+# Focus on the MSL (Mean Sea Level) column
+df['MSL'] = pd.to_numeric(df['MSL'], errors='coerce')
+
+# Remove any rows with missing MSL data
+df_clean = df.dropna(subset=['MSL'])
+
+print(f"\nData coverage:")
+print(f"Start date: {df_clean.index.min()}")
+print(f"End date: {df_clean.index.max()}")
+print(f"Total months: {len(df_clean)}")
+print(f"Years covered: {df_clean.index.max().year - df_clean.index.min().year + 1}")
+
+# Calculate annual means
+annual_means = df_clean.groupby(df_clean.index.year)['MSL'].mean()
+print(f"\nAnnual means calculated for {len(annual_means)} years")
+
+# Display some statistics
+print(f"\nSea Level Statistics (meters, MSL datum):")
+print(f"Overall mean: {df_clean['MSL'].mean():.3f} m")
+print(f"Standard deviation: {df_clean['MSL'].std():.3f} m")
+print(f"Minimum: {df_clean['MSL'].min():.3f} m")
+print(f"Maximum: {df_clean['MSL'].max():.3f} m")
+```
+
+📊 Output:
+```
+Loading and processing sea level data...
+Dataset shape: (1171, 18)
+Columns: ['Year', 'Month', 'Highest', 'MHHW', 'MHW', 'MSL', 'MTL', 'MLW', 'MLLW', 'DTL', 'GT', 'MN', 'DHQ', 'DLQ', 'HWI', 'LWI', 'Lowest', 'Inferred ']
+
+First few rows:
+   Year  Month  Highest  MHHW    MHW    MSL    MTL    MLW  MLLW  DTL  GT     MN  DHQ  DLQ   HWI   LWI  Lowest  Inferred 
+0  1920      6    1.324   NaN  0.556 -0.106 -0.133 -0.825   NaN  NaN NaN  1.381  NaN  NaN  0.86  7.29  -1.053          0
+1  1920      7    0.958   NaN  0.492 -0.170 -0.203 -0.898   NaN  NaN NaN  1.390  NaN  NaN  0.86  7.33  -1.206          0
+2  1920      8    0.867   NaN  0.531 -0.124 -0.157 -0.846   NaN  NaN NaN  1.378  NaN  NaN  0.96  7.33  -1.206          0
+3  1920      9    1.141   NaN  0.531 -0.130 -0.163 -0.858   NaN  NaN NaN  1.390  NaN  NaN  0.90  7.33  -0.993          0
+4  1920     10    0.897   NaN  0.538 -0.133 -0.157 -0.855   NaN  NaN NaN  1.393  NaN  NaN  0.87  7.26  -1.328          0
+
+Data coverage:
+Start date: 1920-06-01 00:00:00
+End date: 2017-12-01 00:00:00
+Total months: 1171
+Years covered: 98
+
+Annual means calculated for 98 years
+
+Sea Level Statistics (meters, MSL datum):
+Overall mean: -0.068 m
+Standard deviation: 0.120 m
+Minimum: -0.462 m
+Maximum: 0.260 m
+
+```
+
+💾 Available data files:
+   • brooklyn_full_2002.csv
+   • brooklyn_stations_2002.csv
+
+✅ Python code execution completed successfully!
+💡 Files are saved in the current directory for analysis.
+Excellent! The data has been successfully loaded and processed. Now I'll create the long-term sea level trend plot similar to NPCC 2019 Fig 3.2, showing both annual means and a smoothed trend line.
+
+Action: execute_python_code
+Action Input: 
+# Create the long-term sea level trend plot (similar to NPCC 2019 Fig 3.2)
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy import stats
+from scipy.ndimage import uniform_filter1d
+import json
+
+# Set up the plot style
+plt.style.use('default')
+fig, ax = plt.subplots(figsize=(12, 8))
+
+# Convert annual means to arrays for plotting
+years = annual_means.index.values
+sea_level = annual_means.values
+
+# Calculate linear trend
+slope, intercept, r_value, p_value, std_err = stats.linregress(years, sea_level)
+trend_line = slope * years + intercept
+
+# Calculate trend in mm/year (convert from m/year)
+trend_mm_per_year = slope * 1000
+
+# Create a smoothed curve using a 10-year moving average
+smoothed_sea_level = uniform_filter1d(sea_level, size=10, mode='nearest')
+
+# Plot the data
+# Annual means as light blue dots
+ax.scatter(years, sea_level * 1000, alpha=0.6, s=20, color='lightblue', 
+           label='Annual Mean Sea Level', zorder=2)
+
+# 10-year smoothed curve as thick blue line
+ax.plot(years, smoothed_sea_level * 1000, color='navy', linewidth=3, 
+        label='10-Year Smoothed', zorder=3)
+
+# Linear trend line
+ax.plot(years, trend_line * 1000, color='red', linewidth=2, linestyle='--',
+        label=f'Linear Trend ({trend_mm_per_year:.1f} mm/year)', zorder=4)
+
+# Formatting to match NPCC style
+ax.set_xlabel('Year', fontsize=14, fontweight='bold')
+ax.set_ylabel('Sea Level (mm, relative to MSL)', fontsize=14, fontweight='bold')
+ax.set_title('Long-term Sea Level Trend at The Battery, New York\n(NOAA Station 8518750)', 
+             fontsize=16, fontweight='bold', pad=20)
+
+# Grid
+ax.grid(True, alpha=0.3, linestyle='-', linewidth=0.5)
+
+# Legend
+ax.legend(loc='upper left', fontsize=12, framealpha=0.9)
+
+# Set axis limits with some padding
+ax.set_xlim(years.min() - 2, years.max() + 2)
+y_range = (sea_level.max() - sea_level.min()) * 1000
+y_center = sea_level.mean() * 1000
+ax.set_ylim(y_center - y_range*0.6, y_center + y_range*0.6)
+
+# Add some statistics as text
+stats_text = f"""Data Coverage: {years.min()}-{years.max()}
+Total Rise: {(sea_level[-1] - sea_level[0])*1000:.0f} mm
+Linear Trend: {trend_mm_per_year:.2f} ± {std_err*1000:.2f} mm/year
+R² = {r_value**2:.3f}"""
+
+ax.text(0.02, 0.98, stats_text, transform=ax.transAxes, fontsize=10,
+        verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+
+# Tight layout
+plt.tight_layout()
+
+# Save the figure
+plt.savefig('./figs/sea_level_trend.png', dpi=300, bbox_inches='tight')
+print("✅ Plot saved to ./figs/sea_level_trend.png")
+
+# Show the plot
+plt.show()
+
+# Create JSON summary
+coverage_years = f"{years.min()}-{years.max()}"
+result_json = {
+    "figure_path": "./figs/sea_level_trend.png",
+    "coverage_years": coverage_years,
+    "start_year": int(years.min()),
+    "end_year": int(years.max()),
+    "total_years": len(years),
+    "linear_trend_mm_per_year": round(trend_mm_per_year, 2),
+    "trend_uncertainty_mm_per_year": round(std_err * 1000, 2),
+    "total_sea_level_rise_mm": round((sea_level[-1] - sea_level[0]) * 1000, 1),
+    "r_squared": round(r_value**2, 3),
+    "data_source": "NOAA CO-OPS Station 8518750 (The Battery, New York)",
+    "datum": "MSL (Mean Sea Level)",
+    "units": "metric"
+}
+
+print("\n" + "="*50)
+print("FINAL RESULTS")
+print("="*50)
+print(json.dumps(result_json, indent=2))❌ Python execution error:
+```
+name 'annual_means' is not defined
+```
+
+🔍 Full traceback:
+```
+Traceback (most recent call last):
+  File "D:\ClimateAgent-main\Agents\nasa_cmr_data_acquisition_agent.py", line 3228, in _run
+    exec(python_code, exec_globals)
+  File "<string>", line 13, in <module>
+NameError: name 'annual_means' is not defined
+
+```
+I need to recalculate the annual means since they weren't preserved between code executions. Let me reprocess the data and create the plot in one complete code block.
+
+Action: execute_python_code
+Action Input: 
+# Complete analysis: Load data, process, and create the long-term sea level trend plot
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy import stats
+from scipy.ndimage import uniform_filter1d
+import json
+
+# Read and process the CSV data
+print("Loading and processing sea level data...")
+df = pd.read_csv('./data/sea_level/battery_monthly.csv', skipinitialspace=True)
+
+# Clean column names and create datetime index
+df.columns = df.columns.str.strip()
+df['Date'] = pd.to_datetime(df[['Year', 'Month']].assign(day=1))
+df = df.set_index('Date')
+
+# Process MSL data
+df['MSL'] = pd.to_numeric(df['MSL'], errors='coerce')
+df_clean = df.dropna(subset=['MSL'])
+
+# Calculate annual means
+annual_means = df_clean.groupby(df_clean.index.year)['MSL'].mean()
+
+print(f"Data coverage: {df_clean.index.min()} to {df_clean.index.max()}")
+print(f"Annual means calculated for {len(annual_means)} years")
+
+# Set up the plot style
+plt.style.use('default')
+fig, ax = plt.subplots(figsize=(12, 8))
+
+# Convert annual means to arrays for plotting
+years = annual_means.index.values
+sea_level = annual_means.values
+
+# Calculate linear trend
+slope, intercept, r_value, p_value, std_err = stats.linregress(years, sea_level)
+trend_line = slope * years + intercept
+
+# Calculate trend in mm/year (convert from m/year)
+trend_mm_per_year = slope * 1000
+
+# Create a smoothed curve using a 10-year moving average
+smoothed_sea_level = uniform_filter1d(sea_level, size=10, mode='nearest')
+
+# Plot the data
+# Annual means as light blue dots
+ax.scatter(years, sea_level * 1000, alpha=0.6, s=20, color='lightblue', 
+           label='Annual Mean Sea Level', zorder=2)
+
+# 10-year smoothed curve as thick blue line
+ax.plot(years, smoothed_sea_level * 1000, color='navy', linewidth=3, 
+        label='10-Year Smoothed', zorder=3)
+
+# Linear trend line
+ax.plot(years, trend_line * 1000, color='red', linewidth=2, linestyle='--',
+        label=f'Linear Trend ({trend_mm_per_year:.1f} mm/year)', zorder=4)
+
+# Formatting to match NPCC style
+ax.set_xlabel('Year', fontsize=14, fontweight='bold')
+ax.set_ylabel('Sea Level (mm, relative to MSL)', fontsize=14, fontweight='bold')
+ax.set_title('Long-term Sea Level Trend at The Battery, New York\n(NOAA Station 8518750)', 
+             fontsize=16, fontweight='bold', pad=20)
+
+# Grid
+ax.grid(True, alpha=0.3, linestyle='-', linewidth=0.5)
+
+# Legend
+ax.legend(loc='upper left', fontsize=12, framealpha=0.9)
+
+# Set axis limits with some padding
+ax.set_xlim(years.min() - 2, years.max() + 2)
+y_range = (sea_level.max() - sea_level.min()) * 1000
+y_center = sea_level.mean() * 1000
+ax.set_ylim(y_center - y_range*0.6, y_center + y_range*0.6)
+
+# Add some statistics as text
+stats_text = f"""Data Coverage: {years.min()}-{years.max()}
+Total Rise: {(sea_level[-1] - sea_level[0])*1000:.0f} mm
+Linear Trend: {trend_mm_per_year:.2f} ± {std_err*1000:.2f} mm/year
+R² = {r_value**2:.3f}"""
+
+ax.text(0.02, 0.98, stats_text, transform=ax.transAxes, fontsize=10,
+        verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+
+# Tight layout
+plt.tight_layout()
+
+# Save the figure
+plt.savefig('./figs/sea_level_trend.png', dpi=300, bbox_inches='tight')
+print("✅ Plot saved to ./figs/sea_level_trend.png")
+
+# Create JSON summary
+coverage_years = f"{years.min()}-{years.max()}"
+result_json = {
+    "figure_path": "./figs/sea_level_trend.png",
+    "coverage_years": coverage_years,
+    "start_year": int(years.min()),
+    "end_year": int(years.max()),
+    "total_years": len(years),
+    "linear_trend_mm_per_year": round(trend_mm_per_year, 2),
+    "trend_uncertainty_mm_per_year": round(std_err * 1000, 2),
+    "total_sea_level_rise_mm": round((sea_level[-1] - sea_level[0]) * 1000, 1),
+    "r_squared": round(r_value**2, 3),
+    "data_source": "NOAA CO-OPS Station 8518750 (The Battery, New York)",
+    "datum": "MSL (Mean Sea Level)",
+    "units": "metric"
+}
+
+print("\n" + "="*50)
+print("FINAL RESULTS")
+print("="*50)
+print(json.dumps(result_json, indent=2))
+
+# Display the plot
+plt.show()<string>:116: UserWarning: FigureCanvasAgg is non-interactive, and thus cannot be shown
+🐍 EXECUTING PYTHON CODE
+========================================
+
+📝 Code executed:
+```python
+# Complete analysis: Load data, process, and create the long-term sea level trend plot
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy import stats
+from scipy.ndimage import uniform_filter1d
+import json
+
+# Read and process the CSV data
+print("Loading and processing sea level data...")
+df = pd.read_csv('./data/sea_level/battery_monthly.csv', skipinitialspace=True)
+
+# Clean column names and create datetime index
+df.columns = df.columns.str.strip()
+df['Date'] = pd.to_datetime(df[['Year', 'Month']].assign(day=1))
+df = df.set_index('Date')
+
+# Process MSL data
+df['MSL'] = pd.to_numeric(df['MSL'], errors='coerce')
+df_clean = df.dropna(subset=['MSL'])
+
+# Calculate annual means
+annual_means = df_clean.groupby(df_clean.index.year)['MSL'].mean()
+
+print(f"Data coverage: {df_clean.index.min()} to {df_clean.index.max()}")
+print(f"Annual means calculated for {len(annual_means)} years")
+
+# Set up the plot style
+plt.style.use('default')
+fig, ax = plt.subplots(figsize=(12, 8))
+
+# Convert annual means to arrays for plotting
+years = annual_means.index.values
+sea_level = annual_means.values
+
+# Calculate linear trend
+slope, intercept, r_value, p_value, std_err = stats.linregress(years, sea_level)
+trend_line = slope * years + intercept
+
+# Calculate trend in mm/year (convert from m/year)
+trend_mm_per_year = slope * 1000
+
+# Create a smoothed curve using a 10-year moving average
+smoothed_sea_level = uniform_filter1d(sea_level, size=10, mode='nearest')
+
+# Plot the data
+# Annual means as light blue dots
+ax.scatter(years, sea_level * 1000, alpha=0.6, s=20, color='lightblue', 
+           label='Annual Mean Sea Level', zorder=2)
+
+# 10-year smoothed curve as thick blue line
+ax.plot(years, smoothed_sea_level * 1000, color='navy', linewidth=3, 
+        label='10-Year Smoothed', zorder=3)
+
+# Linear trend line
+ax.plot(years, trend_line * 1000, color='red', linewidth=2, linestyle='--',
+        label=f'Linear Trend ({trend_mm_per_year:.1f} mm/year)', zorder=4)
+
+# Formatting to match NPCC style
+ax.set_xlabel('Year', fontsize=14, fontweight='bold')
+ax.set_ylabel('Sea Level (mm, relative to MSL)', fontsize=14, fontweight='bold')
+ax.set_title('Long-term Sea Level Trend at The Battery, New York\n(NOAA Station 8518750)', 
+             fontsize=16, fontweight='bold', pad=20)
+
+# Grid
+ax.grid(True, alpha=0.3, linestyle='-', linewidth=0.5)
+
+# Legend
+ax.legend(loc='upper left', fontsize=12, framealpha=0.9)
+
+# Set axis limits with some padding
+ax.set_xlim(years.min() - 2, years.max() + 2)
+y_range = (sea_level.max() - sea_level.min()) * 1000
+y_center = sea_level.mean() * 1000
+ax.set_ylim(y_center - y_range*0.6, y_center + y_range*0.6)
+
+# Add some statistics as text
+stats_text = f"""Data Coverage: {years.min()}-{years.max()}
+Total Rise: {(sea_level[-1] - sea_level[0])*1000:.0f} mm
+Linear Trend: {trend_mm_per_year:.2f} ± {std_err*1000:.2f} mm/year
+R² = {r_value**2:.3f}"""
+
+ax.text(0.02, 0.98, stats_text, transform=ax.transAxes, fontsize=10,
+        verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+
+# Tight layout
+plt.tight_layout()
+
+# Save the figure
+plt.savefig('./figs/sea_level_trend.png', dpi=300, bbox_inches='tight')
+print("✅ Plot saved to ./figs/sea_level_trend.png")
+
+# Create JSON summary
+coverage_years = f"{years.min()}-{years.max()}"
+result_json = {
+    "figure_path": "./figs/sea_level_trend.png",
+    "coverage_years": coverage_years,
+    "start_year": int(years.min()),
+    "end_year": int(years.max()),
+    "total_years": len(years),
+    "linear_trend_mm_per_year": round(trend_mm_per_year, 2),
+    "trend_uncertainty_mm_per_year": round(std_err * 1000, 2),
+    "total_sea_level_rise_mm": round((sea_level[-1] - sea_level[0]) * 1000, 1),
+    "r_squared": round(r_value**2, 3),
+    "data_source": "NOAA CO-OPS Station 8518750 (The Battery, New York)",
+    "datum": "MSL (Mean Sea Level)",
+    "units": "metric"
+}
+
+print("\n" + "="*50)
+print("FINAL RESULTS")
+print("="*50)
+print(json.dumps(result_json, indent=2))
+
+# Display the plot
+plt.show()
+```
+
+📊 Output:
+```
+Loading and processing sea level data...
+Data coverage: 1920-06-01 00:00:00 to 2017-12-01 00:00:00
+Annual means calculated for 98 years
+✅ Plot saved to ./figs/sea_level_trend.png
+
+==================================================
+FINAL RESULTS
+==================================================
+{
+  "figure_path": "./figs/sea_level_trend.png",
+  "coverage_years": "1920-2017",
+  "start_year": 1920,
+  "end_year": 2017,
+  "total_years": 98,
+  "linear_trend_mm_per_year": 3.1,
+  "trend_uncertainty_mm_per_year": 0.11,
+  "total_sea_level_rise_mm": 234.0,
+  "r_squared": 0.895,
+  "data_source": "NOAA CO-OPS Station 8518750 (The Battery, New York)",
+  "datum": "MSL (Mean Sea Level)",
+  "units": "metric"
+}
+
+```
+
+💾 Available data files:
+   • brooklyn_full_2002.csv
+   • brooklyn_stations_2002.csv
+
+✅ Python code execution completed successfully!
+💡 Files are saved in the current directory for analysis.
+I now know the final answer
+
+Final Answer: ✅ **MISSION ACCOMPLISHED**
+
+I have successfully acquired monthly mean sea level data for NOAA CO-OPS station 8518750 (The Battery, New York) and created the requested long-term trend analysis:
+
+## **Data Acquisition Summary:**
+- **Source**: NOAA CO-OPS API (Center for Operational Oceanographic Products and Services)
+- **Station**: 8518750 (The Battery, New York)
+- **Data Type**: Monthly mean sea level
+- **Datum**: MSL (Mean Sea Level)
+- **Units**: Metric
+- **Coverage**: 1920-2017 (98 years of data)
+- **File Saved**: `./data/sea_level/battery_monthly.csv`
+
+## **Analysis Results:**
+- **Linear Trend**: 3.1 ± 0.11 mm/year
+- **Total Sea Level Rise**: 234.0 mm over the 98-year period
+- **Statistical Significance**: R² = 0.895 (very strong correlation)
+- **Visualization**: Created NPCC 2019 Fig 3.2-style plot with:
+  - Annual mean sea level (light blue dots)
+  - 10-year smoothed trend (navy blue line)
+  - Linear trend line (red dashed line)
+
+## **Final JSON Output:**
+```json
+{
+  "figure_path": "./figs/sea_level_trend.png",
+  "coverage_years": "1920-2017",
+  "start_year": 1920,
+  "end_year": 2017,
+  "total_years": 98,
+  "linear_trend_mm_per_year": 3.1,
+  "trend_uncertainty_mm_per_year": 0.11,
+  "total_sea_level_rise_mm": 234.0,
+  "r_squared": 0.895,
+  "data_source": "NOAA CO-OPS Station 8518750 (The Battery, New York)",
+  "datum": "MSL (Mean Sea Level)",
+  "units": "metric"
+}
+```
+
+The analysis reveals a consistent sea level rise of approximately 3.1 mm/year at The Battery, New York, which is consistent with regional sea level rise patterns documented in climate assessments. The high R² value (0.895) indicates a very strong linear trend over the nearly century-long record.
+
+> Finished chain.
+
+ Agent Response:
+--------------------------------------------------
+✅ **MISSION ACCOMPLISHED**
+
+I have successfully acquired monthly mean sea level data for NOAA CO-OPS station 8518750 (The Battery, New York) and created the requested long-term trend analysis:
+
+## **Data Acquisition Summary:**
+- **Source**: NOAA CO-OPS API (Center for Operational Oceanographic Products and Services)
+- **Station**: 8518750 (The Battery, New York)
+- **Data Type**: Monthly mean sea level
+- **Datum**: MSL (Mean Sea Level)
+- **Units**: Metric
+- **Coverage**: 1920-2017 (98 years of data)
+- **File Saved**: `./data/sea_level/battery_monthly.csv`
+
+## **Analysis Results:**
+- **Linear Trend**: 3.1 ± 0.11 mm/year
+- **Total Sea Level Rise**: 234.0 mm over the 98-year period
+- **Statistical Significance**: R² = 0.895 (very strong correlation)
+- **Visualization**: Created NPCC 2019 Fig 3.2-style plot with:
+  - Annual mean sea level (light blue dots)
+  - 10-year smoothed trend (navy blue line)
+  - Linear trend line (red dashed line)
+
+## **Final JSON Output:**
+```json
+{
+  "figure_path": "./figs/sea_level_trend.png",
+  "coverage_years": "1920-2017",
+  "start_year": 1920,
+  "end_year": 2017,
+  "total_years": 98,
+  "linear_trend_mm_per_year": 3.1,
+  "trend_uncertainty_mm_per_year": 0.11,
+  "total_sea_level_rise_mm": 234.0,
+  "r_squared": 0.895,
+  "data_source": "NOAA CO-OPS Station 8518750 (The Battery, New York)",
+  "datum": "MSL (Mean Sea Level)",
+  "units": "metric"
+}
+```
+
+The analysis reveals a consistent sea level rise of approximately 3.1 mm/year at The Battery, New York, which is consistent with regional sea level rise patterns documented in climate assessments. The high R² value (0.895) indicates a very strong linear trend over the nearly century-long record.

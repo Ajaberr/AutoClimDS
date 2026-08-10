@@ -1,0 +1,25 @@
+# Earthdata (NASA)
+EARTHDATA_USERNAME=your_username
+EARTHDATA_PASSWORD=your_password
+
+# NOAA
+NOAA_CDO_TOKEN=your_noaa_token
+NOAA_CDO_EMAIL=your_email
+
+# Socrata (NYC/Chicago/SF 311 data)
+SOCRATA_APP_TOKEN=your_socrata_token
+
+# CDS API (ERA5)
+CDSAPI_URL=https://cds.climate.copernicus.eu/api
+CDSAPI_KEY=your_cds_api_key
+
+# AWS Credentials
+AWS_ACCESS_KEY_ID=your_aws_access_key
+AWS_SECRET_ACCESS_KEY=your_aws_secret_key
+AWS_DEFAULT_REGION=us-east-2
+
+# Bedrock / Neptune
+BEDROCK_REGION=us-east-2
+BEDROCK_MODEL_ID=us.anthropic.claude-sonnet-4-20250514-v1:0
+NEPTUNE_REGION=us-east-2
+GRAPH_ID=g-xxxxxxx

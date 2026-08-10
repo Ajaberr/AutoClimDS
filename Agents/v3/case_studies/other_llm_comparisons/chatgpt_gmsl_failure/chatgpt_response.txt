@@ -1,0 +1,62 @@
+ChatGPT-5.1 Response to GMSL Trend Analysis Prompt
+===================================================
+
+Model: ChatGPT-5.1 (OpenAI)
+Date: 2025
+Share Link: https://chatgpt.com/share/69224f67-f6c4-800a-9002-0adea0180699
+
+Behavior Observed:
+-----------------
+
+1. ChatGPT spent 5 minutes and 32 seconds in "Thought" mode (shown as repeated
+   "Thought" lines in the conversation - 16 separate "Thought" entries).
+
+2. Instead of executing the task, ChatGPT generated an extremely long, verbose
+   system-prompt-style specification addressed to itself ("You are Sea_Fig3.1,
+   a data + plotting agent...").
+
+3. The response was essentially a re-written, expanded version of the original
+   prompt with additional detail, but NO ACTUAL:
+   - Data acquisition
+   - Code execution
+   - File downloads
+   - Plot generation
+   - CSV output
+   - Trend analysis results
+
+4. The output reads as an instruction manual rather than task completion.
+   ChatGPT re-specified the entire workflow in 4 numbered sections:
+   - "1. Data acquisition (GMSL from altimetry)" - describing what SHOULD be done
+   - "2. Python workflow (generate and run code)" - describing code that SHOULD be written
+   - "3. Plotting and figure export" - describing a plot that SHOULD be made
+   - "4. Output and reporting" - describing what SHOULD be reported
+
+   But none of these steps were actually executed.
+
+Key Failure Modes:
+-----------------
+
+A. PROMPT REGURGITATION / SELF-PROMPTING
+   - Rather than acting on the prompt, ChatGPT rewrote it in more detail
+   - This is a known failure mode where the model treats a task prompt as
+     something to elaborate on rather than execute
+
+B. NO DATA ACCESS
+   - ChatGPT has no ability to access NASA PO.DAAC, CMR APIs, or any
+     external data sources in real-time
+   - It cannot download NetCDF files or query S3 buckets
+   - It cannot run Python code against real datasets
+
+C. NO CODE EXECUTION (in standard ChatGPT interface)
+   - While ChatGPT has a Code Interpreter, it was either not invoked or
+     failed to produce executable results
+   - No actual Python code was run against real data
+
+D. NO OUTPUT FILES PRODUCED
+   - No ./data/gmsl_1993_2018.csv was created
+   - No ./figs/gmsl_trend_1993_2018.png was created
+   - No trend slope values (mm/yr, inches/yr) were reported
+
+E. EXCESSIVE THINKING TIME
+   - 5 minutes 32 seconds of "reasoning" produced no actionable output
+   - The extended thinking generated a reformulation, not a solution
